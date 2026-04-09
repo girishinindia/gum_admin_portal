@@ -1,0 +1,3 @@
+{
+  "/(dashboard)/user-role-assignments/page": "app/(dashboard)/user-role-assignments/page.js"
+}

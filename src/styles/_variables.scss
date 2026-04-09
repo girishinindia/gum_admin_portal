@@ -1,0 +1,47 @@
+/* ================================================================
+   GrowUpMore Admin Portal — Light Blue Theme Variables
+   Bootstrap 5.3 CSS Variable Overrides + Custom Properties
+   ================================================================ */
+
+// ─── Brand Colors ─────────────────────────────────────────────
+$gum-primary:       #4A90D9;
+$gum-primary-light: #6BA5E7;
+$gum-primary-dark:  #3570B0;
+$gum-primary-bg:    #EBF3FC;
+$gum-primary-subtle:#D6E8F9;
+
+$gum-secondary:     #6C757D;
+$gum-success:       #28A745;
+$gum-danger:        #DC3545;
+$gum-warning:       #FFC107;
+$gum-info:          #17A2B8;
+
+// ─── Light Theme ──────────────────────────────────────────────
+$light-bg:          #F4F7FC;
+$light-surface:     #FFFFFF;
+$light-sidebar-bg:  #FFFFFF;
+$light-sidebar-border: #E8EEF5;
+$light-topbar-bg:   #FFFFFF;
+$light-text:        #2D3748;
+$light-text-muted:  #718096;
+$light-border:      #E2E8F0;
+$light-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+// ─── Dark Theme ───────────────────────────────────────────────
+$dark-bg:           #0F1923;
+$dark-surface:      #1A2736;
+$dark-sidebar-bg:   #141E2B;
+$dark-sidebar-border: #243347;
+$dark-topbar-bg:    #1A2736;
+$dark-text:         #E2E8F0;
+$dark-text-muted:   #A0AEC0;
+$dark-border:       #2D3F55;
+$dark-card-shadow:  0 1px 3px rgba(0, 0, 0, 0.3);
+
+// ─── Layout Dimensions ───────────────────────────────────────
+$sidebar-width:       260px;
+$sidebar-collapsed:   72px;
+$topbar-height:       64px;
+$content-padding:     24px;
+$border-radius-base:  8px;
+$transition-speed:    0.3s;

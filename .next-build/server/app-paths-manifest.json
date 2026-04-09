@@ -1,0 +1,21 @@
+{
+  "/(auth)/forgot-password/page": "app/(auth)/forgot-password/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(auth)/register/page": "app/(auth)/register/page.js",
+  "/(dashboard)/audit-log/page": "app/(dashboard)/audit-log/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
+  "/(dashboard)/menu-items/page": "app/(dashboard)/menu-items/page.js",
+  "/(dashboard)/permissions/page": "app/(dashboard)/permissions/page.js",
+  "/(dashboard)/role-permissions/page": "app/(dashboard)/role-permissions/page.js",
+  "/(dashboard)/roles/page": "app/(dashboard)/roles/page.js",
+  "/(dashboard)/settings/page": "app/(dashboard)/settings/page.js",
+  "/(dashboard)/user-role-assignments/page": "app/(dashboard)/user-role-assignments/page.js",
+  "/(dashboard)/users/[id]/edit/page": "app/(dashboard)/users/[id]/edit/page.js",
+  "/(dashboard)/users/create/page": "app/(dashboard)/users/create/page.js",
+  "/(dashboard)/users/page": "app/(dashboard)/users/page.js",
+  "/(dashboard)/users/profile/page": "app/(dashboard)/users/profile/page.js",
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/page": "app/page.js"
+}

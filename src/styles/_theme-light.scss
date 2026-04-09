@@ -1,0 +1,54 @@
+/* ================================================================
+   Light Theme — Light Blue Brand
+   Applied when [data-theme="light"]
+   ================================================================ */
+@use "variables" as *;
+
+[data-theme="light"] {
+  // ─── Bootstrap Variable Overrides ──────────────────────────
+  --bs-primary:         #{$gum-primary};
+  --bs-primary-rgb:     74, 144, 217;
+  --bs-body-bg:         #{$light-bg};
+  --bs-body-color:      #{$light-text};
+  --bs-border-color:    #{$light-border};
+  --bs-card-bg:         #{$light-surface};
+
+  // ─── Custom App Variables ──────────────────────────────────
+  --gum-primary:        #{$gum-primary};
+  --gum-primary-light:  #{$gum-primary-light};
+  --gum-primary-dark:   #{$gum-primary-dark};
+  --gum-primary-bg:     #{$gum-primary-bg};
+  --gum-primary-subtle: #{$gum-primary-subtle};
+
+  --gum-bg:             #{$light-bg};
+  --gum-surface:        #{$light-surface};
+  --gum-text:           #{$light-text};
+  --gum-text-muted:     #{$light-text-muted};
+  --gum-border:         #{$light-border};
+  --gum-card-shadow:    #{$light-card-shadow};
+
+  // ─── Sidebar ───────────────────────────────────────────────
+  --gum-sidebar-bg:     #{$light-sidebar-bg};
+  --gum-sidebar-border: #{$light-sidebar-border};
+  --gum-sidebar-text:   #{$light-text};
+  --gum-sidebar-hover:  #{$gum-primary-bg};
+  --gum-sidebar-active: #{$gum-primary};
+  --gum-sidebar-active-bg: #{$gum-primary-subtle};
+  --gum-sidebar-icon:   #{$light-text-muted};
+
+  // ─── Topbar ────────────────────────────────────────────────
+  --gum-topbar-bg:      #{$light-topbar-bg};
+  --gum-topbar-border:  #{$light-sidebar-border};
+  --gum-topbar-text:    #{$light-text};
+  --gum-topbar-shadow:  0 1px 2px rgba(0, 0, 0, 0.05);
+
+  // ─── Input ─────────────────────────────────────────────────
+  --gum-input-bg:       #{$light-surface};
+  --gum-input-border:   #{$light-border};
+  --gum-input-focus:    #{$gum-primary};
+
+  // ─── Table ─────────────────────────────────────────────────
+  --gum-table-header-bg: #F7FAFC;
+  --gum-table-hover-bg:  #{$gum-primary-bg};
+  --gum-table-border:    #{$light-border};
+}

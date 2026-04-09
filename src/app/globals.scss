@@ -1,0 +1,111 @@
+/* ================================================================
+   GrowUpMore Admin Portal — Global Stylesheet
+   ================================================================ */
+
+// ─── Theme Variables ──────────────────────────────────────────
+@use "../styles/theme-light";
+@use "../styles/theme-dark";
+@use "../styles/components";
+
+// ─── Bootstrap (selective imports — correct dependency order) ──
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/variables-dark";
+@import "bootstrap/scss/maps";
+@import "bootstrap/scss/mixins";
+@import "bootstrap/scss/utilities";
+@import "bootstrap/scss/root";
+@import "bootstrap/scss/reboot";
+@import "bootstrap/scss/type";
+@import "bootstrap/scss/buttons";
+@import "bootstrap/scss/forms";
+@import "bootstrap/scss/dropdown";
+@import "bootstrap/scss/modal";
+@import "bootstrap/scss/tables";
+@import "bootstrap/scss/badge";
+@import "bootstrap/scss/alert";
+@import "bootstrap/scss/tooltip";
+@import "bootstrap/scss/transitions";
+@import "bootstrap/scss/utilities/api";
+
+// ─── FontAwesome ──────────────────────────────────────────────
+@import "@fortawesome/fontawesome-free/css/all.css";
+
+// ─── Base Styles ──────────────────────────────────────────────
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  background: var(--gum-bg);
+  color: var(--gum-text);
+  line-height: 1.5;
+}
+
+a {
+  color: var(--gum-primary);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--gum-primary-dark);
+  }
+}
+
+// ─── Scrollbar Styling ────────────────────────────────────────
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gum-border);
+  border-radius: 3px;
+}
+
+// ─── Focus Styles ─────────────────────────────────────────────
+:focus-visible {
+  outline: 2px solid var(--gum-primary);
+  outline-offset: 2px;
+}
+
+// ─── Selection ────────────────────────────────────────────────
+::selection {
+  background: var(--gum-primary);
+  color: #fff;
+}
+
+// ─── Utility Classes ──────────────────────────────────────────
+.text-gum-primary { color: var(--gum-primary) !important; }
+.bg-gum-primary   { background-color: var(--gum-primary) !important; }
+.text-gum-muted   { color: var(--gum-text-muted) !important; }
+.border-gum       { border-color: var(--gum-border) !important; }
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

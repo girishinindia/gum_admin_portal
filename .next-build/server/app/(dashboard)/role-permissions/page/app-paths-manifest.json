@@ -1,0 +1,3 @@
+{
+  "/(dashboard)/role-permissions/page": "app/(dashboard)/role-permissions/page.js"
+}
