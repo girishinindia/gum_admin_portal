@@ -92,6 +92,7 @@ export const api = {
 
   // Users
   me: () => request('/users/me'),
+  myPermissions: () => request('/users/me/permissions'),
   updateMe: (data: any, isFormData = false) => request('/users/me', { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   listUsers: (qs = '') => request(`/users${qs}`),
   createUser: (data: any, isFormData = false) => request('/users', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),

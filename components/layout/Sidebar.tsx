@@ -2,19 +2,32 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, FileText, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, FileText, GraduationCap, ShieldCheck } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/users', label: 'Users', icon: Users },
-  { href: '/roles', label: 'Roles', icon: Shield },
-  { href: '/permissions', label: 'Permissions', icon: KeyRound },
-  { href: '/countries', label: 'Countries', icon: Globe2 },
-  { href: '/activity-logs', label: 'Activity Logs', icon: FileText },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: any;
+  superAdminOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
+  { href: '/dashboard',       label: 'Dashboard',     icon: LayoutDashboard },
+  { href: '/my-permissions',  label: 'My Access',     icon: ShieldCheck },
+  { href: '/users',           label: 'Users',         icon: Users },
+  { href: '/roles',           label: 'Roles',         icon: Shield,    superAdminOnly: true },
+  { href: '/permissions',     label: 'Permissions',   icon: KeyRound,  superAdminOnly: true },
+  { href: '/countries',       label: 'Countries',     icon: Globe2 },
+  { href: '/activity-logs',   label: 'Activity Logs', icon: FileText },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const isSuperAdmin = (user?.max_role_level || 0) >= 100;
+
+  const visibleItems = navItems.filter(item => !item.superAdminOnly || isSuperAdmin);
 
   return (
     <aside className="w-60 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">
@@ -39,7 +52,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           const active = pathname.startsWith(item.href);
           return (
@@ -58,6 +71,9 @@ export function Sidebar() {
               )}
               <Icon className={cn('w-[18px] h-[18px] flex-shrink-0', active && 'text-brand-600')} strokeWidth={active ? 2.5 : 2} />
               {item.label}
+              {item.superAdminOnly && (
+                <span className="ml-auto text-[9px] font-bold text-brand-500 tracking-wider">SUPER</span>
+              )}
             </Link>
           );
         })}

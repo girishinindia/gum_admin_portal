@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,7 +13,8 @@ import { Dialog } from '@/components/ui/Dialog';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Shield, ChevronRight, Trash2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Plus, Shield, ChevronRight, Trash2, Lock } from 'lucide-react';
 import type { Role } from '@/lib/types';
 
 const schema = z.object({
@@ -23,12 +25,24 @@ const schema = z.object({
 });
 
 export default function RolesPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const isSuperAdmin = (user?.max_role_level || 0) >= 100;
+
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const { register, handleSubmit, formState: { errors }, reset } = useForm({ resolver: zodResolver(schema) });
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isSuperAdmin) {
+      toast.error('Super admin access required');
+      router.replace('/my-permissions');
+      return;
+    }
+    load();
+  }, [authLoading, isSuperAdmin, router]);
 
   async function load() {
     setLoading(true);
@@ -55,6 +69,18 @@ export default function RolesPage() {
     const res = await api.updateRole(role.id, { is_active: !role.is_active });
     if (res.success) { toast.success(`Role ${!role.is_active ? 'activated' : 'deactivated'}`); load(); }
     else toast.error(res.error || 'Failed');
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md text-center p-8">
+          <Lock className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <h2 className="font-display text-lg font-semibold text-slate-900">Super Admin only</h2>
+          <p className="text-sm text-slate-500 mt-1">Redirecting you to your permissions...</p>
+        </Card>
+      </div>
+    );
   }
 
   return (

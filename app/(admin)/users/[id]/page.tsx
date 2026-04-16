@@ -7,14 +7,17 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { api } from '@/lib/api';
 import { formatDate, initials, fromNow } from '@/lib/utils';
 import { toast } from '@/components/ui/Toast';
-import { ArrowLeft, Mail, Phone, Calendar, Shield, Monitor, Plus, X } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { ArrowLeft, Mail, Phone, Calendar, Shield, Monitor, Plus, X, Lock } from 'lucide-react';
 
 export default function UserDetailPage() {
   const { id } = useParams();
+  const { user: me } = useAuth();
+  const isSuperAdmin = (me?.max_role_level || 0) >= 100;
+
   const [user, setUser] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
@@ -25,10 +28,14 @@ export default function UserDetailPage() {
 
   async function load() {
     setLoading(true);
-    const [u, s, r] = await Promise.all([api.getUser(+id!), api.getUserSessions(+id!), api.listRoles()]);
+    const [u, s] = await Promise.all([api.getUser(+id!), api.getUserSessions(+id!)]);
     if (u.success) setUser(u.data);
     if (s.success) setSessions(s.data || []);
-    if (r.success) setRoles(r.data || []);
+    // Only super admin can see the full roles list for assignment
+    if (isSuperAdmin) {
+      const r = await api.listRoles();
+      if (r.success) setRoles(r.data || []);
+    }
     setLoading(false);
   }
 
@@ -99,13 +106,15 @@ export default function UserDetailPage() {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            {user.status === 'active' ? (
-              <Button variant="danger" onClick={() => confirm('Suspend this user?') && updateStatus('suspended')}>Suspend</Button>
-            ) : (
-              <Button variant="primary" onClick={() => updateStatus('active')}>Activate</Button>
-            )}
-          </div>
+          {isSuperAdmin && (
+            <div className="flex gap-2">
+              {user.status === 'active' ? (
+                <Button variant="danger" onClick={() => confirm('Suspend this user?') && updateStatus('suspended')}>Suspend</Button>
+              ) : (
+                <Button variant="primary" onClick={() => updateStatus('active')}>Activate</Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -114,9 +123,15 @@ export default function UserDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Roles</CardTitle>
-              <Button size="sm" variant="secondary" onClick={() => setRoleDialogOpen(true)} disabled={availableRoles.length === 0}>
-                <Plus className="w-4 h-4" /> Assign
-              </Button>
+              {isSuperAdmin ? (
+                <Button size="sm" variant="secondary" onClick={() => setRoleDialogOpen(true)} disabled={availableRoles.length === 0}>
+                  <Plus className="w-4 h-4" /> Assign
+                </Button>
+              ) : (
+                <span className="text-xs text-slate-400 inline-flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Super admin only
+                </span>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -135,9 +150,11 @@ export default function UserDetailPage() {
                         <div className="text-xs text-slate-500">Level {r.level}</div>
                       </div>
                     </div>
-                    <button onClick={() => revokeRole(r.role)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                      <X className="w-4 h-4" />
-                    </button>
+                    {isSuperAdmin && (
+                      <button onClick={() => revokeRole(r.role)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Revoke role">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -149,7 +166,7 @@ export default function UserDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Active Sessions</CardTitle>
-              {sessions.length > 0 && (
+              {sessions.length > 0 && isSuperAdmin && (
                 <Button size="sm" variant="outline" onClick={async () => {
                   if (!confirm('Revoke all sessions?')) return;
                   const r = await api.revokeAllSessions(+id!);
