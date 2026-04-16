@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Grow Up More — Admin Portal
+
+Professional Next.js 15 admin portal for the GrowUpMore API. Light blue theme, TypeScript, Tailwind CSS.
+
+## Features
+
+- **Authentication**: Login, dual-OTP registration, forgot-password flow (email + mobile verification)
+- **Dashboard**: Platform stats, recent activity
+- **Users**: List, search, filter, detail view, role assignment, session management, suspend/reactivate
+- **Roles**: CRUD + dynamic permission assignment with bulk updates
+- **Permissions**: Grouped by resource, toggle active/inactive
+- **Countries**: CRUD with flag image upload (auto-converted to WebP via API)
+- **Activity Logs**: 4 log types (auth, admin, data, system) with filters, pagination, change tracking
+
+## Stack
+
+- **Next.js 15** (App Router, Turbopack)
+- **React 19**, TypeScript
+- **Tailwind CSS 3** (custom sky-blue theme)
+- **React Hook Form + Zod** for validation
+- **Sonner** for toast notifications
+- **Lucide React** icons
+- **Day.js** for date formatting
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure API URL
+cp .env.example .env.local
+# Edit NEXT_PUBLIC_API_URL to point to your running growupmore-api
+
+# 3. Start dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Opens at `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+growupmore-admin/
+├── app/
+│   ├── (auth)/           # Login, register, forgot-password (public)
+│   └── (admin)/          # Protected admin area
+│       ├── dashboard/
+│       ├── users/
+│       ├── roles/
+│       ├── permissions/
+│       ├── countries/
+│       └── activity-logs/
+├── components/
+│   ├── ui/               # Button, Input, Card, Dialog, Table, etc.
+│   └── layout/           # Sidebar, PageHeader
+├── hooks/
+│   └── useAuth.tsx       # Auth context + token management
+├── lib/
+│   ├── api.ts            # API client with auto-refresh
+│   ├── types.ts          # TypeScript interfaces
+│   └── utils.ts          # cn(), formatDate(), etc.
+└── tailwind.config.ts    # Light blue theme
+```
 
-## Learn More
+## Authentication Flow
 
-To learn more about Next.js, take a look at the following resources:
+**Registration** (4 steps):
+1. User fills form → API sends OTP to both email + mobile
+2. User verifies email OTP
+3. User verifies mobile OTP → account created, auto-logged in
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Forgot Password** (3 steps):
+1. User enters email + mobile → both must match same account → OTP sent to both
+2. User verifies BOTH OTPs (in any order)
+3. User sets new password → all sessions revoked → login required
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Token Management**:
+- Access token (15 min) stored in localStorage
+- Refresh token (7 days) auto-rotates on 401
+- Automatic logout on refresh failure
 
-## Deploy on Vercel
+## Design System
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Colors**: Sky-blue palette (`brand.50` → `brand.950`)
+**Typography**: Plus Jakarta Sans (display + body), JetBrains Mono (code)
+**Shadows**: Custom `shadow-card`, `shadow-card-hover`, `shadow-brand`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Theming
+
+Edit `tailwind.config.ts` → `colors.brand` to customize the primary palette.
+All components use `brand-*` utility classes.
