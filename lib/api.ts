@@ -94,7 +94,7 @@ export const api = {
   me: () => request('/users/me'),
   updateMe: (data: any, isFormData = false) => request('/users/me', { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   listUsers: (qs = '') => request(`/users${qs}`),
-  createUser: (data: any) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
+  createUser: (data: any, isFormData = false) => request('/users', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   getUser: (id: number) => request(`/users/${id}`),
   updateUser: (id: number, data: any, isFormData = false) => request(`/users/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   assignUserRole: (id: number, data: any) => request(`/users/${id}/roles`, { method: 'POST', body: JSON.stringify(data) }),
