@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, Phone, Lock, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -88,7 +89,6 @@ export default function ForgotPasswordPage() {
         {step === 3 && 'Choose a new password'}
       </p>
 
-      {/* Progress indicator */}
       <div className="flex items-center gap-2 mt-6">
         {[1, 2, 3].map(n => (
           <div key={n} className={`h-1 flex-1 rounded-full transition-colors ${step >= n ? 'bg-brand-500' : 'bg-slate-200'}`} />
@@ -111,14 +111,8 @@ export default function ForgotPasswordPage() {
 
       {step === 2 && (
         <div className="mt-8 space-y-6">
-          {/* Channel switcher */}
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setChannel('email')}
-              className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${channel === 'email' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'} ${verifiedEmail ? 'opacity-75' : ''}`}
-              disabled={verifiedEmail}
-            >
+            <button type="button" onClick={() => setChannel('email')} className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${channel === 'email' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'} ${verifiedEmail ? 'opacity-75' : ''}`} disabled={verifiedEmail}>
               <div className="flex items-center gap-2 mb-1">
                 <Mail className="w-4 h-4 text-slate-600" />
                 <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Email</span>
@@ -126,12 +120,7 @@ export default function ForgotPasswordPage() {
               </div>
               <div className="text-sm font-medium text-slate-900">{masked.email}</div>
             </button>
-            <button
-              type="button"
-              onClick={() => setChannel('mobile')}
-              className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${channel === 'mobile' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'} ${verifiedMobile ? 'opacity-75' : ''}`}
-              disabled={verifiedMobile}
-            >
+            <button type="button" onClick={() => setChannel('mobile')} className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${channel === 'mobile' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'} ${verifiedMobile ? 'opacity-75' : ''}`} disabled={verifiedMobile}>
               <div className="flex items-center gap-2 mb-1">
                 <Phone className="w-4 h-4 text-slate-600" />
                 <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Mobile</span>
@@ -168,14 +157,20 @@ export default function ForgotPasswordPage() {
 
       {step === 3 && (
         <form onSubmit={s3.handleSubmit(onResetPassword)} className="mt-8 space-y-4">
-          <div className="relative">
-            <Lock className="absolute left-3 top-[34px] w-4 h-4 text-slate-400 z-10" />
-            <Input label="New password" type="password" placeholder="••••••••" className="pl-10" error={s3.formState.errors.new_password?.message as string} {...s3.register('new_password')} />
-          </div>
-          <div className="relative">
-            <Lock className="absolute left-3 top-[34px] w-4 h-4 text-slate-400 z-10" />
-            <Input label="Confirm password" type="password" placeholder="••••••••" className="pl-10" error={s3.formState.errors.confirm?.message as string} {...s3.register('confirm')} />
-          </div>
+          <PasswordInput
+            label="New password"
+            placeholder="••••••••"
+            leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
+            error={s3.formState.errors.new_password?.message as string}
+            {...s3.register('new_password')}
+          />
+          <PasswordInput
+            label="Confirm password"
+            placeholder="••••••••"
+            leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
+            error={s3.formState.errors.confirm?.message as string}
+            {...s3.register('confirm')}
+          />
           <Button type="submit" loading={loading} className="w-full" size="lg">Reset password</Button>
         </form>
       )}

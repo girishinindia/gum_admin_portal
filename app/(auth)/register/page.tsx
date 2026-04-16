@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Mail, Phone, Lock, User, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Mail, Phone, Lock, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -57,7 +58,6 @@ export default function RegisterPage() {
       s2.reset({ otp: '' });
       toast.success(`${channel} verified`);
 
-      // If both OTPs are now verified, account is created → send to login
       if (res.data?.access_token || res.data?.user) {
         toast.success('Account created successfully! Please sign in.');
         setTimeout(() => router.push('/login'), 1200);
@@ -100,10 +100,13 @@ export default function RegisterPage() {
             <Phone className="absolute left-3 top-[34px] w-4 h-4 text-slate-400 z-10" />
             <Input label="Mobile" placeholder="9876543210" className="pl-10" error={s1.formState.errors.mobile?.message as string} {...s1.register('mobile')} />
           </div>
-          <div className="relative">
-            <Lock className="absolute left-3 top-[34px] w-4 h-4 text-slate-400 z-10" />
-            <Input label="Password" type="password" placeholder="Min 8 chars" className="pl-10" error={s1.formState.errors.password?.message as string} {...s1.register('password')} />
-          </div>
+          <PasswordInput
+            label="Password"
+            placeholder="Min 8 chars"
+            leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
+            error={s1.formState.errors.password?.message as string}
+            {...s1.register('password')}
+          />
           <Button type="submit" loading={loading} className="w-full" size="lg">Continue</Button>
         </form>
       )}

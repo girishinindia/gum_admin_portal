@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,6 +8,7 @@ import { z } from 'zod';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog } from '@/components/ui/Dialog';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
@@ -31,6 +33,8 @@ const createSchema = z.object({
 });
 
 export default function UsersPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { user: me } = useAuth();
   const isSuperAdmin = (me?.max_role_level || 0) >= 100;
 
@@ -39,7 +43,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [status, setStatus] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -48,7 +52,17 @@ export default function UsersPage() {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({ resolver: zodResolver(createSchema) });
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [page, status]);
+  // Sync URL ?search= param into state (when header search redirects here)
+  useEffect(() => {
+    const q = searchParams.get('search') || '';
+    if (q !== search) {
+      setSearch(q);
+      setPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [page, status, search]);
   useEffect(() => { if (isSuperAdmin) loadRoles(); }, [isSuperAdmin]);
 
   async function load() {
@@ -308,10 +322,14 @@ export default function UsersPage() {
             <Input label="Mobile" placeholder="9876543210" className="pl-10" error={errors.mobile?.message as string} hint="10-digit Indian numbers auto-prefixed with +91" {...register('mobile')} />
           </div>
 
-          <div className="relative">
-            <Lock className="absolute left-3 top-[34px] w-4 h-4 text-slate-400 z-10" />
-            <Input label="Password" type="password" placeholder="Min 8 characters" className="pl-10" error={errors.password?.message as string} hint="User can change this later via Forgot Password" {...register('password')} />
-          </div>
+          <PasswordInput
+            label="Password"
+            placeholder="Min 8 characters"
+            leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
+            error={errors.password?.message as string}
+            hint="User can change this later via Forgot Password"
+            {...register('password')}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div>

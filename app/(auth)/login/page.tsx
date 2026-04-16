@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/components/ui/Toast';
@@ -53,17 +54,13 @@ export default function LoginPage() {
           />
         </div>
 
-        <div className="relative">
-          <Lock className="absolute left-3 top-[34px] w-4 h-4 text-slate-400 z-10" />
-          <Input
-            label="Password"
-            type="password"
-            placeholder="••••••••"
-            className="pl-10"
-            error={errors.password?.message}
-            {...register('password')}
-          />
-        </div>
+        <PasswordInput
+          label="Password"
+          placeholder="••••••••"
+          leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
+          error={errors.password?.message}
+          {...register('password')}
+        />
 
         <div className="flex justify-end">
           <Link href="/forgot-password" className="text-sm text-brand-600 hover:text-brand-700 font-medium">

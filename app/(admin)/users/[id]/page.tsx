@@ -11,12 +11,13 @@ import { api } from '@/lib/api';
 import { formatDate, initials, fromNow } from '@/lib/utils';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, Mail, Phone, Calendar, Shield, Monitor, Plus, X, Lock } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Calendar, Shield, Monitor, Plus, X, Lock, Crown } from 'lucide-react';
 
 export default function UserDetailPage() {
   const { id } = useParams();
   const { user: me } = useAuth();
   const isSuperAdmin = (me?.max_role_level || 0) >= 100;
+  const isSelf = me?.id === Number(id);
 
   const [user, setUser] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
@@ -31,7 +32,6 @@ export default function UserDetailPage() {
     const [u, s] = await Promise.all([api.getUser(+id!), api.getUserSessions(+id!)]);
     if (u.success) setUser(u.data);
     if (s.success) setSessions(s.data || []);
-    // Only super admin can see the full roles list for assignment
     if (isSuperAdmin) {
       const r = await api.listRoles();
       if (r.success) setRoles(r.data || []);
@@ -39,9 +39,13 @@ export default function UserDetailPage() {
     setLoading(false);
   }
 
+  // Target is super admin if max level >= 100
+  const targetIsSuperAdmin = user?.max_role_level >= 100;
+  const cannotModify = targetIsSuperAdmin && !isSelf; // Protect other super admins
+
   async function updateStatus(status: string) {
     const res = await api.updateUser(+id!, { status });
-    if (res.success) { toast.success(`User ${status}`); load(); }
+    if (res.success) { toast.success(`User status updated to ${status}`); load(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -54,6 +58,10 @@ export default function UserDetailPage() {
   async function revokeRole(roleName: string) {
     const role = roles.find((r: any) => r.name === roleName);
     if (!role) return;
+    // Extra client-side guard — server also enforces this
+    if (role.level >= 100 && cannotModify) {
+      return toast.error('Cannot revoke super admin role from another super admin');
+    }
     if (!confirm(`Revoke ${roleName} role?`)) return;
     const res = await api.revokeUserRole(+id!, role.id);
     if (res.success) { toast.success('Role revoked'); load(); }
@@ -71,6 +79,30 @@ export default function UserDetailPage() {
 
   const availableRoles = roles.filter((r: any) => !user.roles?.some((ur: any) => ur.role === r.name));
 
+  // Action buttons based on current status
+  const statusActions: React.ReactNode[] = [];
+  if (isSuperAdmin && !cannotModify) {
+    if (user.status === 'active') {
+      statusActions.push(
+        <Button key="deact" variant="outline" onClick={() => confirm('Deactivate this user?') && updateStatus('inactive')}>
+          Deactivate
+        </Button>,
+        <Button key="susp" variant="danger" onClick={() => confirm('Suspend this user? They will not be able to log in.') && updateStatus('suspended')}>
+          Suspend
+        </Button>
+      );
+    } else if (user.status === 'inactive') {
+      statusActions.push(
+        <Button key="act" variant="primary" onClick={() => updateStatus('active')}>Activate</Button>,
+        <Button key="susp" variant="danger" onClick={() => confirm('Suspend this user?') && updateStatus('suspended')}>Suspend</Button>
+      );
+    } else if (user.status === 'suspended') {
+      statusActions.push(
+        <Button key="act" variant="primary" onClick={() => updateStatus('active')}>Activate</Button>
+      );
+    }
+  }
+
   return (
     <div className="animate-fade-in">
       <Link href="/users" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4">
@@ -82,14 +114,21 @@ export default function UserDetailPage() {
           <div className="flex items-start gap-5">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center text-2xl font-bold overflow-hidden">
               {user.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
                 initials(user.full_name)
               )}
             </div>
             <div>
-              <h1 className="font-display text-2xl font-bold text-slate-900">{user.full_name}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-display text-2xl font-bold text-slate-900">{user.full_name}</h1>
+                {targetIsSuperAdmin && (
+                  <Badge variant="default" className="gap-1 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200">
+                    <Crown className="w-3 h-3" /> Super Admin
+                  </Badge>
+                )}
+              </div>
               <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-500">
                 <span className="flex items-center gap-1.5"><Mail className="w-4 h-4" /> {user.email}</span>
                 <span className="flex items-center gap-1.5"><Phone className="w-4 h-4" /> {user.mobile}</span>
@@ -103,18 +142,17 @@ export default function UserDetailPage() {
                   </Badge>
                 ))}
               </div>
+              {cannotModify && (
+                <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 inline-flex items-center gap-1.5">
+                  <Lock className="w-3 h-3" /> Super admin — actions locked
+                </div>
+              )}
             </div>
           </div>
 
-          {isSuperAdmin && (
-            <div className="flex gap-2">
-              {user.status === 'active' ? (
-                <Button variant="danger" onClick={() => confirm('Suspend this user?') && updateStatus('suspended')}>Suspend</Button>
-              ) : (
-                <Button variant="primary" onClick={() => updateStatus('active')}>Activate</Button>
-              )}
-            </div>
-          )}
+          <div className="flex gap-2 flex-wrap justify-end">
+            {statusActions}
+          </div>
         </CardContent>
       </Card>
 
@@ -123,13 +161,13 @@ export default function UserDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Roles</CardTitle>
-              {isSuperAdmin ? (
+              {isSuperAdmin && !cannotModify ? (
                 <Button size="sm" variant="secondary" onClick={() => setRoleDialogOpen(true)} disabled={availableRoles.length === 0}>
                   <Plus className="w-4 h-4" /> Assign
                 </Button>
               ) : (
                 <span className="text-xs text-slate-400 inline-flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Super admin only
+                  <Lock className="w-3 h-3" /> {cannotModify ? 'Super admin — locked' : 'Super admin only'}
                 </span>
               )}
             </div>
@@ -139,24 +177,27 @@ export default function UserDetailPage() {
               <p className="text-sm text-slate-500 py-4">No roles assigned</p>
             ) : (
               <div className="space-y-2">
-                {user.roles?.map((r: any) => (
-                  <div key={r.role} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
-                        <Shield className="w-4 h-4" />
+                {user.roles?.map((r: any) => {
+                  const isProtectedSuperAdminRole = r.level >= 100 && cannotModify;
+                  return (
+                    <div key={r.role} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
+                          <Shield className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-slate-900 text-sm">{r.display_name}</div>
+                          <div className="text-xs text-slate-500">Level {r.level}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium text-slate-900 text-sm">{r.display_name}</div>
-                        <div className="text-xs text-slate-500">Level {r.level}</div>
-                      </div>
+                      {isSuperAdmin && !isProtectedSuperAdminRole && (
+                        <button onClick={() => revokeRole(r.role)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Revoke role">
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                    {isSuperAdmin && (
-                      <button onClick={() => revokeRole(r.role)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Revoke role">
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -166,7 +207,7 @@ export default function UserDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Active Sessions</CardTitle>
-              {sessions.length > 0 && isSuperAdmin && (
+              {sessions.length > 0 && isSuperAdmin && !cannotModify && (
                 <Button size="sm" variant="outline" onClick={async () => {
                   if (!confirm('Revoke all sessions?')) return;
                   const r = await api.revokeAllSessions(+id!);

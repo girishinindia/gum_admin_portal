@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from 'next/navigation';
-import { User, Settings, LogOut, ChevronDown, Shield } from 'lucide-react';
+import { User, Shield, LogOut, ChevronDown, KeyRound } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/Badge';
@@ -22,7 +22,7 @@ export function UserMenu() {
         <div className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center text-xs font-semibold overflow-hidden flex-shrink-0">
             {user.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
             ) : (
               <span>{user.first_name[0]}{user.last_name[0]}</span>
@@ -38,12 +38,11 @@ export function UserMenu() {
         </div>
       }
     >
-      {/* User info header */}
       <div className="px-4 py-4 bg-gradient-to-br from-brand-50 to-sky-50 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center font-bold overflow-hidden flex-shrink-0 shadow-brand">
             {user.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
             ) : (
               <span>{user.first_name[0]}{user.last_name[0]}</span>
@@ -66,10 +65,10 @@ export function UserMenu() {
 
       <div className="py-1">
         <DropdownItem icon={User} onClick={() => router.push(`/users/${user.id}`)}>
-          My Profile
+          View Profile
         </DropdownItem>
-        <DropdownItem icon={Settings} onClick={() => router.push(`/users/${user.id}`)}>
-          Account Settings
+        <DropdownItem icon={KeyRound} onClick={() => router.push('/my-permissions')}>
+          My Access &amp; Permissions
         </DropdownItem>
         <DropdownDivider />
         <DropdownItem icon={LogOut} danger onClick={logout}>
