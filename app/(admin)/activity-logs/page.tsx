@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { DataToolbar } from '@/components/ui/DataToolbar';
+import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 import { formatDate, fromNow } from '@/lib/utils';
 import { FileText, LogIn, Settings, Database, AlertTriangle, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -27,13 +29,27 @@ export default function ActivityLogsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filter, setFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [type, page]);
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [type, page, searchDebounce]);
+
+  // Reset to page 1 when search or filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounce, filter]);
 
   async function load() {
     setLoading(true);
     const qs = new URLSearchParams({ page: String(page), limit: '50' });
     if (filter) qs.set('action', filter);
+    if (searchDebounce) qs.set('search', searchDebounce);
 
     const fns: Record<LogType, any> = {
       auth:   api.authLogs,   admin:  api.adminLogs,
@@ -72,7 +88,11 @@ export default function ActivityLogsPage() {
         })}
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <DataToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search logs..."
+      >
         <div className="relative flex-1 max-w-md">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -85,7 +105,7 @@ export default function ActivityLogsPage() {
         </div>
         <Button variant="outline" onClick={() => { setPage(1); load(); }}>Apply</Button>
         {filter && <Button variant="ghost" onClick={() => { setFilter(''); setPage(1); setTimeout(load, 0); }}>Clear</Button>}
-      </div>
+      </DataToolbar>
 
       <Card>
         {loading ? (
@@ -110,13 +130,11 @@ export default function ActivityLogsPage() {
               ))}
             </div>
             {totalPages > 1 && (
-              <div className="flex items-center justify-between p-4 border-t border-slate-100">
-                <div className="text-sm text-slate-500">Page {page} of {totalPages}</div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft className="w-4 h-4" /> Prev</Button>
-                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next <ChevronRight className="w-4 h-4" /></Button>
-                </div>
-              </div>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
             )}
           </>
         )}

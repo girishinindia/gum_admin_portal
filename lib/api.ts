@@ -134,98 +134,98 @@ export const api = {
   updatePermission: (id: number, data: any) => request(`/permissions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   // Countries
-  listCountries: () => request('/countries', { auth: false }),
+  listCountries: (qs = '') => request(`/countries${qs}`, { auth: false }),
   getCountry: (id: number) => request(`/countries/${id}`, { auth: false }),
   createCountry: (data: any, isFormData = false) => request('/countries', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateCountry: (id: number, data: any, isFormData = false) => request(`/countries/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteCountry: (id: number) => request(`/countries/${id}`, { method: 'DELETE' }),
 
   // States
-  listStates: (countryId?: number) => request(`/states${countryId ? `?country_id=${countryId}` : ''}`, { auth: false }),
+  listStates: (qs = '') => request(`/states${qs}`, { auth: false }),
   getState: (id: number) => request(`/states/${id}`, { auth: false }),
   createState: (data: any) => request('/states', { method: 'POST', body: JSON.stringify(data) }),
   updateState: (id: number, data: any) => request(`/states/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteState: (id: number) => request(`/states/${id}`, { method: 'DELETE' }),
 
   // Cities
-  listCities: (stateId?: number) => request(`/cities${stateId ? `?state_id=${stateId}` : ''}`, { auth: false }),
+  listCities: (qs = '') => request(`/cities${qs}`, { auth: false }),
   getCity: (id: number) => request(`/cities/${id}`, { auth: false }),
   createCity: (data: any) => request('/cities', { method: 'POST', body: JSON.stringify(data) }),
   updateCity: (id: number, data: any) => request(`/cities/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteCity: (id: number) => request(`/cities/${id}`, { method: 'DELETE' }),
 
   // Skills
-  listSkills: (category?: string) => request(`/skills${category ? `?category=${category}` : ''}`, { auth: false }),
+  listSkills: (qs = '') => request(`/skills${qs}`, { auth: false }),
   getSkill: (id: number) => request(`/skills/${id}`, { auth: false }),
   createSkill: (data: any, isFormData = false) => request('/skills', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateSkill: (id: number, data: any, isFormData = false) => request(`/skills/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteSkill: (id: number) => request(`/skills/${id}`, { method: 'DELETE' }),
 
   // Languages
-  listLanguages: (forMaterial?: boolean) => request(`/languages${forMaterial ? '?for_material=true' : ''}`, { auth: false }),
+  listLanguages: (qs = '') => request(`/languages${qs}`, { auth: false }),
   getLanguage: (id: number) => request(`/languages/${id}`, { auth: false }),
   createLanguage: (data: any) => request('/languages', { method: 'POST', body: JSON.stringify(data) }),
   updateLanguage: (id: number, data: any) => request(`/languages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteLanguage: (id: number) => request(`/languages/${id}`, { method: 'DELETE' }),
 
   // Education Levels
-  listEducationLevels: (category?: string) => request(`/education-levels${category ? `?level_category=${category}` : ''}`, { auth: false }),
+  listEducationLevels: (qs = '') => request(`/education-levels${qs}`, { auth: false }),
   getEducationLevel: (id: number) => request(`/education-levels/${id}`, { auth: false }),
   createEducationLevel: (data: any) => request('/education-levels', { method: 'POST', body: JSON.stringify(data) }),
   updateEducationLevel: (id: number, data: any) => request(`/education-levels/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteEducationLevel: (id: number) => request(`/education-levels/${id}`, { method: 'DELETE' }),
 
   // Document Types
-  listDocumentTypes: () => request('/document-types', { auth: false }),
+  listDocumentTypes: (qs = '') => request(`/document-types${qs}`, { auth: false }),
   getDocumentType: (id: number) => request(`/document-types/${id}`, { auth: false }),
   createDocumentType: (data: any) => request('/document-types', { method: 'POST', body: JSON.stringify(data) }),
   updateDocumentType: (id: number, data: any) => request(`/document-types/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteDocumentType: (id: number) => request(`/document-types/${id}`, { method: 'DELETE' }),
 
   // Documents
-  listDocuments: (typeId?: number) => request(`/documents${typeId ? `?document_type_id=${typeId}` : ''}`, { auth: false }),
+  listDocuments: (qs = '') => request(`/documents${qs}`, { auth: false }),
   getDocument: (id: number) => request(`/documents/${id}`, { auth: false }),
   createDocument: (data: any, isFormData = false) => request('/documents', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateDocument: (id: number, data: any, isFormData = false) => request(`/documents/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteDocument: (id: number) => request(`/documents/${id}`, { method: 'DELETE' }),
 
   // Designations
-  listDesignations: (levelBand?: string) => request(`/designations${levelBand ? `?level_band=${levelBand}` : ''}`, { auth: false }),
+  listDesignations: (qs = '') => request(`/designations${qs}`, { auth: false }),
   getDesignation: (id: number) => request(`/designations/${id}`, { auth: false }),
   createDesignation: (data: any) => request('/designations', { method: 'POST', body: JSON.stringify(data) }),
   updateDesignation: (id: number, data: any) => request(`/designations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteDesignation: (id: number) => request(`/designations/${id}`, { method: 'DELETE' }),
 
   // Specializations
-  listSpecializations: (category?: string) => request(`/specializations${category ? `?category=${category}` : ''}`, { auth: false }),
+  listSpecializations: (qs = '') => request(`/specializations${qs}`, { auth: false }),
   getSpecialization: (id: number) => request(`/specializations/${id}`, { auth: false }),
   createSpecialization: (data: any) => request('/specializations', { method: 'POST', body: JSON.stringify(data) }),
   updateSpecialization: (id: number, data: any) => request(`/specializations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSpecialization: (id: number) => request(`/specializations/${id}`, { method: 'DELETE' }),
 
   // Learning Goals
-  listLearningGoals: () => request('/learning-goals', { auth: false }),
+  listLearningGoals: (qs = '') => request(`/learning-goals${qs}`, { auth: false }),
   getLearningGoal: (id: number) => request(`/learning-goals/${id}`, { auth: false }),
   createLearningGoal: (data: any) => request('/learning-goals', { method: 'POST', body: JSON.stringify(data) }),
   updateLearningGoal: (id: number, data: any) => request(`/learning-goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteLearningGoal: (id: number) => request(`/learning-goals/${id}`, { method: 'DELETE' }),
 
   // Social Medias
-  listSocialMedias: (platformType?: string) => request(`/social-medias${platformType ? `?platform_type=${platformType}` : ''}`, { auth: false }),
+  listSocialMedias: (qs = '') => request(`/social-medias${qs}`, { auth: false }),
   getSocialMedia: (id: number) => request(`/social-medias/${id}`, { auth: false }),
   createSocialMedia: (data: any, isFormData = false) => request('/social-medias', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateSocialMedia: (id: number, data: any, isFormData = false) => request(`/social-medias/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteSocialMedia: (id: number) => request(`/social-medias/${id}`, { method: 'DELETE' }),
 
   // Categories
-  listCategories: () => request('/categories', { auth: false }),
+  listCategories: (qs = '') => request(`/categories${qs}`, { auth: false }),
   getCategory: (id: number) => request(`/categories/${id}`, { auth: false }),
   createCategory: (data: any, isFormData = false) => request('/categories', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateCategory: (id: number, data: any, isFormData = false) => request(`/categories/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteCategory: (id: number) => request(`/categories/${id}`, { method: 'DELETE' }),
 
   // Sub-Categories
-  listSubCategories: (categoryId?: number) => request(`/sub-categories${categoryId ? `?category_id=${categoryId}` : ''}`, { auth: false }),
+  listSubCategories: (qs = '') => request(`/sub-categories${qs}`, { auth: false }),
   getSubCategory: (id: number) => request(`/sub-categories/${id}`, { auth: false }),
   createSubCategory: (data: any, isFormData = false) => request('/sub-categories', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateSubCategory: (id: number, data: any, isFormData = false) => request(`/sub-categories/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),

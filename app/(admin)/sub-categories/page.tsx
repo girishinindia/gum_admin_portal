@@ -10,6 +10,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { Pagination } from '@/components/ui/Pagination';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, Layers, Trash2, Edit2, Star } from 'lucide-react';
@@ -25,20 +27,36 @@ export default function SubCategoriesPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
   const [filterCategory, setFilterCategory] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
   const { register, handleSubmit, reset } = useForm();
 
   useEffect(() => {
-    api.listCategories().then(res => { if (res.success) setCategories(res.data || []); });
+    api.listCategories('?limit=100').then(res => { if (res.success) setCategories(res.data || []); });
   }, []);
 
-  useEffect(() => { load(); }, [filterCategory]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [searchDebounce, filterCategory]);
+
+  useEffect(() => { load(); }, [searchDebounce, page, filterCategory]);
 
   async function load() {
     setLoading(true);
-    const catId = filterCategory ? parseInt(filterCategory) : undefined;
-    const res = await api.listSubCategories(catId);
-    if (res.success) setItems(res.data || []);
+    const qs = new URLSearchParams({ page: String(page), limit: '20' });
+    if (searchDebounce) qs.set('search', searchDebounce);
+    if (filterCategory) qs.set('category_id', filterCategory);
+    const res = await api.listSubCategories('?' + qs.toString());
+    if (res.success) {
+      setItems(res.data || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    }
     setLoading(false);
   }
 
@@ -91,11 +109,13 @@ export default function SubCategoriesPage() {
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-category</Button>} />
 
       <div className="mb-4">
-        <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-          value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-          <option value="">All categories</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search sub-categories...">
+          <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+            <option value="">All categories</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </DataToolbar>
       </div>
 
       {loading ? (
@@ -104,38 +124,41 @@ export default function SubCategoriesPage() {
         <EmptyState icon={Layers} title="No sub-categories yet" description={filterCategory ? 'No sub-categories in this category' : 'Add your first sub-category'}
           action={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-category</Button>} />
       ) : (
-        <div className="grid gap-3">
-          {items.map(sc => (
-            <Card key={sc.id} className="p-4 hover:shadow-card-hover transition-all">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
-                  {sc.image ? (
-                    <img src={sc.image} alt={sc.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <Layers className="w-5 h-5 text-slate-400" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-display font-semibold text-slate-900">{sc.name}</h3>
-                    <Badge variant="muted" className="font-mono">{sc.code}</Badge>
-                    {sc.categories?.name && <Badge variant="info">{sc.categories.name}</Badge>}
-                    {sc.is_new && <Badge variant="success"><Star className="w-3 h-3 mr-1" />New</Badge>}
-                    {!sc.is_active && <Badge variant="danger">Inactive</Badge>}
+        <>
+          <div className="grid gap-3">
+            {items.map(sc => (
+              <Card key={sc.id} className="p-4 hover:shadow-card-hover transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                    {sc.image ? (
+                      <img src={sc.image} alt={sc.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Layers className="w-5 h-5 text-slate-400" />
+                    )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">/{sc.slug}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-display font-semibold text-slate-900">{sc.name}</h3>
+                      <Badge variant="muted" className="font-mono">{sc.code}</Badge>
+                      {sc.categories?.name && <Badge variant="info">{sc.categories.name}</Badge>}
+                      {sc.is_new && <Badge variant="success"><Star className="w-3 h-3 mr-1" />New</Badge>}
+                      {!sc.is_active && <Badge variant="danger">Inactive</Badge>}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">/{sc.slug}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => onToggleActive(sc)}>
+                      {sc.is_active ? 'Deactivate' : 'Activate'}
+                    </Button>
+                    <button type="button" onClick={() => openEdit(sc)} className="p-2 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50"><Edit2 className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => onDelete(sc)} className="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => onToggleActive(sc)}>
-                    {sc.is_active ? 'Deactivate' : 'Activate'}
-                  </Button>
-                  <button type="button" onClick={() => openEdit(sc)} className="p-2 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50"><Edit2 className="w-4 h-4" /></button>
-                  <button type="button" onClick={() => onDelete(sc)} className="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+        </>
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Sub-Category' : 'Add Sub-Category'} size="md">

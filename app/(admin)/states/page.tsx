@@ -9,6 +9,8 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { Pagination } from '@/components/ui/Pagination';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, MapPin, Trash2, Edit2, Globe2 } from 'lucide-react';
@@ -21,21 +23,40 @@ export default function StatesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<State | null>(null);
   const [filterCountry, setFilterCountry] = useState<number | ''>('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
   const { register, handleSubmit, reset, setValue } = useForm();
 
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [searchDebounce, filterCountry]);
+
   useEffect(() => { loadCountries(); }, []);
-  useEffect(() => { load(); }, [filterCountry]);
+  useEffect(() => { load(); }, [searchDebounce, page, filterCountry]);
 
   async function loadCountries() {
-    const res = await api.listCountries();
+    const res = await api.listCountries('?limit=100');
     if (res.success) setCountries((res.data || []).filter((c: Country) => c.is_active));
   }
 
   async function load() {
     setLoading(true);
-    const res = await api.listStates(filterCountry || undefined);
-    if (res.success) setStates(res.data || []);
+    const qs = new URLSearchParams();
+    qs.set('page', String(page));
+    qs.set('limit', '20');
+    if (searchDebounce) qs.set('search', searchDebounce);
+    if (filterCountry) qs.set('country_id', String(filterCountry));
+    const res = await api.listStates('?' + qs.toString());
+    if (res.success) {
+      setStates(res.data || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    }
     setLoading(false);
   }
 
@@ -91,8 +112,11 @@ export default function StatesPage() {
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add state</Button>}
       />
 
-      {/* Country filter */}
-      <div className="mb-4">
+      <DataToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search states..."
+      >
         <select
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           value={filterCountry}
@@ -103,7 +127,7 @@ export default function StatesPage() {
             <option key={c.id} value={c.id}>{c.name} ({c.iso2})</option>
           ))}
         </select>
-      </div>
+      </DataToolbar>
 
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
@@ -145,6 +169,12 @@ export default function StatesPage() {
           ))}
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit State' : 'Add State'} size="md">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">

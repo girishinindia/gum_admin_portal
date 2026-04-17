@@ -9,6 +9,8 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { Pagination } from '@/components/ui/Pagination';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, Building2, Trash2, Edit2, MapPin, Globe2 } from 'lucide-react';
@@ -25,6 +27,10 @@ export default function CitiesPage() {
   // Filters
   const [filterCountry, setFilterCountry] = useState<number | ''>('');
   const [filterState, setFilterState] = useState<number | ''>('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
   // Form-level state dropdown (filtered by selected country in dialog)
   const [formCountry, setFormCountry] = useState<number | ''>('');
@@ -32,17 +38,24 @@ export default function CitiesPage() {
 
   const { register, handleSubmit, reset, setValue } = useForm();
 
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [searchDebounce, filterState]);
+
   useEffect(() => { loadCountries(); }, []);
   useEffect(() => { loadStates(); }, [filterCountry]);
-  useEffect(() => { load(); }, [filterState, filterCountry]);
+  useEffect(() => { load(); }, [searchDebounce, page, filterState]);
 
   async function loadCountries() {
-    const res = await api.listCountries();
+    const res = await api.listCountries('?limit=100');
     if (res.success) setCountries((res.data || []).filter((c: Country) => c.is_active));
   }
 
   async function loadStates() {
-    const res = await api.listStates(filterCountry || undefined);
+    const res = await api.listStates(filterCountry ? `?country_id=${filterCountry}&limit=100` : '?limit=100');
     if (res.success) setStates((res.data || []).filter((s: State) => s.is_active));
     // Reset state filter when country changes
     setFilterState('');
@@ -50,14 +63,22 @@ export default function CitiesPage() {
 
   async function load() {
     setLoading(true);
-    const res = await api.listCities(filterState || undefined);
-    if (res.success) setCities(res.data || []);
+    const qs = new URLSearchParams();
+    qs.set('page', String(page));
+    qs.set('limit', '20');
+    if (searchDebounce) qs.set('search', searchDebounce);
+    if (filterState) qs.set('state_id', String(filterState));
+    const res = await api.listCities('?' + qs.toString());
+    if (res.success) {
+      setCities(res.data || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    }
     setLoading(false);
   }
 
   // Load states for the dialog form when a country is selected
   async function loadFormStates(countryId: number) {
-    const res = await api.listStates(countryId);
+    const res = await api.listStates(`?country_id=${countryId}&limit=100`);
     if (res.success) setFormStates((res.data || []).filter((s: State) => s.is_active));
     else setFormStates([]);
   }
@@ -123,8 +144,11 @@ export default function CitiesPage() {
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add city</Button>}
       />
 
-      {/* Filters */}
-      <div className="mb-4 flex gap-3">
+      <DataToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search cities..."
+      >
         <select
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           value={filterCountry}
@@ -145,7 +169,7 @@ export default function CitiesPage() {
             <option key={s.id} value={s.id}>{s.name}{s.state_code ? ` (${s.state_code})` : ''}</option>
           ))}
         </select>
-      </div>
+      </DataToolbar>
 
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
@@ -195,6 +219,12 @@ export default function CitiesPage() {
           ))}
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit City' : 'Add City'} size="md">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">

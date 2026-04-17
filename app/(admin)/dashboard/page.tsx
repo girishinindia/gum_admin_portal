@@ -27,8 +27,8 @@ export default function DashboardPage() {
     try {
       const [u, r, c, a] = await Promise.all([
         api.listUsers('?page=1&limit=1'),
-        api.listRoles(),
-        api.listCountries(),
+        api.listRoles('?limit=100'),
+        api.listCountries('?limit=100'),
         api.authLogs('?page=1&limit=5'),
       ]);
       setStats({

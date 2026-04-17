@@ -10,6 +10,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { Pagination } from '@/components/ui/Pagination';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, Globe2, Trash2, Edit2 } from 'lucide-react';
@@ -23,15 +25,33 @@ export default function CountriesPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
   const { register, handleSubmit, reset } = useForm();
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [searchDebounce]);
+
+  useEffect(() => { load(); }, [searchDebounce, page]);
 
   async function load() {
     setLoading(true);
-    const res = await api.listCountries();
-    if (res.success) setCountries(res.data || []);
+    const qs = new URLSearchParams();
+    qs.set('page', String(page));
+    qs.set('limit', '20');
+    if (searchDebounce) qs.set('search', searchDebounce);
+    const res = await api.listCountries('?' + qs.toString());
+    if (res.success) {
+      setCountries(res.data || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    }
     setLoading(false);
   }
 
@@ -112,6 +132,12 @@ export default function CountriesPage() {
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add country</Button>}
       />
 
+      <DataToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search countries..."
+      />
+
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
       ) : countries.length === 0 ? (
@@ -156,6 +182,12 @@ export default function CountriesPage() {
           ))}
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Country' : 'Add Country'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">

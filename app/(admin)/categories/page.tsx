@@ -10,6 +10,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { Pagination } from '@/components/ui/Pagination';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, LayoutGrid, Trash2, Edit2, Star } from 'lucide-react';
@@ -23,15 +25,31 @@ export default function CategoriesPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
   const { register, handleSubmit, reset } = useForm();
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [searchDebounce]);
+
+  useEffect(() => { load(); }, [searchDebounce, page]);
 
   async function load() {
     setLoading(true);
-    const res = await api.listCategories();
-    if (res.success) setItems(res.data || []);
+    const qs = new URLSearchParams({ page: String(page), limit: '20' });
+    if (searchDebounce) qs.set('search', searchDebounce);
+    const res = await api.listCategories('?' + qs.toString());
+    if (res.success) {
+      setItems(res.data || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    }
     setLoading(false);
   }
 
@@ -83,43 +101,58 @@ export default function CategoriesPage() {
       <PageHeader title="Categories" description="Manage course and content categories"
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add category</Button>} />
 
+      <div className="mb-4">
+        <DataToolbar>
+          <Input
+            type="text"
+            placeholder="Search categories..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1"
+          />
+        </DataToolbar>
+      </div>
+
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
       ) : items.length === 0 ? (
         <EmptyState icon={LayoutGrid} title="No categories yet" description="Add your first category"
           action={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add category</Button>} />
       ) : (
-        <div className="grid gap-3">
-          {items.map(c => (
-            <Card key={c.id} className="p-4 hover:shadow-card-hover transition-all">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
-                  {c.image ? (
-                    <img src={c.image} alt={c.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <LayoutGrid className="w-5 h-5 text-slate-400" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-display font-semibold text-slate-900">{c.name}</h3>
-                    <Badge variant="muted" className="font-mono">{c.code}</Badge>
-                    {c.is_new && <Badge variant="success"><Star className="w-3 h-3 mr-1" />New</Badge>}
-                    {!c.is_active && <Badge variant="danger">Inactive</Badge>}
+        <>
+          <div className="grid gap-3">
+            {items.map(c => (
+              <Card key={c.id} className="p-4 hover:shadow-card-hover transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                    {c.image ? (
+                      <img src={c.image} alt={c.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <LayoutGrid className="w-5 h-5 text-slate-400" />
+                    )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">/{c.slug}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-display font-semibold text-slate-900">{c.name}</h3>
+                      <Badge variant="muted" className="font-mono">{c.code}</Badge>
+                      {c.is_new && <Badge variant="success"><Star className="w-3 h-3 mr-1" />New</Badge>}
+                      {!c.is_active && <Badge variant="danger">Inactive</Badge>}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">/{c.slug}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => onToggleActive(c)}>
+                      {c.is_active ? 'Deactivate' : 'Activate'}
+                    </Button>
+                    <button type="button" onClick={() => openEdit(c)} className="p-2 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50"><Edit2 className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => onDelete(c)} className="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => onToggleActive(c)}>
-                    {c.is_active ? 'Deactivate' : 'Activate'}
-                  </Button>
-                  <button type="button" onClick={() => openEdit(c)} className="p-2 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50"><Edit2 className="w-4 h-4" /></button>
-                  <button type="button" onClick={() => onDelete(c)} className="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+        </>
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Category' : 'Add Category'} size="md">

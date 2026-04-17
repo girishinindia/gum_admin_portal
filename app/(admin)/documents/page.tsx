@@ -10,6 +10,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { Pagination } from '@/components/ui/Pagination';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, FileImage, Trash2, Edit2 } from 'lucide-react';
@@ -25,22 +27,40 @@ export default function DocumentsPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
   const [filterType, setFilterType] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
   const { register, handleSubmit, reset } = useForm();
 
   useEffect(() => {
-    api.listDocumentTypes().then(res => {
+    api.listDocumentTypes('?limit=100').then(res => {
       if (res.success) setDocTypes(res.data || []);
     });
   }, []);
 
-  useEffect(() => { load(); }, [filterType]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounce, filterType]);
+
+  useEffect(() => { load(); }, [searchDebounce, page, filterType]);
 
   async function load() {
     setLoading(true);
-    const typeId = filterType ? parseInt(filterType) : undefined;
-    const res = await api.listDocuments(typeId);
-    if (res.success) setDocuments(res.data || []);
+    const qs = new URLSearchParams({ page: String(page), limit: '20' });
+    if (searchDebounce) qs.set('search', searchDebounce);
+    if (filterType) qs.set('document_type_id', filterType);
+    const res = await api.listDocuments('?' + qs.toString());
+    if (res.success) {
+      setDocuments(res.data || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    }
     setLoading(false);
   }
 
@@ -111,7 +131,7 @@ export default function DocumentsPage() {
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add document</Button>}
       />
 
-      <div className="mb-4">
+      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search documents...">
         <select
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           value={filterType}
@@ -122,7 +142,7 @@ export default function DocumentsPage() {
             <option key={dt.id} value={dt.id}>{dt.name}</option>
           ))}
         </select>
-      </div>
+      </DataToolbar>
 
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
@@ -170,6 +190,8 @@ export default function DocumentsPage() {
           ))}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Document' : 'Add Document'} size="md">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">

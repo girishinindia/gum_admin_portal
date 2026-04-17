@@ -9,6 +9,8 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { Pagination } from '@/components/ui/Pagination';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, FolderOpen, Trash2, Edit2 } from 'lucide-react';
@@ -19,15 +21,33 @@ export default function DocumentTypesPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DocumentType | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
   const { register, handleSubmit, reset } = useForm();
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounce]);
+
+  useEffect(() => { load(); }, [searchDebounce, page]);
 
   async function load() {
     setLoading(true);
-    const res = await api.listDocumentTypes();
-    if (res.success) setTypes(res.data || []);
+    const qs = new URLSearchParams({ page: String(page), limit: '20' });
+    if (searchDebounce) qs.set('search', searchDebounce);
+    const res = await api.listDocumentTypes('?' + qs.toString());
+    if (res.success) {
+      setTypes(res.data || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    }
     setLoading(false);
   }
 
@@ -80,6 +100,8 @@ export default function DocumentTypesPage() {
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add type</Button>}
       />
 
+      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search document types..." />
+
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
       ) : types.length === 0 ? (
@@ -118,6 +140,8 @@ export default function DocumentTypesPage() {
           ))}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Document Type' : 'Add Document Type'} size="md">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">

@@ -9,6 +9,8 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { Pagination } from '@/components/ui/Pagination';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, GraduationCap, Trash2, Edit2 } from 'lucide-react';
@@ -32,15 +34,34 @@ export default function EducationLevelsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EducationLevel | null>(null);
   const [filterCategory, setFilterCategory] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
   const { register, handleSubmit, reset } = useForm();
 
-  useEffect(() => { load(); }, [filterCategory]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounce, filterCategory]);
+
+  useEffect(() => { load(); }, [searchDebounce, page, filterCategory]);
 
   async function load() {
     setLoading(true);
-    const res = await api.listEducationLevels(filterCategory || undefined);
-    if (res.success) setLevels(res.data || []);
+    const qs = new URLSearchParams({ page: String(page), limit: '20' });
+    if (searchDebounce) qs.set('search', searchDebounce);
+    if (filterCategory) qs.set('level_category', filterCategory);
+    const res = await api.listEducationLevels('?' + qs.toString());
+    if (res.success) {
+      setLevels(res.data || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    }
     setLoading(false);
   }
 
@@ -99,7 +120,7 @@ export default function EducationLevelsPage() {
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add level</Button>}
       />
 
-      <div className="mb-4">
+      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search education levels...">
         <select
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           value={filterCategory}
@@ -110,7 +131,7 @@ export default function EducationLevelsPage() {
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
-      </div>
+      </DataToolbar>
 
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
@@ -154,6 +175,8 @@ export default function EducationLevelsPage() {
           ))}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Education Level' : 'Add Education Level'} size="md">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">

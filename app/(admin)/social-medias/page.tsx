@@ -10,6 +10,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { Pagination } from '@/components/ui/Pagination';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, Share2, Trash2, Edit2 } from 'lucide-react';
@@ -41,15 +43,32 @@ export default function SocialMediasPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
   const [filterType, setFilterType] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchDebounce, setSearchDebounce] = useState('');
 
   const { register, handleSubmit, reset } = useForm();
 
-  useEffect(() => { load(); }, [filterType]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounce(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [searchDebounce, filterType]);
+
+  useEffect(() => { load(); }, [searchDebounce, page, filterType]);
 
   async function load() {
     setLoading(true);
-    const res = await api.listSocialMedias(filterType || undefined);
-    if (res.success) setItems(res.data || []);
+    const qs = new URLSearchParams({ page: String(page), limit: '20' });
+    if (searchDebounce) qs.set('search', searchDebounce);
+    if (filterType) qs.set('platform_type', filterType);
+    const res = await api.listSocialMedias('?' + qs.toString());
+    if (res.success) {
+      setItems(res.data || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    }
     setLoading(false);
   }
 
@@ -102,11 +121,20 @@ export default function SocialMediasPage() {
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add platform</Button>} />
 
       <div className="mb-4">
-        <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-          value={filterType} onChange={e => setFilterType(e.target.value)}>
-          <option value="">All types</option>
-          {PLATFORM_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
+        <DataToolbar>
+          <Input
+            type="text"
+            placeholder="Search social medias..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1"
+          />
+          <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <option value="">All types</option>
+            {PLATFORM_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </DataToolbar>
       </div>
 
       {loading ? (
@@ -115,39 +143,42 @@ export default function SocialMediasPage() {
         <EmptyState icon={Share2} title="No social medias yet" description={filterType ? 'No platforms in this type' : 'Add your first platform'}
           action={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add platform</Button>} />
       ) : (
-        <div className="grid gap-3">
-          {items.map(s => (
-            <Card key={s.id} className="p-4 hover:shadow-card-hover transition-all">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
-                  {s.icon ? (
-                    <img src={s.icon} alt={s.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <Share2 className="w-5 h-5 text-slate-400" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-display font-semibold text-slate-900">{s.name}</h3>
-                    <Badge variant="muted" className="font-mono">{s.code}</Badge>
-                    <Badge variant={(typeColors[s.platform_type] || 'muted') as any}>
-                      {PLATFORM_TYPES.find(t => t.value === s.platform_type)?.label}
-                    </Badge>
-                    {!s.is_active && <Badge variant="danger">Inactive</Badge>}
+        <>
+          <div className="grid gap-3">
+            {items.map(s => (
+              <Card key={s.id} className="p-4 hover:shadow-card-hover transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                    {s.icon ? (
+                      <img src={s.icon} alt={s.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Share2 className="w-5 h-5 text-slate-400" />
+                    )}
                   </div>
-                  {s.base_url && <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{s.base_url}</p>}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-display font-semibold text-slate-900">{s.name}</h3>
+                      <Badge variant="muted" className="font-mono">{s.code}</Badge>
+                      <Badge variant={(typeColors[s.platform_type] || 'muted') as any}>
+                        {PLATFORM_TYPES.find(t => t.value === s.platform_type)?.label}
+                      </Badge>
+                      {!s.is_active && <Badge variant="danger">Inactive</Badge>}
+                    </div>
+                    {s.base_url && <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{s.base_url}</p>}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => onToggleActive(s)}>
+                      {s.is_active ? 'Deactivate' : 'Activate'}
+                    </Button>
+                    <button type="button" onClick={() => openEdit(s)} className="p-2 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50"><Edit2 className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => onDelete(s)} className="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => onToggleActive(s)}>
-                    {s.is_active ? 'Deactivate' : 'Activate'}
-                  </Button>
-                  <button type="button" onClick={() => openEdit(s)} className="p-2 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50"><Edit2 className="w-4 h-4" /></button>
-                  <button type="button" onClick={() => onDelete(s)} className="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+        </>
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Social Media' : 'Add Social Media'} size="md">
