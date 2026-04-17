@@ -1,46 +1,122 @@
 "use client";
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+
+interface SubLink {
+  href: string;
+  label: string;
+}
 
 interface NavItem {
   href: string;
   label: string;
   icon: any;
   superAdminOnly?: boolean;
+  subLinks?: SubLink[];
 }
 
-const navItems: NavItem[] = [
-  { href: '/dashboard',       label: 'Dashboard',     icon: LayoutDashboard },
-  { href: '/my-permissions',  label: 'My Access',     icon: ShieldCheck },
-  { href: '/users',           label: 'Users',         icon: Users },
-  { href: '/roles',           label: 'Roles',         icon: Shield,    superAdminOnly: true },
-  { href: '/permissions',     label: 'Permissions',   icon: KeyRound,  superAdminOnly: true },
-  { href: '/countries',       label: 'Countries',     icon: Globe2 },
-  { href: '/states',          label: 'States',        icon: MapPin },
-  { href: '/cities',          label: 'Cities',        icon: Building2 },
-  { href: '/skills',          label: 'Skills',        icon: Sparkles },
-  { href: '/languages',        label: 'Languages',      icon: Languages },
-  { href: '/education-levels', label: 'Education Levels', icon: GraduationCap },
-  { href: '/document-types',  label: 'Document Types', icon: FolderOpen },
-  { href: '/documents',        label: 'Documents',        icon: FileImage },
-  { href: '/designations',    label: 'Designations',    icon: Award },
-  { href: '/specializations', label: 'Specializations', icon: Compass },
-  { href: '/learning-goals',  label: 'Learning Goals',  icon: Target },
-  { href: '/social-medias',   label: 'Social Media',    icon: Share2 },
-  { href: '/categories',      label: 'Categories',      icon: LayoutGrid },
-  { href: '/sub-categories',  label: 'Sub-Categories',  icon: Layers },
-  { href: '/activity-logs',   label: 'Activity Logs',   icon: FileText },
+interface NavGroup {
+  key: string;
+  title: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    key: 'admin',
+    title: 'Admin',
+    items: [
+      { href: '/my-permissions',  label: 'My Access',     icon: ShieldCheck },
+      { href: '/users',           label: 'Users',         icon: Users },
+      { href: '/roles',           label: 'Roles',         icon: Shield,    superAdminOnly: true },
+      { href: '/permissions',     label: 'Permissions',   icon: KeyRound,  superAdminOnly: true },
+      { href: '/activity-logs',   label: 'Activity Logs', icon: FileText },
+    ],
+  },
+  {
+    key: 'master',
+    title: 'Master',
+    items: [
+      { href: '/countries',        label: 'Countries',        icon: Globe2 },
+      { href: '/states',           label: 'States',           icon: MapPin },
+      { href: '/cities',           label: 'Cities',           icon: Building2 },
+      { href: '/skills',           label: 'Skills',           icon: Sparkles },
+      { href: '/languages',        label: 'Languages',        icon: Languages },
+      { href: '/education-levels', label: 'Education Levels', icon: GraduationCap },
+      { href: '/document-types',   label: 'Document Types',   icon: FolderOpen },
+      { href: '/documents',        label: 'Documents',        icon: FileImage },
+      { href: '/designations',     label: 'Designations',     icon: Award },
+      { href: '/specializations',  label: 'Specializations',  icon: Compass },
+      { href: '/learning-goals',   label: 'Learning Goals',   icon: Target },
+      { href: '/social-medias',    label: 'Social Media',     icon: Share2 },
+      {
+        href: '/categories',
+        label: 'Categories',
+        icon: LayoutGrid,
+        subLinks: [{ href: '/category-translations', label: 'Translations' }],
+      },
+      {
+        href: '/sub-categories',
+        label: 'Sub-Categories',
+        icon: Layers,
+        subLinks: [{ href: '/sub-category-translations', label: 'Translations' }],
+      },
+    ],
+  },
+  {
+    key: 'branch',
+    title: 'Branch & Departments',
+    items: [
+      { href: '/branches',            label: 'Branches',             icon: GitBranch },
+      { href: '/departments',         label: 'Departments',          icon: Network },
+      { href: '/branch-departments',  label: 'Branch & Departments', icon: Link2 },
+    ],
+  },
 ];
+
+/** Check if a pathname falls within a group's items (including subLinks) */
+function isGroupActive(group: NavGroup, pathname: string): boolean {
+  return group.items.some(
+    (item) =>
+      pathname === item.href ||
+      pathname.startsWith(item.href + '/') ||
+      item.subLinks?.some(
+        (s) => pathname === s.href || pathname.startsWith(s.href + '/')
+      )
+  );
+}
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const isSuperAdmin = (user?.max_role_level || 0) >= 100;
 
-  const visibleItems = navItems.filter(item => !item.superAdminOnly || isSuperAdmin);
+  // Initialise open groups — auto-open the group whose item is currently active
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    navGroups.forEach((g) => {
+      initial[g.key] = isGroupActive(g, pathname);
+    });
+    return initial;
+  });
+
+  // Keep the active group open when the route changes
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      const next = { ...prev };
+      navGroups.forEach((g) => {
+        if (isGroupActive(g, pathname)) next[g.key] = true;
+      });
+      return next;
+    });
+  }, [pathname]);
+
+  const toggle = (key: string) =>
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
     <aside className="w-60 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">
@@ -58,36 +134,144 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Section label */}
-      <div className="px-5 pt-5 pb-2">
-        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Main Menu</div>
-      </div>
-
       {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
-        {visibleItems.map((item) => {
-          const Icon = item.icon;
-          const active = pathname.startsWith(item.href);
+      <nav className="flex-1 overflow-y-auto pb-2">
+        {/* Dashboard — always visible at top */}
+        <div className="px-3 pt-3 pb-1">
+          <Link
+            href="/dashboard"
+            className={cn(
+              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all relative group',
+              pathname === '/dashboard'
+                ? 'bg-brand-50 text-brand-700'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            )}
+          >
+            {pathname === '/dashboard' && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-500 rounded-r-full" />
+            )}
+            <LayoutDashboard
+              className={cn('w-[18px] h-[18px] flex-shrink-0', pathname === '/dashboard' && 'text-brand-600')}
+              strokeWidth={pathname === '/dashboard' ? 2.5 : 2}
+            />
+            Dashboard
+          </Link>
+        </div>
+
+        {navGroups.map((group) => {
+          const visibleItems = group.items.filter(
+            (item) => !item.superAdminOnly || isSuperAdmin
+          );
+          if (visibleItems.length === 0) return null;
+
+          const isOpen = openGroups[group.key] ?? false;
+          const groupActive = isGroupActive(group, pathname);
+
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative group',
-                active
-                  ? 'bg-brand-50 text-brand-700'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              )}
-            >
-              {active && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-500 rounded-r-full" />
-              )}
-              <Icon className={cn('w-[18px] h-[18px] flex-shrink-0', active && 'text-brand-600')} strokeWidth={active ? 2.5 : 2} />
-              {item.label}
-              {item.superAdminOnly && (
-                <span className="ml-auto text-[9px] font-bold text-brand-500 tracking-wider">SUPER</span>
-              )}
-            </Link>
+            <div key={group.key}>
+              {/* Collapsible group header */}
+              <button
+                onClick={() => toggle(group.key)}
+                className={cn(
+                  'w-full flex items-center justify-between px-5 pt-4 pb-2 group/header cursor-pointer',
+                  'hover:bg-slate-50/60 transition-colors'
+                )}
+              >
+                <span
+                  className={cn(
+                    'text-[10px] font-semibold uppercase tracking-wider transition-colors',
+                    groupActive ? 'text-brand-600' : 'text-slate-400 group-hover/header:text-slate-500'
+                  )}
+                >
+                  {group.title}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'w-3.5 h-3.5 transition-transform duration-200',
+                    groupActive ? 'text-brand-500' : 'text-slate-400',
+                    isOpen && 'rotate-180'
+                  )}
+                />
+              </button>
+
+              {/* Collapsible content */}
+              <div
+                className={cn(
+                  'overflow-hidden transition-all duration-200 ease-in-out',
+                  isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                )}
+              >
+                <div className="px-3 space-y-0.5 pb-1">
+                  {visibleItems.map((item) => {
+                    const Icon = item.icon;
+                    const active =
+                      pathname === item.href ||
+                      pathname.startsWith(item.href + '/');
+                    const subActive = item.subLinks?.some(
+                      (s) =>
+                        pathname === s.href ||
+                        pathname.startsWith(s.href + '/')
+                    );
+
+                    return (
+                      <div key={item.href}>
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all relative group',
+                            active || subActive
+                              ? 'bg-brand-50 text-brand-700'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          )}
+                        >
+                          {(active || subActive) && (
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-500 rounded-r-full" />
+                          )}
+                          <Icon
+                            className={cn(
+                              'w-[18px] h-[18px] flex-shrink-0',
+                              (active || subActive) && 'text-brand-600'
+                            )}
+                            strokeWidth={active || subActive ? 2.5 : 2}
+                          />
+                          {item.label}
+                          {item.superAdminOnly && (
+                            <span className="ml-auto text-[9px] font-bold text-brand-500 tracking-wider">
+                              SUPER
+                            </span>
+                          )}
+                        </Link>
+
+                        {/* Sub-links (e.g. Translations) */}
+                        {item.subLinks && (active || subActive) && (
+                          <div className="ml-9 mt-0.5 space-y-0.5">
+                            {item.subLinks.map((sub) => {
+                              const sActive =
+                                pathname === sub.href ||
+                                pathname.startsWith(sub.href + '/');
+                              return (
+                                <Link
+                                  key={sub.href}
+                                  href={sub.href}
+                                  className={cn(
+                                    'block px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                                    sActive
+                                      ? 'text-brand-700 bg-brand-50/60'
+                                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                                  )}
+                                >
+                                  {sub.label}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           );
         })}
       </nav>

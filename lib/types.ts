@@ -246,6 +246,134 @@ export interface SubCategory {
   categories?: { name: string; code: string };
 }
 
+export interface CategoryTranslation {
+  id: number;
+  category_id: number;
+  language_id: number;
+  name: string;
+  description?: string | null;
+  is_new_title?: string | null;
+  image?: string | null;
+  tags?: any;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  meta_keywords?: string | null;
+  canonical_url?: string | null;
+  og_site_name?: string | null;
+  og_title?: string | null;
+  og_description?: string | null;
+  og_type?: string | null;
+  og_image?: string | null;
+  og_url?: string | null;
+  twitter_site?: string | null;
+  twitter_title?: string | null;
+  twitter_description?: string | null;
+  twitter_image?: string | null;
+  twitter_card?: string | null;
+  robots_directive?: string | null;
+  focus_keyword?: string | null;
+  structured_data?: any;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  categories?: { name: string; code: string; slug: string };
+  languages?: { name: string; native_name?: string; iso_code?: string };
+}
+
+export interface SubCategoryTranslation {
+  id: number;
+  sub_category_id: number;
+  language_id: number;
+  name: string;
+  description?: string | null;
+  is_new_title?: string | null;
+  image?: string | null;
+  tags?: any;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  meta_keywords?: string | null;
+  canonical_url?: string | null;
+  og_site_name?: string | null;
+  og_title?: string | null;
+  og_description?: string | null;
+  og_type?: string | null;
+  og_image?: string | null;
+  og_url?: string | null;
+  twitter_site?: string | null;
+  twitter_title?: string | null;
+  twitter_description?: string | null;
+  twitter_image?: string | null;
+  twitter_card?: string | null;
+  robots_directive?: string | null;
+  focus_keyword?: string | null;
+  structured_data?: any;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  sub_categories?: { name: string; code: string; slug: string; category_id: number; categories?: { name: string; code: string } };
+  languages?: { name: string; native_name?: string; iso_code?: string };
+}
+
+export interface Branch {
+  id: number;
+  country_id?: number | null;
+  state_id?: number | null;
+  city_id?: number | null;
+  branch_manager_id?: number | null;
+  name: string;
+  code: string;
+  branch_type: 'headquarters' | 'office' | 'campus' | 'remote' | 'warehouse' | 'other';
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  pincode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  google_maps_url?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  countries?: { name: string; iso2: string };
+  states?: { name: string; state_code?: string };
+  cities?: { name: string };
+  users?: { full_name: string; email: string };
+}
+
+export interface Department {
+  id: number;
+  parent_department_id?: number | null;
+  head_user_id?: number | null;
+  name: string;
+  code: string;
+  description?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  parent?: { id: number; name: string; code: string } | null;
+  head?: { full_name: string; email: string } | null;
+}
+
+export interface BranchDepartment {
+  id: number;
+  branch_id: number;
+  department_id: number;
+  local_head_user_id?: number | null;
+  employee_capacity?: number | null;
+  floor_or_wing?: string | null;
+  extension_number?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  branches?: { name: string; code: string; branch_type: string };
+  departments?: { name: string; code: string };
+  local_head?: { full_name: string; email: string } | null;
+}
+
 export interface ActivityLog {
   id: number;
   action: string;

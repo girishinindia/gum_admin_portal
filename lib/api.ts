@@ -231,6 +231,41 @@ export const api = {
   updateSubCategory: (id: number, data: any, isFormData = false) => request(`/sub-categories/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteSubCategory: (id: number) => request(`/sub-categories/${id}`, { method: 'DELETE' }),
 
+  // Category Translations
+  listCategoryTranslations: (qs = '') => request(`/category-translations${qs}`, { auth: false }),
+  getCategoryTranslation: (id: number) => request(`/category-translations/${id}`, { auth: false }),
+  createCategoryTranslation: (data: any, isFormData = false) => request('/category-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateCategoryTranslation: (id: number, data: any, isFormData = false) => request(`/category-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteCategoryTranslation: (id: number) => request(`/category-translations/${id}`, { method: 'DELETE' }),
+
+  // Sub-Category Translations
+  listSubCategoryTranslations: (qs = '') => request(`/sub-category-translations${qs}`, { auth: false }),
+  getSubCategoryTranslation: (id: number) => request(`/sub-category-translations/${id}`, { auth: false }),
+  createSubCategoryTranslation: (data: any, isFormData = false) => request('/sub-category-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateSubCategoryTranslation: (id: number, data: any, isFormData = false) => request(`/sub-category-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteSubCategoryTranslation: (id: number) => request(`/sub-category-translations/${id}`, { method: 'DELETE' }),
+
+  // Branches
+  listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
+  getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),
+  createBranch: (data: any) => request('/branches', { method: 'POST', body: JSON.stringify(data) }),
+  updateBranch: (id: number, data: any) => request(`/branches/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteBranch: (id: number) => request(`/branches/${id}`, { method: 'DELETE' }),
+
+  // Departments
+  listDepartments: (qs = '') => request(`/departments${qs}`, { auth: false }),
+  getDepartment: (id: number) => request(`/departments/${id}`, { auth: false }),
+  createDepartment: (data: any) => request('/departments', { method: 'POST', body: JSON.stringify(data) }),
+  updateDepartment: (id: number, data: any) => request(`/departments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteDepartment: (id: number) => request(`/departments/${id}`, { method: 'DELETE' }),
+
+  // Branch Departments
+  listBranchDepartments: (qs = '') => request(`/branch-departments${qs}`, { auth: false }),
+  getBranchDepartment: (id: number) => request(`/branch-departments/${id}`, { auth: false }),
+  createBranchDepartment: (data: any) => request('/branch-departments', { method: 'POST', body: JSON.stringify(data) }),
+  updateBranchDepartment: (id: number, data: any) => request(`/branch-departments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteBranchDepartment: (id: number) => request(`/branch-departments/${id}`, { method: 'DELETE' }),
+
   // Activity Logs
   authLogs: (qs = '') => request(`/activity-logs/auth${qs}`),
   adminLogs: (qs = '') => request(`/activity-logs/admin${qs}`),
