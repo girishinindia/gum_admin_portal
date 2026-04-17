@@ -189,6 +189,48 @@ export const api = {
   updateDocument: (id: number, data: any, isFormData = false) => request(`/documents/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteDocument: (id: number) => request(`/documents/${id}`, { method: 'DELETE' }),
 
+  // Designations
+  listDesignations: (levelBand?: string) => request(`/designations${levelBand ? `?level_band=${levelBand}` : ''}`, { auth: false }),
+  getDesignation: (id: number) => request(`/designations/${id}`, { auth: false }),
+  createDesignation: (data: any) => request('/designations', { method: 'POST', body: JSON.stringify(data) }),
+  updateDesignation: (id: number, data: any) => request(`/designations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteDesignation: (id: number) => request(`/designations/${id}`, { method: 'DELETE' }),
+
+  // Specializations
+  listSpecializations: (category?: string) => request(`/specializations${category ? `?category=${category}` : ''}`, { auth: false }),
+  getSpecialization: (id: number) => request(`/specializations/${id}`, { auth: false }),
+  createSpecialization: (data: any) => request('/specializations', { method: 'POST', body: JSON.stringify(data) }),
+  updateSpecialization: (id: number, data: any) => request(`/specializations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteSpecialization: (id: number) => request(`/specializations/${id}`, { method: 'DELETE' }),
+
+  // Learning Goals
+  listLearningGoals: () => request('/learning-goals', { auth: false }),
+  getLearningGoal: (id: number) => request(`/learning-goals/${id}`, { auth: false }),
+  createLearningGoal: (data: any) => request('/learning-goals', { method: 'POST', body: JSON.stringify(data) }),
+  updateLearningGoal: (id: number, data: any) => request(`/learning-goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteLearningGoal: (id: number) => request(`/learning-goals/${id}`, { method: 'DELETE' }),
+
+  // Social Medias
+  listSocialMedias: (platformType?: string) => request(`/social-medias${platformType ? `?platform_type=${platformType}` : ''}`, { auth: false }),
+  getSocialMedia: (id: number) => request(`/social-medias/${id}`, { auth: false }),
+  createSocialMedia: (data: any, isFormData = false) => request('/social-medias', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateSocialMedia: (id: number, data: any, isFormData = false) => request(`/social-medias/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteSocialMedia: (id: number) => request(`/social-medias/${id}`, { method: 'DELETE' }),
+
+  // Categories
+  listCategories: () => request('/categories', { auth: false }),
+  getCategory: (id: number) => request(`/categories/${id}`, { auth: false }),
+  createCategory: (data: any, isFormData = false) => request('/categories', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateCategory: (id: number, data: any, isFormData = false) => request(`/categories/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteCategory: (id: number) => request(`/categories/${id}`, { method: 'DELETE' }),
+
+  // Sub-Categories
+  listSubCategories: (categoryId?: number) => request(`/sub-categories${categoryId ? `?category_id=${categoryId}` : ''}`, { auth: false }),
+  getSubCategory: (id: number) => request(`/sub-categories/${id}`, { auth: false }),
+  createSubCategory: (data: any, isFormData = false) => request('/sub-categories', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateSubCategory: (id: number, data: any, isFormData = false) => request(`/sub-categories/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteSubCategory: (id: number) => request(`/sub-categories/${id}`, { method: 'DELETE' }),
+
   // Activity Logs
   authLogs: (qs = '') => request(`/activity-logs/auth${qs}`),
   adminLogs: (qs = '') => request(`/activity-logs/admin${qs}`),

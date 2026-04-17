@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavItem {
@@ -25,8 +25,14 @@ const navItems: NavItem[] = [
   { href: '/languages',        label: 'Languages',      icon: Languages },
   { href: '/education-levels', label: 'Education Levels', icon: GraduationCap },
   { href: '/document-types',  label: 'Document Types', icon: FolderOpen },
-  { href: '/documents',       label: 'Documents',      icon: FileImage },
-  { href: '/activity-logs',   label: 'Activity Logs',  icon: FileText },
+  { href: '/documents',        label: 'Documents',        icon: FileImage },
+  { href: '/designations',    label: 'Designations',    icon: Award },
+  { href: '/specializations', label: 'Specializations', icon: Compass },
+  { href: '/learning-goals',  label: 'Learning Goals',  icon: Target },
+  { href: '/social-medias',   label: 'Social Media',    icon: Share2 },
+  { href: '/categories',      label: 'Categories',      icon: LayoutGrid },
+  { href: '/sub-categories',  label: 'Sub-Categories',  icon: Layers },
+  { href: '/activity-logs',   label: 'Activity Logs',   icon: FileText },
 ];
 
 export function Sidebar() {

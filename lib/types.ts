@@ -164,6 +164,88 @@ export interface Document {
   document_types?: { name: string };
 }
 
+export interface Designation {
+  id: number;
+  name: string;
+  code?: string;
+  level: number;
+  level_band: 'intern' | 'entry' | 'mid' | 'senior' | 'lead' | 'manager' | 'director' | 'executive';
+  description?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Specialization {
+  id: number;
+  name: string;
+  category: 'technology' | 'data' | 'design' | 'business' | 'language' | 'science' | 'mathematics' | 'arts' | 'health' | 'exam_prep' | 'professional' | 'other';
+  description?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningGoal {
+  id: number;
+  name: string;
+  description?: string;
+  display_order: number;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SocialMedia {
+  id: number;
+  name: string;
+  code: string;
+  base_url?: string;
+  icon?: string | null;
+  placeholder?: string;
+  platform_type: 'social' | 'professional' | 'code' | 'video' | 'blog' | 'portfolio' | 'messaging' | 'website' | 'other';
+  display_order: number;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  code: string;
+  slug: string;
+  display_order: number;
+  image?: string | null;
+  is_new: boolean;
+  new_until?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubCategory {
+  id: number;
+  category_id: number;
+  name: string;
+  code: string;
+  slug: string;
+  display_order: number;
+  image?: string | null;
+  is_new: boolean;
+  new_until?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  categories?: { name: string; code: string };
+}
+
 export interface ActivityLog {
   id: number;
   action: string;
