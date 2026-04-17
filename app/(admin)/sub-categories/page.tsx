@@ -57,7 +57,7 @@ export default function SubCategoriesPage() {
   async function onSubmit(data: any) {
     const fd = new FormData();
     Object.keys(data).forEach(k => {
-      if (data[k] !== undefined && data[k] !== null && data[k] !== '') fd.append(k, String(data[k]));
+      if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
     });
     if (imageFile) fd.append('image', imageFile, imageFile.name);
 

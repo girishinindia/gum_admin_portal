@@ -61,9 +61,7 @@ export default function CountriesPage() {
     const fd = new FormData();
     // Append text fields
     Object.keys(data).forEach(k => {
-      if (data[k] !== undefined && data[k] !== null && data[k] !== '') {
-        fd.append(k, String(data[k]));
-      }
+      if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
     });
     // Append image file if edited
     if (imageFile) {
