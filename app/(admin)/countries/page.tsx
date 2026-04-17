@@ -22,6 +22,7 @@ export default function CountriesPage() {
   const [editing, setEditing] = useState<Country | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [dialogKey, setDialogKey] = useState(0);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -38,6 +39,7 @@ export default function CountriesPage() {
     setEditing(null);
     setImageFile(null);
     setImagePreview(null);
+    setDialogKey(k => k + 1);
     reset({ name: '', iso2: '', iso3: '', phone_code: '', nationality: '', currency: '', currency_symbol: '' });
     setDialogOpen(true);
   }
@@ -46,6 +48,7 @@ export default function CountriesPage() {
     setEditing(c);
     setImageFile(null);
     setImagePreview(null);
+    setDialogKey(k => k + 1);
     reset({
       name: c.name, iso2: c.iso2, iso3: c.iso3, phone_code: c.phone_code, nationality: c.nationality,
       currency: c.currency, currency_symbol: c.currency_symbol, currency_name: c.currency_name, tld: c.tld,
@@ -159,6 +162,7 @@ export default function CountriesPage() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Country' : 'Add Country'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           <ImageUpload
+            key={dialogKey}
             label="Flag Image"
             hint="Crop to 4:3 ratio, resized to max 200×150px WebP on server"
             value={editing?.flag_image}

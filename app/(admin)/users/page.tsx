@@ -49,6 +49,7 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [createKey, setCreateKey] = useState(0);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({ resolver: zodResolver(createSchema) });
 
@@ -124,7 +125,7 @@ export default function UsersPage() {
         description="Manage all registered users, assign roles, and view activity"
         actions={
           isSuperAdmin ? (
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button onClick={() => { setCreateKey(k => k + 1); setCreateOpen(true); }}>
               <Plus className="w-4 h-4" /> Create user
             </Button>
           ) : undefined
@@ -174,7 +175,7 @@ export default function UsersPage() {
             icon={UsersIcon}
             title="No users found"
             description="Try adjusting your filters"
-            action={isSuperAdmin ? <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Create user</Button> : undefined}
+            action={isSuperAdmin ? <Button onClick={() => { setCreateKey(k => k + 1); setCreateOpen(true); }}><Plus className="w-4 h-4" /> Create user</Button> : undefined}
           />
         ) : (
           <>
@@ -247,6 +248,7 @@ export default function UsersPage() {
       >
         <form onSubmit={handleSubmit(onCreate)} className="p-6 space-y-4">
           <ImageUpload
+            key={createKey}
             label="Profile Picture (optional)"
             hint="Crop, resize & filter. Server resizes to 300×300 WebP."
             aspectRatio={1}
