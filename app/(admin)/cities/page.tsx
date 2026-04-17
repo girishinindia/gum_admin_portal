@@ -34,7 +34,7 @@ export default function CitiesPage() {
 
   useEffect(() => { loadCountries(); }, []);
   useEffect(() => { loadStates(); }, [filterCountry]);
-  useEffect(() => { load(); }, [filterState]);
+  useEffect(() => { load(); }, [filterState, filterCountry]);
 
   async function loadCountries() {
     const res = await api.listCountries();

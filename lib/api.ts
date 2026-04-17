@@ -154,6 +154,20 @@ export const api = {
   updateCity: (id: number, data: any) => request(`/cities/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteCity: (id: number) => request(`/cities/${id}`, { method: 'DELETE' }),
 
+  // Skills
+  listSkills: (category?: string) => request(`/skills${category ? `?category=${category}` : ''}`, { auth: false }),
+  getSkill: (id: number) => request(`/skills/${id}`, { auth: false }),
+  createSkill: (data: any, isFormData = false) => request('/skills', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateSkill: (id: number, data: any, isFormData = false) => request(`/skills/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteSkill: (id: number) => request(`/skills/${id}`, { method: 'DELETE' }),
+
+  // Languages
+  listLanguages: (forMaterial?: boolean) => request(`/languages${forMaterial ? '?for_material=true' : ''}`, { auth: false }),
+  getLanguage: (id: number) => request(`/languages/${id}`, { auth: false }),
+  createLanguage: (data: any) => request('/languages', { method: 'POST', body: JSON.stringify(data) }),
+  updateLanguage: (id: number, data: any) => request(`/languages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteLanguage: (id: number) => request(`/languages/${id}`, { method: 'DELETE' }),
+
   // Activity Logs
   authLogs: (qs = '') => request(`/activity-logs/auth${qs}`),
   adminLogs: (qs = '') => request(`/activity-logs/admin${qs}`),

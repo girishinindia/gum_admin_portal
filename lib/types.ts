@@ -103,6 +103,31 @@ export interface City {
   states?: { name: string; state_code?: string; country_id: number; countries?: { name: string; iso2: string } };
 }
 
+export interface Skill {
+  id: number;
+  name: string;
+  category: 'technical' | 'soft_skill' | 'tool' | 'framework' | 'language' | 'domain' | 'certification' | 'other';
+  description?: string;
+  icon?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Language {
+  id: number;
+  name: string;
+  native_name?: string;
+  iso_code?: string;
+  script?: string;
+  for_material: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ActivityLog {
   id: number;
   action: string;
