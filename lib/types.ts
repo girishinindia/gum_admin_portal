@@ -78,6 +78,31 @@ export interface Country {
   updated_at: string;
 }
 
+export interface State {
+  id: number;
+  country_id: number;
+  name: string;
+  state_code?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  countries?: { name: string; iso2: string };
+}
+
+export interface City {
+  id: number;
+  state_id: number;
+  name: string;
+  phonecode?: string;
+  timezone?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  states?: { name: string; state_code?: string; country_id: number; countries?: { name: string; iso2: string } };
+}
+
 export interface ActivityLog {
   id: number;
   action: string;

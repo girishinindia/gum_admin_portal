@@ -140,6 +140,20 @@ export const api = {
   updateCountry: (id: number, data: any, isFormData = false) => request(`/countries/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteCountry: (id: number) => request(`/countries/${id}`, { method: 'DELETE' }),
 
+  // States
+  listStates: (countryId?: number) => request(`/states${countryId ? `?country_id=${countryId}` : ''}`, { auth: false }),
+  getState: (id: number) => request(`/states/${id}`, { auth: false }),
+  createState: (data: any) => request('/states', { method: 'POST', body: JSON.stringify(data) }),
+  updateState: (id: number, data: any) => request(`/states/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteState: (id: number) => request(`/states/${id}`, { method: 'DELETE' }),
+
+  // Cities
+  listCities: (stateId?: number) => request(`/cities${stateId ? `?state_id=${stateId}` : ''}`, { auth: false }),
+  getCity: (id: number) => request(`/cities/${id}`, { auth: false }),
+  createCity: (data: any) => request('/cities', { method: 'POST', body: JSON.stringify(data) }),
+  updateCity: (id: number, data: any) => request(`/cities/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCity: (id: number) => request(`/cities/${id}`, { method: 'DELETE' }),
+
   // Activity Logs
   authLogs: (qs = '') => request(`/activity-logs/auth${qs}`),
   adminLogs: (qs = '') => request(`/activity-logs/admin${qs}`),

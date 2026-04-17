@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, FileText, GraduationCap, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, FileText, GraduationCap, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavItem {
@@ -19,6 +19,8 @@ const navItems: NavItem[] = [
   { href: '/roles',           label: 'Roles',         icon: Shield,    superAdminOnly: true },
   { href: '/permissions',     label: 'Permissions',   icon: KeyRound,  superAdminOnly: true },
   { href: '/countries',       label: 'Countries',     icon: Globe2 },
+  { href: '/states',          label: 'States',        icon: MapPin },
+  { href: '/cities',          label: 'Cities',        icon: Building2 },
   { href: '/activity-logs',   label: 'Activity Logs', icon: FileText },
 ];
 
