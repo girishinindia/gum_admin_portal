@@ -192,10 +192,10 @@ export function ImageEditor({ file, aspectRatio, maxWidth = 800, maxHeight = 800
 
       {/* Tab buttons */}
       <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
-        <button onClick={() => setTab('crop')} className={`flex-1 py-2 text-xs font-semibold rounded-md transition-colors ${tab === 'crop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
+        <button type="button" onClick={() => setTab('crop')} className={`flex-1 py-2 text-xs font-semibold rounded-md transition-colors ${tab === 'crop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
           <Crop className="w-3.5 h-3.5 inline mr-1.5" />Crop &amp; Transform
         </button>
-        <button onClick={() => setTab('adjust')} className={`flex-1 py-2 text-xs font-semibold rounded-md transition-colors ${tab === 'adjust' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
+        <button type="button" onClick={() => setTab('adjust')} className={`flex-1 py-2 text-xs font-semibold rounded-md transition-colors ${tab === 'adjust' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
           <Sun className="w-3.5 h-3.5 inline mr-1.5" />Adjust
         </button>
       </div>
@@ -203,19 +203,19 @@ export function ImageEditor({ file, aspectRatio, maxWidth = 800, maxHeight = 800
       {tab === 'crop' && (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant={cropping ? 'primary' : 'outline'} onClick={() => { setCropping(!cropping); if (!cropping) centerCrop(); }}>
+            <Button type="button" size="sm" variant={cropping ? 'primary' : 'outline'} onClick={() => { setCropping(!cropping); if (!cropping) centerCrop(); }}>
               <Crop className="w-3.5 h-3.5" /> {cropping ? 'Drawing crop...' : 'Start crop'}
             </Button>
             {cropping && (
-              <Button size="sm" variant="outline" onClick={centerCrop}>Center crop</Button>
+              <Button type="button" size="sm" variant="outline" onClick={centerCrop}>Center crop</Button>
             )}
-            <Button size="sm" variant="outline" onClick={() => setFilters(f => ({ ...f, rotate: (f.rotate + 90) % 360 }))}>
+            <Button type="button" size="sm" variant="outline" onClick={() => setFilters(f => ({ ...f, rotate: (f.rotate + 90) % 360 }))}>
               <RotateCcw className="w-3.5 h-3.5" /> Rotate
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setFilters(f => ({ ...f, flipH: !f.flipH }))}>
+            <Button type="button" size="sm" variant="outline" onClick={() => setFilters(f => ({ ...f, flipH: !f.flipH }))}>
               <FlipHorizontal className="w-3.5 h-3.5" /> Flip H
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setFilters(f => ({ ...f, flipV: !f.flipV }))}>
+            <Button type="button" size="sm" variant="outline" onClick={() => setFilters(f => ({ ...f, flipV: !f.flipV }))}>
               <FlipVertical className="w-3.5 h-3.5" /> Flip V
             </Button>
           </div>
@@ -243,7 +243,7 @@ export function ImageEditor({ file, aspectRatio, maxWidth = 800, maxHeight = 800
               <span className="text-xs text-slate-500 w-10 text-right font-mono">{filters[key] as number}%</span>
             </div>
           ))}
-          <Button size="sm" variant="outline" onClick={resetFilters}>
+          <Button type="button" size="sm" variant="outline" onClick={resetFilters}>
             <RotateCcw className="w-3.5 h-3.5" /> Reset all
           </Button>
         </div>
@@ -257,8 +257,8 @@ export function ImageEditor({ file, aspectRatio, maxWidth = 800, maxHeight = 800
 
       {/* Actions */}
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={onCancel}><X className="w-4 h-4" /> Cancel</Button>
-        <Button onClick={handleSave}><Check className="w-4 h-4" /> Apply &amp; Use</Button>
+        <Button type="button" variant="outline" onClick={onCancel}><X className="w-4 h-4" /> Cancel</Button>
+        <Button type="button" onClick={handleSave}><Check className="w-4 h-4" /> Apply &amp; Use</Button>
       </div>
     </div>
   );
