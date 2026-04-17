@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from 'next/navigation';
-import { User, Shield, LogOut, ChevronDown, KeyRound } from 'lucide-react';
+import { User, Settings, Shield, LogOut, ChevronDown, KeyRound } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/Badge';
@@ -69,6 +69,9 @@ export function UserMenu() {
         </DropdownItem>
         <DropdownItem icon={KeyRound} onClick={() => router.push('/my-permissions')}>
           My Access &amp; Permissions
+        </DropdownItem>
+        <DropdownItem icon={Settings} onClick={() => router.push('/account-settings')}>
+          Account Settings
         </DropdownItem>
         <DropdownDivider />
         <DropdownItem icon={LogOut} danger onClick={logout}>

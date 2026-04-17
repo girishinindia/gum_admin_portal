@@ -8,6 +8,7 @@ import { UserMenu } from './UserMenu';
 const routeLabels: Record<string, string> = {
   'dashboard': 'Dashboard',
   'my-permissions': 'My Access',
+  'account-settings': 'Account Settings',
   'users': 'Users',
   'roles': 'Roles',
   'permissions': 'Permissions',

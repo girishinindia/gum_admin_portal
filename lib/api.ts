@@ -52,8 +52,23 @@ async function request<T = any>(
       res = await fetch(`${API_URL}${path}`, { ...init, headers });
     } else {
       tokens.clear();
-      if (typeof window !== 'undefined') window.location.href = '/login';
+      if (typeof window !== 'undefined') window.location.href = '/login?reason=session_expired';
     }
+  }
+
+  // Force logout on account suspension / deactivation / account not found
+  if (res.status === 403 || res.status === 401) {
+    const cloned = res.clone();
+    try {
+      const body = await cloned.json();
+      const code = body?.code;
+      if (code === 'ACCOUNT_SUSPENDED' || code === 'ACCOUNT_INACTIVE' || code === 'ACCOUNT_NOT_FOUND' || code === 'SESSION_REVOKED') {
+        tokens.clear();
+        if (typeof window !== 'undefined') {
+          window.location.href = `/login?reason=${code.toLowerCase()}`;
+        }
+      }
+    } catch {}
   }
 
   const json = await res.json().catch(() => ({ success: false, error: 'Invalid response' }));
@@ -130,4 +145,16 @@ export const api = {
   adminLogs: (qs = '') => request(`/activity-logs/admin${qs}`),
   dataLogs: (qs = '') => request(`/activity-logs/data${qs}`),
   systemLogs: (qs = '') => request(`/activity-logs/system${qs}`),
+
+  // Profile updates (logged-in user)
+  changePasswordInitiate: (data: any) => request('/profile/change-password/initiate', { method: 'POST', body: JSON.stringify(data) }),
+  changePasswordVerifyOtp: (data: any) => request('/profile/change-password/verify-otp', { method: 'POST', body: JSON.stringify(data) }),
+  changePasswordConfirm: (data: any) => request('/profile/change-password/confirm', { method: 'POST', body: JSON.stringify(data) }),
+  changePasswordResendOtp: (data: any) => request('/profile/change-password/resend-otp', { method: 'POST', body: JSON.stringify(data) }),
+  updateEmailInitiate: (data: any) => request('/profile/update-email/initiate', { method: 'POST', body: JSON.stringify(data) }),
+  updateEmailVerifyOtp: (data: any) => request('/profile/update-email/verify-otp', { method: 'POST', body: JSON.stringify(data) }),
+  updateEmailResendOtp: (data: any) => request('/profile/update-email/resend-otp', { method: 'POST', body: JSON.stringify(data) }),
+  updateMobileInitiate: (data: any) => request('/profile/update-mobile/initiate', { method: 'POST', body: JSON.stringify(data) }),
+  updateMobileVerifyOtp: (data: any) => request('/profile/update-mobile/verify-otp', { method: 'POST', body: JSON.stringify(data) }),
+  updateMobileResendOtp: (data: any) => request('/profile/update-mobile/resend-otp', { method: 'POST', body: JSON.stringify(data) }),
 };
