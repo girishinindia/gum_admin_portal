@@ -15,6 +15,7 @@ import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api } from '@/lib/api';
 import { formatDate, initials } from '@/lib/utils';
 import { toast } from '@/components/ui/Toast';
@@ -47,8 +48,7 @@ export default function UsersPage() {
   const [status, setStatus] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarBlob, setAvatarBlob] = useState<Blob | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({ resolver: zodResolver(createSchema) });
 
@@ -83,23 +83,9 @@ export default function UsersPage() {
     if (res.success) setRoles(res.data || []);
   }
 
-  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAvatarFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setAvatarPreview(reader.result as string);
-    reader.readAsDataURL(file);
-  }
-
-  function clearAvatar() {
-    setAvatarFile(null);
-    setAvatarPreview(null);
-  }
-
   function resetDialog() {
     reset();
-    clearAvatar();
+    setAvatarBlob(null);
   }
 
   async function onCreate(data: any) {
@@ -112,7 +98,7 @@ export default function UsersPage() {
     fd.append('password', data.password);
     fd.append('locale', data.locale || 'en');
     if (data.role_id) fd.append('role_id', String(data.role_id));
-    if (avatarFile) fd.append('avatar', avatarFile);
+    if (avatarBlob) fd.append('avatar', avatarBlob, 'avatar.webp');
 
     const res = await api.createUser(fd, true);
     setCreating(false);
@@ -260,46 +246,15 @@ export default function UsersPage() {
         size="lg"
       >
         <form onSubmit={handleSubmit(onCreate)} className="p-6 space-y-4">
-          {/* Avatar upload */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Profile Picture (optional)</label>
-            <label className="flex items-center gap-4 p-3 border-2 border-dashed border-slate-200 rounded-lg hover:border-brand-300 cursor-pointer transition-colors">
-              {avatarPreview ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={avatarPreview} alt="Preview" className="w-14 h-14 rounded-full object-cover flex-shrink-0 ring-2 ring-brand-100" />
-              ) : (
-                <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                  <UserIcon className="w-6 h-6 text-slate-400" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                {avatarFile ? (
-                  <>
-                    <div className="text-sm font-medium text-slate-900 truncate">{avatarFile.name}</div>
-                    <div className="text-xs text-slate-500">{(avatarFile.size / 1024).toFixed(1)} KB · Will resize to 300×300 WebP</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                      <Upload className="w-4 h-4" /> Click to upload image
-                    </div>
-                    <div className="text-xs text-slate-500 mt-0.5">Auto-resized to 300×300 WebP, stored on Bunny CDN</div>
-                  </>
-                )}
-              </div>
-              {avatarFile && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); clearAvatar(); }}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
-                  title="Remove"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-            </label>
-          </div>
+          <ImageUpload
+            label="Profile Picture (optional)"
+            hint="Crop, resize & filter. Server resizes to 300×300 WebP."
+            aspectRatio={1}
+            maxWidth={600}
+            maxHeight={600}
+            shape="circle"
+            onChange={(blob) => setAvatarBlob(blob)}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div className="relative">

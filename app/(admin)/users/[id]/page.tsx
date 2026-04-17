@@ -41,7 +41,8 @@ export default function UserDetailPage() {
 
   // Target is super admin if max level >= 100
   const targetIsSuperAdmin = user?.max_role_level >= 100;
-  const cannotModify = targetIsSuperAdmin && !isSelf; // Protect other super admins
+  const cannotModify = targetIsSuperAdmin && !isSelf; // Protect other super admins (for status changes)
+  const cannotModifyRoles = isSelf || cannotModify;   // Nobody can change their own role
 
   async function updateStatus(status: string) {
     const res = await api.updateUser(+id!, { status });
@@ -59,8 +60,8 @@ export default function UserDetailPage() {
     const role = roles.find((r: any) => r.name === roleName);
     if (!role) return;
     // Extra client-side guard — server also enforces this
-    if (role.level >= 100 && cannotModify) {
-      return toast.error('Cannot revoke super admin role from another super admin');
+    if (cannotModifyRoles) {
+      return toast.error(isSelf ? 'Cannot change your own role' : 'Cannot revoke super admin role');
     }
     if (!confirm(`Revoke ${roleName} role?`)) return;
     const res = await api.revokeUserRole(+id!, role.id);
@@ -161,13 +162,13 @@ export default function UserDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Roles</CardTitle>
-              {isSuperAdmin && !cannotModify ? (
+              {isSuperAdmin && !cannotModifyRoles ? (
                 <Button size="sm" variant="secondary" onClick={() => setRoleDialogOpen(true)} disabled={availableRoles.length === 0}>
                   <Plus className="w-4 h-4" /> Assign
                 </Button>
               ) : (
                 <span className="text-xs text-slate-400 inline-flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> {cannotModify ? 'Super admin — locked' : 'Super admin only'}
+                  <Lock className="w-3 h-3" /> {isSelf ? 'Cannot change own role' : cannotModify ? 'Super admin — locked' : 'Super admin only'}
                 </span>
               )}
             </div>
@@ -178,7 +179,7 @@ export default function UserDetailPage() {
             ) : (
               <div className="space-y-2">
                 {user.roles?.map((r: any) => {
-                  const isProtectedSuperAdminRole = r.level >= 100 && cannotModify;
+                  
                   return (
                     <div key={r.role} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50">
                       <div className="flex items-center gap-3">
@@ -190,7 +191,7 @@ export default function UserDetailPage() {
                           <div className="text-xs text-slate-500">Level {r.level}</div>
                         </div>
                       </div>
-                      {isSuperAdmin && !isProtectedSuperAdminRole && (
+                      {isSuperAdmin && !cannotModifyRoles && r.level < 100 && (
                         <button onClick={() => revokeRole(r.role)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Revoke role">
                           <X className="w-4 h-4" />
                         </button>

@@ -9,9 +9,10 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Globe2, Upload, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Globe2, Trash2, Edit2 } from 'lucide-react';
 import type { Country } from '@/lib/types';
 
 export default function CountriesPage() {
@@ -19,7 +20,8 @@ export default function CountriesPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Country | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -34,14 +36,16 @@ export default function CountriesPage() {
 
   function openCreate() {
     setEditing(null);
-    setFile(null);
+    setImageBlob(null);
+    setImagePreview(null);
     reset({ name: '', iso2: '', iso3: '', phone_code: '', nationality: '', currency: '', currency_symbol: '' });
     setDialogOpen(true);
   }
 
   function openEdit(c: Country) {
     setEditing(c);
-    setFile(null);
+    setImageBlob(null);
+    setImagePreview(null);
     reset({
       name: c.name, iso2: c.iso2, iso3: c.iso3, phone_code: c.phone_code, nationality: c.nationality,
       currency: c.currency, currency_symbol: c.currency_symbol, currency_name: c.currency_name, tld: c.tld,
@@ -53,7 +57,7 @@ export default function CountriesPage() {
   async function onSubmit(data: any) {
     const fd = new FormData();
     Object.keys(data).forEach(k => { if (data[k]) fd.append(k, data[k]); });
-    if (file) fd.append('flag_image', file);
+    if (imageBlob) fd.append('flag_image', imageBlob, 'flag.webp');
 
     const res = editing
       ? await api.updateCountry(editing.id, fd, true)
@@ -87,22 +91,22 @@ export default function CountriesPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="Countries"
-        description="Manage countries list, currencies, and flag images"
+        description="Manage countries, currencies, and flag images"
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add country</Button>}
       />
 
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
       ) : countries.length === 0 ? (
-        <EmptyState icon={Globe2} title="No countries yet" description="Add your first country to get started" action={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add country</Button>} />
+        <EmptyState icon={Globe2} title="No countries yet" description="Add your first country" action={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add country</Button>} />
       ) : (
         <div className="grid gap-3">
           {countries.map(c => (
             <Card key={c.id} className="p-4 hover:shadow-card-hover transition-all">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-10 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0">
+                <div className="w-14 h-10 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
                   {c.flag_image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={c.flag_image} alt={c.name} className="w-full h-full object-cover" />
                   ) : (
                     <Globe2 className="w-5 h-5 text-slate-400" />
@@ -116,9 +120,7 @@ export default function CountriesPage() {
                     {!c.is_active && <Badge variant="danger">Inactive</Badge>}
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
-                    {c.phone_code && `${c.phone_code} · `}
-                    {c.nationality && `${c.nationality} · `}
-                    {c.national_language}
+                    {c.phone_code && `${c.phone_code} · `}{c.nationality && `${c.nationality} · `}{c.national_language}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -138,8 +140,19 @@ export default function CountriesPage() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Country' : 'Add Country'} description="Upload a flag image to auto-convert to WebP" size="lg">
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Country' : 'Add Country'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+          <ImageUpload
+            label="Flag Image"
+            hint="Crop to 4:3 ratio, resized to max 200×150px WebP on server"
+            value={editing?.flag_image}
+            aspectRatio={4 / 3}
+            maxWidth={800}
+            maxHeight={600}
+            shape="rounded"
+            onChange={(blob, preview) => { setImageBlob(blob); setImagePreview(preview); }}
+          />
+
           <div className="grid grid-cols-2 gap-3">
             <Input label="Name" placeholder="United States" {...register('name', { required: true })} />
             <Input label="Nationality" placeholder="American" {...register('nationality')} />
@@ -156,28 +169,6 @@ export default function CountriesPage() {
           </div>
           <Input label="Currency Name" placeholder="US Dollar" {...register('currency_name')} />
           <Input label="National Language" placeholder="English" {...register('national_language')} />
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Flag image (optional)</label>
-            <label className="flex items-center gap-3 p-4 border-2 border-dashed border-slate-200 rounded-lg hover:border-brand-300 cursor-pointer transition-colors">
-              <Upload className="w-5 h-5 text-slate-400" />
-              <div className="flex-1">
-                {file ? (
-                  <div className="text-sm text-slate-900">{file.name} <span className="text-slate-500">({(file.size / 1024).toFixed(1)}KB)</span></div>
-                ) : editing?.flag_image ? (
-                  <div className="flex items-center gap-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={editing.flag_image} alt="" className="w-8 h-6 object-cover rounded" />
-                    <span className="text-sm text-slate-500">Current flag (upload to replace)</span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-slate-500">Click to upload or drag & drop</span>
-                )}
-              </div>
-              <input type="file" accept="image/*" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
-            </label>
-            <p className="text-xs text-slate-500 mt-1.5">Auto-converted to WebP 200×150 and uploaded to Bunny CDN.</p>
-          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
