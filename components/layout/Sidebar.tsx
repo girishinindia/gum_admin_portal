@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavItem {
@@ -22,8 +22,11 @@ const navItems: NavItem[] = [
   { href: '/states',          label: 'States',        icon: MapPin },
   { href: '/cities',          label: 'Cities',        icon: Building2 },
   { href: '/skills',          label: 'Skills',        icon: Sparkles },
-  { href: '/languages',       label: 'Languages',     icon: Languages },
-  { href: '/activity-logs',   label: 'Activity Logs', icon: FileText },
+  { href: '/languages',        label: 'Languages',      icon: Languages },
+  { href: '/education-levels', label: 'Education Levels', icon: GraduationCap },
+  { href: '/document-types',  label: 'Document Types', icon: FolderOpen },
+  { href: '/documents',       label: 'Documents',      icon: FileImage },
+  { href: '/activity-logs',   label: 'Activity Logs',  icon: FileText },
 ];
 
 export function Sidebar() {

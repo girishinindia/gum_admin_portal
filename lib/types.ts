@@ -128,6 +128,42 @@ export interface Language {
   updated_at: string;
 }
 
+export interface EducationLevel {
+  id: number;
+  name: string;
+  abbreviation?: string;
+  level_order: number;
+  level_category: 'pre_school' | 'school' | 'diploma' | 'undergraduate' | 'postgraduate' | 'doctoral' | 'professional' | 'informal' | 'other';
+  description?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DocumentType {
+  id: number;
+  name: string;
+  description?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Document {
+  id: number;
+  document_type_id: number;
+  name: string;
+  description?: string;
+  file_url?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  document_types?: { name: string };
+}
+
 export interface ActivityLog {
   id: number;
   action: string;

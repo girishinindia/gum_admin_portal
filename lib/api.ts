@@ -168,6 +168,27 @@ export const api = {
   updateLanguage: (id: number, data: any) => request(`/languages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteLanguage: (id: number) => request(`/languages/${id}`, { method: 'DELETE' }),
 
+  // Education Levels
+  listEducationLevels: (category?: string) => request(`/education-levels${category ? `?level_category=${category}` : ''}`, { auth: false }),
+  getEducationLevel: (id: number) => request(`/education-levels/${id}`, { auth: false }),
+  createEducationLevel: (data: any) => request('/education-levels', { method: 'POST', body: JSON.stringify(data) }),
+  updateEducationLevel: (id: number, data: any) => request(`/education-levels/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteEducationLevel: (id: number) => request(`/education-levels/${id}`, { method: 'DELETE' }),
+
+  // Document Types
+  listDocumentTypes: () => request('/document-types', { auth: false }),
+  getDocumentType: (id: number) => request(`/document-types/${id}`, { auth: false }),
+  createDocumentType: (data: any) => request('/document-types', { method: 'POST', body: JSON.stringify(data) }),
+  updateDocumentType: (id: number, data: any) => request(`/document-types/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteDocumentType: (id: number) => request(`/document-types/${id}`, { method: 'DELETE' }),
+
+  // Documents
+  listDocuments: (typeId?: number) => request(`/documents${typeId ? `?document_type_id=${typeId}` : ''}`, { auth: false }),
+  getDocument: (id: number) => request(`/documents/${id}`, { auth: false }),
+  createDocument: (data: any, isFormData = false) => request('/documents', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateDocument: (id: number, data: any, isFormData = false) => request(`/documents/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteDocument: (id: number) => request(`/documents/${id}`, { method: 'DELETE' }),
+
   // Activity Logs
   authLogs: (qs = '') => request(`/activity-logs/auth${qs}`),
   adminLogs: (qs = '') => request(`/activity-logs/admin${qs}`),
