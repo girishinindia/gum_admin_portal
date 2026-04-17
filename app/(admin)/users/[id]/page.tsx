@@ -41,8 +41,10 @@ export default function UserDetailPage() {
 
   // Target is super admin if max level >= 100
   const targetIsSuperAdmin = user?.max_role_level >= 100;
-  const cannotModify = targetIsSuperAdmin && !isSelf; // Protect other super admins (for status changes)
-  const cannotModifyRoles = isSelf || cannotModify;   // Nobody can change their own role
+  // No user can change their own status (suspend/deactivate). Another super admin can.
+  const cannotModifyStatus = isSelf;
+  // Nobody can change their own role
+  const cannotModifyRoles = isSelf;
 
   async function updateStatus(status: string) {
     const res = await api.updateUser(+id!, { status });
@@ -61,7 +63,7 @@ export default function UserDetailPage() {
     if (!role) return;
     // Extra client-side guard — server also enforces this
     if (cannotModifyRoles) {
-      return toast.error(isSelf ? 'Cannot change your own role' : 'Cannot revoke super admin role');
+      return toast.error('Cannot change your own role');
     }
     if (!confirm(`Revoke ${roleName} role?`)) return;
     const res = await api.revokeUserRole(+id!, role.id);
@@ -82,7 +84,7 @@ export default function UserDetailPage() {
 
   // Action buttons based on current status
   const statusActions: React.ReactNode[] = [];
-  if (isSuperAdmin && !cannotModify) {
+  if (isSuperAdmin && !cannotModifyStatus) {
     if (user.status === 'active') {
       statusActions.push(
         <Button key="deact" variant="outline" onClick={() => confirm('Deactivate this user?') && updateStatus('inactive')}>
@@ -143,9 +145,9 @@ export default function UserDetailPage() {
                   </Badge>
                 ))}
               </div>
-              {cannotModify && (
+              {isSelf && isSuperAdmin && (
                 <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 inline-flex items-center gap-1.5">
-                  <Lock className="w-3 h-3" /> Super admin — actions locked
+                  <Lock className="w-3 h-3" /> You cannot change your own status or roles
                 </div>
               )}
             </div>
@@ -168,7 +170,7 @@ export default function UserDetailPage() {
                 </Button>
               ) : (
                 <span className="text-xs text-slate-400 inline-flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> {isSelf ? 'Cannot change own role' : cannotModify ? 'Super admin — locked' : 'Super admin only'}
+                  <Lock className="w-3 h-3" /> {isSelf ? 'Cannot change own role' : 'Super admin only'}
                 </span>
               )}
             </div>
@@ -208,7 +210,7 @@ export default function UserDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Active Sessions</CardTitle>
-              {sessions.length > 0 && isSuperAdmin && !cannotModify && (
+              {sessions.length > 0 && isSuperAdmin && (
                 <Button size="sm" variant="outline" onClick={async () => {
                   if (!confirm('Revoke all sessions?')) return;
                   const r = await api.revokeAllSessions(+id!);
