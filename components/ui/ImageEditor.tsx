@@ -154,10 +154,16 @@ export function ImageEditor({ file, aspectRatio, maxWidth = 800, maxHeight = 800
     ctx.drawImage(img, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
     ctx.restore();
 
-    const mime = outputFormat === 'png' ? 'image/png' : outputFormat === 'jpeg' ? 'image/jpeg' : 'image/webp';
+    // Use PNG for universal browser support (server converts to WebP via Sharp anyway)
+    const mime = 'image/png';
+    const previewUrl = offscreen.toDataURL(mime, 0.95);
     offscreen.toBlob(blob => {
-      if (blob) onSave(blob, offscreen.toDataURL(mime, 0.9));
-    }, mime, 0.9);
+      if (blob) {
+        // Convert Blob to File for reliable FormData upload
+        const file = new File([blob], `edited-${Date.now()}.png`, { type: mime });
+        onSave(file, previewUrl);
+      }
+    }, mime, 0.95);
   }
 
   function resetFilters() { setFilters({ ...DEFAULT_FILTERS }); }

@@ -20,7 +20,7 @@ export default function CountriesPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Country | null>(null);
-  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const { register, handleSubmit, reset } = useForm();
@@ -36,7 +36,7 @@ export default function CountriesPage() {
 
   function openCreate() {
     setEditing(null);
-    setImageBlob(null);
+    setImageFile(null);
     setImagePreview(null);
     reset({ name: '', iso2: '', iso3: '', phone_code: '', nationality: '', currency: '', currency_symbol: '' });
     setDialogOpen(true);
@@ -44,7 +44,7 @@ export default function CountriesPage() {
 
   function openEdit(c: Country) {
     setEditing(c);
-    setImageBlob(null);
+    setImageFile(null);
     setImagePreview(null);
     reset({
       name: c.name, iso2: c.iso2, iso3: c.iso3, phone_code: c.phone_code, nationality: c.nationality,
@@ -56,8 +56,24 @@ export default function CountriesPage() {
 
   async function onSubmit(data: any) {
     const fd = new FormData();
-    Object.keys(data).forEach(k => { if (data[k]) fd.append(k, data[k]); });
-    if (imageBlob) fd.append('flag_image', imageBlob, 'flag.webp');
+    // Append text fields
+    Object.keys(data).forEach(k => {
+      if (data[k] !== undefined && data[k] !== null && data[k] !== '') {
+        fd.append(k, String(data[k]));
+      }
+    });
+    // Append image file if edited
+    if (imageFile) {
+      fd.append('flag_image', imageFile, imageFile.name);
+      console.log('[Countries] Uploading flag:', imageFile.name, imageFile.size, 'bytes', imageFile.type);
+    }
+
+    // Debug: log all FormData entries
+    if (typeof window !== 'undefined') {
+      for (const [key, val] of fd.entries()) {
+        console.log(`[FormData] ${key}:`, val instanceof File ? `File(${val.name}, ${val.size}b, ${val.type})` : val);
+      }
+    }
 
     const res = editing
       ? await api.updateCountry(editing.id, fd, true)
@@ -150,7 +166,7 @@ export default function CountriesPage() {
             maxWidth={800}
             maxHeight={600}
             shape="rounded"
-            onChange={(blob, preview) => { setImageBlob(blob); setImagePreview(preview); }}
+            onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }}
           />
 
           <div className="grid grid-cols-2 gap-3">

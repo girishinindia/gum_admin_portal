@@ -48,7 +48,7 @@ export default function UsersPage() {
   const [status, setStatus] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [avatarBlob, setAvatarBlob] = useState<Blob | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({ resolver: zodResolver(createSchema) });
 
@@ -85,7 +85,7 @@ export default function UsersPage() {
 
   function resetDialog() {
     reset();
-    setAvatarBlob(null);
+    setAvatarFile(null);
   }
 
   async function onCreate(data: any) {
@@ -98,7 +98,7 @@ export default function UsersPage() {
     fd.append('password', data.password);
     fd.append('locale', data.locale || 'en');
     if (data.role_id) fd.append('role_id', String(data.role_id));
-    if (avatarBlob) fd.append('avatar', avatarBlob, 'avatar.webp');
+    if (avatarFile) fd.append('avatar', avatarFile);
 
     const res = await api.createUser(fd, true);
     setCreating(false);
@@ -253,7 +253,7 @@ export default function UsersPage() {
             maxWidth={600}
             maxHeight={600}
             shape="circle"
-            onChange={(blob) => setAvatarBlob(blob)}
+            onChange={(file) => setAvatarFile(file)}
           />
 
           <div className="grid grid-cols-2 gap-3">

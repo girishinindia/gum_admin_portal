@@ -2,20 +2,30 @@
 import { useState, useRef } from 'react';
 import { Dialog } from './Dialog';
 import { ImageEditor } from './ImageEditor';
-import { Upload, X, Edit2, User } from 'lucide-react';
+import { Upload, X, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ImageUploadProps {
   label?: string;
   hint?: string;
-  value?: string | null;            // existing image URL (for edit mode)
-  aspectRatio?: number;              // lock aspect ratio in editor
-  maxWidth?: number;                 // max output width
-  maxHeight?: number;                // max output height
-  shape?: 'rounded' | 'circle';     // preview shape
+  value?: string | null;
+  aspectRatio?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  shape?: 'rounded' | 'circle';
   placeholder?: React.ReactNode;
   className?: string;
-  onChange: (blob: Blob | null, preview: string | null) => void;
+  onChange: (file: File | null, preview: string | null) => void;
+}
+
+// Convert a data URL to a proper File object (most reliable for FormData upload)
+function dataUrlToFile(dataUrl: string, fileName: string): File {
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+  const bstr = atob(arr[1]);
+  const u8arr = new Uint8Array(bstr.length);
+  for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
+  return new File([u8arr], fileName, { type: mime });
 }
 
 export function ImageUpload({
@@ -34,15 +44,17 @@ export function ImageUpload({
     setRawFile(f);
     setFileName(f.name);
     setEditorOpen(true);
-    // Reset input so same file can be re-selected
     if (inputRef.current) inputRef.current.value = '';
   }
 
-  function handleEditorSave(blob: Blob, previewUrl: string) {
-    setPreview(previewUrl);
+  function handleEditorSave(_blob: Blob, previewDataUrl: string) {
+    // Convert data URL → File (most reliable way to ensure multer receives the file)
+    const editedFile = dataUrlToFile(previewDataUrl, `edited-${Date.now()}.png`);
+    setPreview(previewDataUrl);
     setEditorOpen(false);
     setRawFile(null);
-    onChange(blob, previewUrl);
+    setFileName(editedFile.name);
+    onChange(editedFile, previewDataUrl);
   }
 
   function handleEditorCancel() {
@@ -76,7 +88,6 @@ export function ImageUpload({
         'flex items-center gap-4 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all',
         'border-slate-200 hover:border-brand-300 hover:bg-brand-50/30',
       )}>
-        {/* Preview / Placeholder */}
         <div className={cn(
           'flex items-center justify-center flex-shrink-0 overflow-hidden bg-slate-100 border border-slate-200',
           isCircle ? 'w-16 h-16 rounded-full' : 'w-20 h-14 rounded-lg',
@@ -89,7 +100,6 @@ export function ImageUpload({
           )}
         </div>
 
-        {/* Text */}
         <div className="flex-1 min-w-0">
           {hasImage ? (
             <>
@@ -101,14 +111,11 @@ export function ImageUpload({
               <div className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
                 <Upload className="w-4 h-4" /> Click to upload image
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
-                Crop, resize &amp; filter before upload
-              </div>
+              <div className="text-xs text-slate-500 mt-0.5">Crop, resize &amp; filter before upload</div>
             </>
           )}
         </div>
 
-        {/* Action buttons */}
         {hasImage && (
           <div className="flex gap-1 flex-shrink-0">
             <button type="button" onClick={handleReEdit} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Replace">
@@ -125,14 +132,7 @@ export function ImageUpload({
 
       {hint && <p className="text-xs text-slate-500 mt-1.5">{hint}</p>}
 
-      {/* Image Editor Dialog */}
-      <Dialog
-        open={editorOpen}
-        onClose={handleEditorCancel}
-        title="Edit Image"
-        description="Crop, rotate, flip, and adjust before uploading"
-        size="xl"
-      >
+      <Dialog open={editorOpen} onClose={handleEditorCancel} title="Edit Image" description="Crop, rotate, flip, and adjust before uploading" size="xl">
         <div className="p-5">
           {rawFile && (
             <ImageEditor
