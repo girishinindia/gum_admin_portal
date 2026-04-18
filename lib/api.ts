@@ -283,4 +283,10 @@ export const api = {
   updateMobileInitiate: (data: any) => request('/profile/update-mobile/initiate', { method: 'POST', body: JSON.stringify(data) }),
   updateMobileVerifyOtp: (data: any) => request('/profile/update-mobile/verify-otp', { method: 'POST', body: JSON.stringify(data) }),
   updateMobileResendOtp: (data: any) => request('/profile/update-mobile/resend-otp', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Table Summary
+  getTableSummary: (tableName: string) => request(`/table-summary?table_name=${tableName}`, { auth: false }),
+  listTableSummaries: () => request('/table-summary', { auth: false }),
+  syncTableSummary: (tableName: string) => request(`/table-summary/sync/${tableName}`, { method: 'POST' }),
+  syncAllTableSummaries: () => request('/table-summary/sync', { method: 'POST' }),
 };

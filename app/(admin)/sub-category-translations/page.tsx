@@ -28,6 +28,10 @@ export default function SubCategoryTranslationsPage() {
   const [editing, setEditing] = useState<SubCategoryTranslation | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [ogImageFile, setOgImageFile] = useState<File | null>(null);
+  const [ogImagePreview, setOgImagePreview] = useState<string | null>(null);
+  const [twitterImageFile, setTwitterImageFile] = useState<File | null>(null);
+  const [twitterImagePreview, setTwitterImagePreview] = useState<string | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
   const [filterSubCategory, setFilterSubCategory] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
@@ -114,7 +118,7 @@ export default function SubCategoryTranslationsPage() {
   }
 
   function openCreate() {
-    setEditing(null); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
+    setEditing(null); setImageFile(null); setImagePreview(null); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
     reset({
       sub_category_id: subCategories[0]?.id || '', language_id: languages[0]?.id || '',
       name: '', description: '', is_new_title: '', tags: '',
@@ -128,7 +132,7 @@ export default function SubCategoryTranslationsPage() {
   }
 
   function openEdit(item: SubCategoryTranslation) {
-    setEditing(item); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
+    setEditing(item); setImageFile(null); setImagePreview(null); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
     const tags = Array.isArray(item.tags) ? item.tags.join(', ') : '';
     const sd = item.structured_data ? JSON.stringify(item.structured_data, null, 2) : '[]';
     reset({
@@ -156,6 +160,8 @@ export default function SubCategoryTranslationsPage() {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
     });
     if (imageFile) fd.append('image', imageFile, imageFile.name);
+    if (ogImageFile) fd.append('og_image_file', ogImageFile, ogImageFile.name);
+    if (twitterImageFile) fd.append('twitter_image_file', twitterImageFile, twitterImageFile.name);
 
     const res = editing
       ? await api.updateSubCategoryTranslation(editing.id, fd, true)
@@ -303,7 +309,23 @@ export default function SubCategoryTranslationsPage() {
               </div>
               <Input label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
               <Input label="Canonical URL" placeholder="https://..." {...register('canonical_url')} />
-              <Input label="Robots Directive" placeholder="index,follow" {...register('robots_directive')} />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Robots Directive</label>
+                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  {...register('robots_directive')}>
+                  <option value="index,follow">index, follow (default)</option>
+                  <option value="noindex,follow">noindex, follow</option>
+                  <option value="index,nofollow">index, nofollow</option>
+                  <option value="noindex,nofollow">noindex, nofollow</option>
+                  <option value="noindex">noindex</option>
+                  <option value="nofollow">nofollow</option>
+                  <option value="none">none</option>
+                  <option value="noarchive">noarchive</option>
+                  <option value="nosnippet">nosnippet</option>
+                  <option value="noimageindex">noimageindex</option>
+                  <option value="noarchive,nosnippet">noarchive, nosnippet</option>
+                </select>
+              </div>
               <Input label="Focus Keyword" placeholder="Primary SEO keyword" {...register('focus_keyword')} />
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -333,7 +355,10 @@ export default function SubCategoryTranslationsPage() {
                 <Input label="OG Type" placeholder="website" {...register('og_type')} />
                 <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
               </div>
-              <Input label="OG Image URL" placeholder="https://..." {...register('og_image')} />
+              <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200x630px. Upload or enter URL below"
+                value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }} />
+              <Input label="Or enter OG Image URL manually" placeholder="https://..." {...register('og_image')} />
             </div>
           )}
 
@@ -347,7 +372,10 @@ export default function SubCategoryTranslationsPage() {
                 <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
                   placeholder="Twitter card description..." {...register('twitter_description')} />
               </div>
-              <Input label="Twitter Image URL" placeholder="https://..." {...register('twitter_image')} />
+              <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200x600px. Upload or enter URL below"
+                value={editing?.twitter_image} aspectRatio={1200 / 600} maxWidth={1200} maxHeight={600} shape="rounded"
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />
+              <Input label="Or enter Twitter Image URL manually" placeholder="https://..." {...register('twitter_image')} />
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Twitter Card Type</label>
                 <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
