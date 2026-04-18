@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import Script from 'next/script';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -12,9 +13,10 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
+import { MultiLangField, initMLIFields, setMLILanguage } from '@/components/ui/MultiLangField';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookOpen, Trash2, Edit2, Globe, Wand2, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, BookOpen, Trash2, Edit2, Globe, Wand2, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Mic } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { CategoryTranslation, Category, Language } from '@/lib/types';
 
@@ -49,10 +51,124 @@ export default function CategoryTranslationsPage() {
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number } | null>(null);
   const [showTrash, setShowTrash] = useState(false);
 
-  const { register, handleSubmit, reset, setValue, getValues } = useForm();
+  const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
+  const [mliReady, setMliReady] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formMode, setFormMode] = useState<'new' | 'existing'>('new');
 
   const SITE_URL = 'https://growupmore.com';
   const SITE_NAME = 'GrowUpMore';
+
+  // Track the selected language in the form and derive its ISO code for MultiLangInput
+  const watchedLangId = watch('language_id');
+  const selectedLangCode = useMemo(() => {
+    if (!watchedLangId || languages.length === 0) return 'en';
+    const lang = languages.find(l => String(l.id) === String(watchedLangId));
+    return lang?.iso_code || 'en';
+  }, [watchedLangId, languages]);
+
+  // Field IDs per tab for MultiLangInput initialisation
+  const MLI_FIELDS: Record<string, string[]> = {
+    'Content':    ['ct-name', 'ct-description', 'ct-is-new-title', 'ct-tags'],
+    'SEO Meta':   ['ct-meta-title', 'ct-meta-desc', 'ct-meta-kw', 'ct-focus-kw'],
+    'Open Graph': ['ct-og-title', 'ct-og-desc'],
+    'Twitter':    ['ct-tw-title', 'ct-tw-desc'],
+  };
+
+  // Initialise MultiLangInput on fields when: dialog opens, tab switches, or script loads
+  useEffect(() => {
+    if (!dialogOpen || !mliReady) return;
+    const fields = MLI_FIELDS[activeTab] || [];
+    // Wait for Dialog animation + DOM paint
+    const timer = setTimeout(() => initMLIFields(fields, selectedLangCode), 250);
+    return () => clearTimeout(timer);
+  }, [dialogOpen, activeTab, mliReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update language on ALL initialised fields when the language selector changes
+  useEffect(() => {
+    if (!dialogOpen || !mliReady) return;
+    const allFields = Object.values(MLI_FIELDS).flat();
+    setMLILanguage(allFields, selectedLangCode);
+  }, [selectedLangCode, dialogOpen, mliReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Auto-fetch translation when category or language changes ───
+  const watchedCatId = watch('category_id');
+  const skipAutoFetchRef = useRef(false);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    // Skip the very first render after openCreate/openEdit — those already set the form
+    if (skipAutoFetchRef.current) {
+      skipAutoFetchRef.current = false;
+      return;
+    }
+    if (!watchedCatId || !watchedLangId) return;
+
+    let cancelled = false;
+    const fetchTranslation = async () => {
+      setFormLoading(true);
+      const qs = `?category_id=${watchedCatId}&language_id=${watchedLangId}&limit=1`;
+      const res = await api.listCategoryTranslations(qs);
+      if (cancelled) return;
+
+      if (res.success && res.data && res.data.length > 0) {
+        // Existing translation found — populate form
+        const item = res.data[0] as CategoryTranslation;
+        const tags = Array.isArray(item.tags) ? item.tags.join(', ') : '';
+        const sd = item.structured_data ? JSON.stringify(item.structured_data, null, 2) : '[]';
+        setEditing(item);
+        setFormMode('existing');
+        // Keep the current category_id and language_id (user chose them)
+        setValue('name', item.name || '');
+        setValue('description', item.description || '');
+        setValue('is_new_title', item.is_new_title || '');
+        setValue('tags', tags);
+        setValue('meta_title', item.meta_title || '');
+        setValue('meta_description', item.meta_description || '');
+        setValue('meta_keywords', item.meta_keywords || '');
+        setValue('canonical_url', item.canonical_url || '');
+        setValue('og_title', item.og_title || '');
+        setValue('og_description', item.og_description || '');
+        setValue('og_image', item.og_image || '');
+        setValue('og_url', item.og_url || '');
+        setValue('twitter_title', item.twitter_title || '');
+        setValue('twitter_description', item.twitter_description || '');
+        setValue('twitter_image', item.twitter_image || '');
+        setValue('focus_keyword', item.focus_keyword || '');
+        setValue('structured_data', sd);
+        setOgImagePreview(null); setOgImageFile(null);
+        setTwitterImagePreview(null); setTwitterImageFile(null);
+        toast.info(`Loaded existing ${languages.find(l => String(l.id) === String(watchedLangId))?.name || ''} translation`);
+      } else {
+        // No translation exists — clear to blank for new entry
+        setEditing(null);
+        setFormMode('new');
+        setValue('name', '');
+        setValue('description', '');
+        setValue('is_new_title', '');
+        setValue('tags', '');
+        setValue('meta_title', '');
+        setValue('meta_description', '');
+        setValue('meta_keywords', '');
+        setValue('canonical_url', '');
+        setValue('og_title', '');
+        setValue('og_description', '');
+        setValue('og_image', '');
+        setValue('og_url', '');
+        setValue('twitter_title', '');
+        setValue('twitter_description', '');
+        setValue('twitter_image', '');
+        setValue('focus_keyword', '');
+        setValue('structured_data', '[]');
+        setOgImagePreview(null); setOgImageFile(null);
+        setTwitterImagePreview(null); setTwitterImageFile(null);
+      }
+      setFormLoading(false);
+    };
+
+    const timer = setTimeout(fetchTranslation, 150);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [watchedCatId, watchedLangId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleGenerateSD() {
     const v = getValues();
@@ -138,7 +254,8 @@ export default function CategoryTranslationsPage() {
   }
 
   function openCreate() {
-    setEditing(null); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
+    skipAutoFetchRef.current = true;
+    setEditing(null); setFormMode('new'); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
     reset({
       category_id: categories[0]?.id || '', language_id: languages[0]?.id || '',
       name: '', description: '', is_new_title: '', tags: '',
@@ -151,7 +268,8 @@ export default function CategoryTranslationsPage() {
   }
 
   function openEdit(item: CategoryTranslation) {
-    setEditing(item); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
+    skipAutoFetchRef.current = true;
+    setEditing(item); setFormMode('existing'); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
     const tags = Array.isArray(item.tags) ? item.tags.join(', ') : '';
     const sd = item.structured_data ? JSON.stringify(item.structured_data, null, 2) : '[]';
     reset({
@@ -232,6 +350,11 @@ export default function CategoryTranslationsPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* Multi-Language Input: transliteration + speech-to-text */}
+      <Script src="/js/multi-lang-input.js" strategy="afterInteractive" onLoad={() => setMliReady(true)} />
+      {/* eslint-disable-next-line @next/next/no-css-tags */}
+      <link rel="stylesheet" href="/css/multi-lang-input.css" />
+
       <PageHeader title="Category Translations" description="Manage multi-language translations for categories"
         actions={!showTrash ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button> : undefined} />
 
@@ -366,6 +489,14 @@ export default function CategoryTranslationsPage() {
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Category Translation' : 'Add Category Translation'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+          {/* Mode badge */}
+          <div className="flex items-center gap-2">
+            <Badge variant={formMode === 'existing' ? 'info' : 'success'}>
+              {formMode === 'existing' ? 'Editing existing translation' : 'New translation'}
+            </Badge>
+            {formLoading && <span className="text-xs text-slate-400 animate-pulse">Loading translation...</span>}
+          </div>
+
           {/* Tabs */}
           <div className="flex gap-1 border-b border-slate-200 pb-0">
             {TABS.map(tab => (
@@ -388,36 +519,34 @@ export default function CategoryTranslationsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Language</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Language <Mic className="w-3 h-3 inline text-slate-400 ml-1" /></label>
                   <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     {...register('language_id', { required: true })}>
                     {languages.map(l => <option key={l.id} value={l.id}>{l.name}{l.native_name ? ` (${l.native_name})` : ''}</option>)}
                   </select>
                 </div>
               </div>
-              <Input label="Translated Name" placeholder="Category name in target language" {...register('name', { required: true })} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
-                  placeholder="Translated description..." {...register('description')} />
-              </div>
-              <Input label="New Badge Title" placeholder="Custom 'New' label" {...register('is_new_title')} />
-              <Input label="Tags" placeholder="tag1, tag2, tag3 (comma-separated)" {...register('tags')} />
+              {selectedLangCode !== 'en' && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-700">
+                  <Mic className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>Transliteration &amp; speech-to-text active — type in English, press <strong>Space</strong> to auto-convert. Click <strong>SPEAK</strong> to dictate.</span>
+                </div>
+              )}
+              <MultiLangField id="ct-name" label="Translated Name" placeholder="Category name in target language" {...register('name', { required: true })} />
+              <MultiLangField id="ct-description" label="Description" placeholder="Translated description..." multiline {...register('description')} />
+              <MultiLangField id="ct-is-new-title" label="New Badge Title" placeholder="Custom 'New' label" {...register('is_new_title')} />
+              <MultiLangField id="ct-tags" label="Tags" placeholder="tag1, tag2, tag3 (comma-separated)" {...register('tags')} />
             </div>
           )}
 
           {/* SEO Meta Tab */}
           {activeTab === 'SEO Meta' && (
             <div className="space-y-4">
-              <Input label="Meta Title" placeholder="SEO title" {...register('meta_title')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Meta Description</label>
-                <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
-                  placeholder="SEO description..." {...register('meta_description')} />
-              </div>
-              <Input label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
+              <MultiLangField id="ct-meta-title" label="Meta Title" placeholder="SEO title" {...register('meta_title')} />
+              <MultiLangField id="ct-meta-desc" label="Meta Description" placeholder="SEO description..." multiline {...register('meta_description')} />
+              <MultiLangField id="ct-meta-kw" label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
               <Input label="Canonical URL" placeholder="https://..." {...register('canonical_url')} />
-              <Input label="Focus Keyword" placeholder="Primary SEO keyword" {...register('focus_keyword')} />
+              <MultiLangField id="ct-focus-kw" label="Focus Keyword" placeholder="Primary SEO keyword" {...register('focus_keyword')} />
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-medium text-slate-700">Structured Data (JSON-LD)</label>
@@ -435,12 +564,8 @@ export default function CategoryTranslationsPage() {
           {/* Open Graph Tab */}
           {activeTab === 'Open Graph' && (
             <div className="space-y-4">
-              <Input label="OG Title" placeholder="Open Graph title" {...register('og_title')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">OG Description</label>
-                <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
-                  placeholder="Open Graph description..." {...register('og_description')} />
-              </div>
+              <MultiLangField id="ct-og-title" label="OG Title" placeholder="Open Graph title" {...register('og_title')} />
+              <MultiLangField id="ct-og-desc" label="OG Description" placeholder="Open Graph description..." multiline {...register('og_description')} />
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
               <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200x630px. Upload or enter URL below"
                 value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
@@ -452,12 +577,8 @@ export default function CategoryTranslationsPage() {
           {/* Twitter Tab */}
           {activeTab === 'Twitter' && (
             <div className="space-y-4">
-              <Input label="Twitter Title" placeholder="Twitter card title" {...register('twitter_title')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Twitter Description</label>
-                <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
-                  placeholder="Twitter card description..." {...register('twitter_description')} />
-              </div>
+              <MultiLangField id="ct-tw-title" label="Twitter Title" placeholder="Twitter card title" {...register('twitter_title')} />
+              <MultiLangField id="ct-tw-desc" label="Twitter Description" placeholder="Twitter card description..." multiline {...register('twitter_description')} />
               <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200x600px. Upload or enter URL below"
                 value={editing?.twitter_image} aspectRatio={1200 / 600} maxWidth={1200} maxHeight={600} shape="rounded"
                 onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />
@@ -467,7 +588,7 @@ export default function CategoryTranslationsPage() {
 
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">{editing ? 'Save changes' : 'Create'}</Button>
+            <Button type="submit" disabled={formLoading}>{editing ? 'Save changes' : 'Create'}</Button>
           </div>
         </form>
       </Dialog>

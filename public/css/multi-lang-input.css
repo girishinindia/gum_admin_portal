@@ -1,0 +1,410 @@
+/**
+ * Multi-Language Input Component Styles
+ * Version 2.0
+ */
+
+/* Variables */
+:root {
+    --mli-primary: #4f46e5;
+    --mli-primary-light: #818cf8;
+    --mli-danger: #ef4444;
+    --mli-success: #10b981;
+    --mli-surface: #ffffff;
+    --mli-border: #e2e8f0;
+    --mli-text: #1e293b;
+    --mli-text-muted: #64748b;
+    --mli-radius: 8px;
+}
+
+/* Wrapper */
+.mli-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+/* Input Row */
+.mli-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+/* Input Field */
+.mli-input {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 15px;
+    line-height: 1.5;
+    border-radius: var(--mli-radius);
+    border: 1px solid var(--mli-border);
+    background: var(--mli-surface);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mli-input:focus {
+    outline: none;
+    border-color: var(--mli-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.mli-input::placeholder {
+    color: #94a3b8;
+}
+
+/* Textarea */
+textarea.mli-input {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* Mic Button */
+.mli-mic-btn {
+    width: 54px;
+    min-width: 54px;
+    border-radius: var(--mli-radius);
+    border: 1px solid var(--mli-border);
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    transition: all 0.15s ease;
+    padding: 8px 4px;
+}
+
+.mli-mic-btn:hover {
+    border-color: var(--mli-primary);
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+}
+
+.mli-mic-btn.recording {
+    border-color: var(--mli-danger);
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    animation: mli-mic-pulse 1.5s infinite;
+}
+
+@keyframes mli-mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+.mli-mic-btn svg {
+    width: 20px;
+    height: 20px;
+    color: var(--mli-text-muted);
+    transition: color 0.15s ease;
+}
+
+.mli-mic-btn:hover svg {
+    color: var(--mli-primary);
+}
+
+.mli-mic-btn.recording svg {
+    color: var(--mli-danger);
+}
+
+.mli-mic-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--mli-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.mli-mic-btn:hover .mli-mic-label {
+    color: var(--mli-primary);
+}
+
+.mli-mic-btn.recording .mli-mic-label {
+    color: var(--mli-danger);
+}
+
+/* Speech Status Bar */
+.mli-speech-status {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border: 1px solid #fecaca;
+    border-radius: var(--mli-radius);
+    margin-top: 8px;
+    font-size: 13px;
+    color: #991b1b;
+}
+
+.mli-speech-status.show {
+    display: flex;
+    animation: mli-slideDown 0.2s ease;
+}
+
+@keyframes mli-slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.mli-speech-icon {
+    font-size: 18px;
+    animation: mli-pulse-icon 1s infinite;
+}
+
+@keyframes mli-pulse-icon {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+.mli-speech-text {
+    flex: 1;
+}
+
+.mli-speech-lang {
+    color: #dc2626;
+}
+
+.mli-interim {
+    color: #7f1d1d;
+    font-style: italic;
+    margin-left: 8px;
+}
+
+.mli-stop-btn {
+    padding: 6px 14px;
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.mli-stop-btn:hover {
+    background: #b91c1c;
+}
+
+/* Popup */
+.mli-popup {
+    position: absolute;
+    z-index: 10000;
+    background: var(--mli-surface);
+    border: 1px solid var(--mli-border);
+    border-radius: var(--mli-radius);
+    box-shadow: 0 10px 40px -10px rgba(0,0,0,0.25);
+    min-width: 220px;
+    max-width: 350px;
+    display: none;
+    overflow: hidden;
+}
+
+.mli-popup.show {
+    display: block;
+    animation: mli-popupShow 0.15s ease;
+}
+
+@keyframes mli-popupShow {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Popup Header */
+.mli-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid var(--mli-border);
+}
+
+.mli-popup-lang-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mli-popup-lang {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--mli-primary);
+}
+
+.mli-popup-native {
+    font-size: 12px;
+    color: var(--mli-text-muted);
+}
+
+.mli-popup-hint {
+    font-size: 10px;
+    color: var(--mli-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.mli-key-hint {
+    background: #e2e8f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 9px;
+    color: #475569;
+}
+
+/* Popup Items */
+.mli-popup-items {
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.mli-popup-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.1s ease;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.mli-popup-item:last-child {
+    border-bottom: none;
+}
+
+.mli-popup-item:hover {
+    background: #f8fafc;
+}
+
+.mli-popup-item.active {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-left: 3px solid var(--mli-primary);
+    padding-left: 11px;
+}
+
+.mli-item-text {
+    font-size: 16px;
+    color: var(--mli-text);
+    font-weight: 500;
+}
+
+.mli-item-key {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    color: var(--mli-text-muted);
+    min-width: 24px;
+    text-align: center;
+}
+
+.mli-popup-item.active .mli-item-key {
+    background: var(--mli-primary);
+    color: white;
+}
+
+/* English Option */
+.mli-english-option {
+    background: #fffbeb;
+    border-top: 1px dashed #fcd34d;
+}
+
+.mli-english-option .mli-item-text {
+    color: #92400e;
+}
+
+.mli-english-option .mli-item-key {
+    background: #fbbf24;
+    color: #78350f;
+}
+
+.mli-english-option:hover,
+.mli-english-option.active {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.mli-english-option.active {
+    border-left-color: #f59e0b;
+}
+
+/* Scrollbar */
+.mli-popup-items::-webkit-scrollbar {
+    width: 6px;
+}
+
+.mli-popup-items::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.mli-popup-items::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.mli-popup-items::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .mli-mic-btn {
+        width: 48px;
+        min-width: 48px;
+    }
+    
+    .mli-mic-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+    
+    .mli-mic-label {
+        font-size: 7px;
+    }
+    
+    .mli-popup {
+        max-width: calc(100vw - 40px);
+    }
+    
+    .mli-popup-hint {
+        display: none;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .mli-popup {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    
+    .mli-popup-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border-color: #334155;
+    }
+    
+    .mli-popup-item {
+        border-color: #334155;
+    }
+    
+    .mli-popup-item:hover,
+    .mli-popup-item.active {
+        background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%);
+    }
+    
+    .mli-item-text {
+        color: #e2e8f0;
+    }
+    
+    .mli-item-key {
+        background: #334155;
+        color: #94a3b8;
+    }
+    
+    .mli-popup-item.active .mli-item-key {
+        background: var(--mli-primary);
+        color: white;
+    }
+}
