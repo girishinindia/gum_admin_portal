@@ -21,8 +21,8 @@ import { api } from '@/lib/api';
 import { formatDate, initials } from '@/lib/utils';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Users as UsersIcon, Mail, Phone, Lock, User as UserIcon, Eye, Edit2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, Users as UsersIcon, Mail, Phone, Lock, User as UserIcon, Eye, Edit2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
+import { cn, fromNow } from '@/lib/utils';
 import type { User, Role } from '@/lib/types';
 
 const createSchema = z.object({
@@ -60,7 +60,8 @@ export default function UsersPage() {
   const [status, setStatus] = useState('');
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number; updated_at: string } | null>(null);
+  const [showTrash, setShowTrash] = useState(false);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({ resolver: zodResolver(createSchema) });
 
@@ -70,7 +71,7 @@ export default function UsersPage() {
   }, [searchParams]);
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(1); }, [searchDebounce, status, pageSize]);
+  useEffect(() => { setPage(1); }, [searchDebounce, status, pageSize, showTrash]);
 
   useEffect(() => {
     api.getTableSummary('users').then(res => {
@@ -78,7 +79,7 @@ export default function UsersPage() {
     });
   }, []);
 
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, status, sortField, sortOrder]);
+  useEffect(() => { load(); }, [searchDebounce, page, pageSize, status, sortField, sortOrder, showTrash]);
   useEffect(() => { if (isSuperAdmin) loadRoles(); }, [isSuperAdmin]);
 
   async function load() {
@@ -86,8 +87,12 @@ export default function UsersPage() {
     const qs = new URLSearchParams();
     qs.set('page', String(page)); qs.set('limit', String(pageSize));
     if (searchDebounce) qs.set('search', searchDebounce);
-    if (status) qs.set('status', status);
     qs.set('sort', sortField); qs.set('order', sortOrder);
+    if (showTrash) {
+      qs.set('show_deleted', 'true');
+    } else {
+      if (status) qs.set('status', status);
+    }
     const res = await api.listUsers(`?${qs}`);
     if (res.success && Array.isArray(res.data)) {
       setUsers(res.data);
@@ -140,6 +145,26 @@ export default function UsersPage() {
     else toast.error(res.error || 'Failed to create user');
   }
 
+  async function onSoftDelete(u: User) {
+    if (!confirm(`Move "${u.full_name}" to trash? Their sessions will be revoked.`)) return;
+    const res = await api.deleteUser(u.id);
+    if (res.success) { toast.success('User moved to trash'); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onRestore(u: User) {
+    const res = await api.restoreUser(u.id);
+    if (res.success) { toast.success(`"${u.full_name}" restored`); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onPermanentDelete(u: User) {
+    if (!confirm(`PERMANENTLY delete "${u.full_name}"? This cannot be undone.`)) return;
+    const res = await api.permanentDeleteUser(u.id);
+    if (res.success) { toast.success('User permanently deleted'); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
   const statusBadge = (s: string) => {
     const map: any = { active: 'success', inactive: 'muted', suspended: 'danger' };
     return <Badge variant={map[s] || 'default'}>{s}</Badge>;
@@ -150,14 +175,20 @@ export default function UsersPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader title="Users" description="Manage all registered users, assign roles, and view activity"
-        actions={isSuperAdmin ? <Button onClick={() => { setCreateKey(k => k + 1); setCreateOpen(true); }}><Plus className="w-4 h-4" /> Create user</Button> : undefined} />
+        actions={
+          <div className="flex items-center gap-2">
+            {isSuperAdmin && !showTrash && <Button onClick={() => { setCreateKey(k => k + 1); setCreateOpen(true); }}><Plus className="w-4 h-4" /> Create user</Button>}
+          </div>
+        }
+      />
 
       {summary && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-4 gap-4 mb-5">
           {[
             { label: 'Total Users', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
             { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
             { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+            { label: 'In Trash', value: summary.is_deleted, icon: Trash2, color: 'bg-amber-50 text-amber-600' },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -175,37 +206,82 @@ export default function UsersPage() {
         </div>
       )}
 
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search by name, email, or mobile...">
-        <select className={selectClass} value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-          <option value="suspended">Suspended</option>
-        </select>
+      {/* Trash toggle tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+        <button
+          onClick={() => setShowTrash(false)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          Users
+        </button>
+        <button
+          onClick={() => setShowTrash(true)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5',
+            showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Trash
+          {summary && summary.is_deleted > 0 && (
+            <span className={cn(
+              'ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold',
+              showTrash ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+            )}>
+              {summary.is_deleted}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search by name, email, or mobile...'}>
+        {!showTrash && (
+          <select className={selectClass} value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
+          </select>
+        )}
       </DataToolbar>
+
+      {showTrash && (
+        <div className="mt-3 mb-1 flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Users in trash can be restored or permanently deleted. Permanent deletion cannot be undone.</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
       ) : users.length === 0 ? (
-        <EmptyState icon={UsersIcon} title="No users found" description="Try adjusting your filters"
-          action={isSuperAdmin ? <Button onClick={() => { setCreateKey(k => k + 1); setCreateOpen(true); }}><Plus className="w-4 h-4" /> Create user</Button> : undefined} />
+        <EmptyState
+          icon={showTrash ? Trash2 : UsersIcon}
+          title={showTrash ? 'Trash is empty' : 'No users found'}
+          description={showTrash ? 'No deleted users' : 'Try adjusting your filters'}
+          action={!showTrash && isSuperAdmin ? <Button onClick={() => { setCreateKey(k => k + 1); setCreateOpen(true); }}><Plus className="w-4 h-4" /> Create user</Button> : undefined}
+        />
       ) : (
-        <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH><button onClick={() => handleSort('full_name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">User <SortIcon field="full_name" /></button></TH>
                 <TH><button onClick={() => handleSort('email')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Contact <SortIcon field="email" /></button></TH>
+                {showTrash && <TH>Deleted</TH>}
                 <TH><button onClick={() => handleSort('status')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="status" /></button></TH>
-                <TH>Last Login</TH>
-                <TH><button onClick={() => handleSort('created_at')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Joined <SortIcon field="created_at" /></button></TH>
+                {!showTrash && <TH>Last Login</TH>}
+                {!showTrash && <TH><button onClick={() => handleSort('created_at')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Joined <SortIcon field="created_at" /></button></TH>}
                 <TH className="text-right">Actions</TH>
               </TR>
             </THead>
             <TBody>
               {users.map(u => (
-                <TR key={u.id}>
+                <TR key={u.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{u.id}</span></TD>
                   <TD className="py-2.5">
                     <div className="flex items-center gap-3">
@@ -213,7 +289,7 @@ export default function UsersPage() {
                         {u.avatar_url ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" /> : initials(u.full_name)}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-medium text-slate-900 text-sm truncate">{u.full_name}</div>
+                        <div className={cn('font-medium text-sm truncate', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{u.full_name}</div>
                         {u.display_name && <div className="text-[11px] text-slate-400">{u.display_name}</div>}
                       </div>
                     </div>
@@ -222,13 +298,48 @@ export default function UsersPage() {
                     <div className="text-sm text-slate-700 truncate max-w-[200px]">{u.email}</div>
                     <div className="text-xs text-slate-400">{u.mobile}</div>
                   </TD>
-                  <TD className="py-2.5">{statusBadge(u.status)}</TD>
-                  <TD className="py-2.5 text-sm text-slate-500">{u.last_login_at ? formatDate(u.last_login_at, 'MMM D') : '—'}</TD>
-                  <TD className="py-2.5 text-sm text-slate-500">{formatDate(u.created_at, 'MMM D, YYYY')}</TD>
+                  {showTrash && (
+                    <TD className="py-2.5">
+                      <span className="text-xs text-amber-600">{u.deleted_at ? fromNow(u.deleted_at) : '—'}</span>
+                    </TD>
+                  )}
+                  <TD className="py-2.5">
+                    {showTrash ? (
+                      <Badge variant="warning">Deleted</Badge>
+                    ) : (
+                      statusBadge(u.status)
+                    )}
+                  </TD>
+                  {!showTrash && <TD className="py-2.5 text-sm text-slate-500">{u.last_login_at ? formatDate(u.last_login_at, 'MMM D') : '—'}</TD>}
+                  {!showTrash && <TD className="py-2.5 text-sm text-slate-500">{formatDate(u.created_at, 'MMM D, YYYY')}</TD>}
                   <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openView(u)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
-                      <Link href={`/users/${u.id}`}><button className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button></Link>
+                      {showTrash ? (
+                        <>
+                          <button onClick={() => onRestore(u)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onPermanentDelete(u)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => openView(u)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <Link href={`/users/${u.id}`}>
+                            <button className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          </Link>
+                          {isSuperAdmin && me?.id !== u.id && (
+                            <button onClick={() => onSoftDelete(u)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
                   </TD>
                 </TR>

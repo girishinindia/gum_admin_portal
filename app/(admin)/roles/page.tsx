@@ -18,8 +18,8 @@ import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Shield, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, Shield, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { cn, fromNow } from '@/lib/utils';
 import type { Role } from '@/lib/types';
 
 const schema = z.object({
@@ -48,12 +48,13 @@ export default function RolesPage() {
   const [searchDebounce, setSearchDebounce] = useState('');
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number; updated_at: string } | null>(null);
+  const [showTrash, setShowTrash] = useState(false);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm({ resolver: zodResolver(schema) });
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(1); }, [searchDebounce, filterStatus, pageSize]);
+  useEffect(() => { setPage(1); }, [searchDebounce, filterStatus, pageSize, showTrash]);
 
   useEffect(() => {
     api.getTableSummary('roles').then(res => {
@@ -69,11 +70,12 @@ export default function RolesPage() {
       return;
     }
     load();
-  }, [authLoading, isSuperAdmin, router]);
+  }, [authLoading, isSuperAdmin, router, showTrash]);
 
   async function load() {
     setLoading(true);
-    const res = await api.listRoles();
+    const qs = showTrash ? '?show_deleted=true' : '';
+    const res = await api.listRoles(qs);
     if (res.success) setAllItems(res.data || []);
     setLoading(false);
   }
@@ -95,7 +97,7 @@ export default function RolesPage() {
       );
     }
 
-    if (filterStatus !== '') {
+    if (!showTrash && filterStatus !== '') {
       const isActive = filterStatus === 'true';
       filtered = filtered.filter(r => r.is_active === isActive);
     }
@@ -142,11 +144,24 @@ export default function RolesPage() {
     else toast.error(res.error || 'Failed');
   }
 
-  async function onDelete(role: Role) {
+  async function onSoftDelete(role: Role) {
     if (role.is_system) return toast.error('Cannot delete system role');
-    if (!confirm(`Delete role "${role.display_name}"?`)) return;
+    if (!confirm(`Move "${role.display_name}" to trash? You can restore it later.`)) return;
     const res = await api.deleteRole(role.id);
-    if (res.success) { toast.success('Role deleted'); load(); refreshSummary(); }
+    if (res.success) { toast.success('Role moved to trash'); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onRestore(role: Role) {
+    const res = await api.restoreRole(role.id);
+    if (res.success) { toast.success(`"${role.display_name}" restored`); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onPermanentDelete(role: Role) {
+    if (!confirm(`PERMANENTLY delete "${role.display_name}"? This cannot be undone.`)) return;
+    const res = await api.permanentDeleteRole(role.id);
+    if (res.success) { toast.success('Role permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -167,15 +182,20 @@ export default function RolesPage() {
       <PageHeader
         title="Roles"
         description="Manage role hierarchy and their permissions"
-        actions={<Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Create role</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            {!showTrash && <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Create role</Button>}
+          </div>
+        }
       />
 
       {summary && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-4 gap-4 mb-5">
           {[
             { label: 'Total Roles', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
             { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
             { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+            { label: 'In Trash', value: summary.is_deleted, icon: Trash2, color: 'bg-amber-50 text-amber-600' },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -193,22 +213,65 @@ export default function RolesPage() {
         </div>
       )}
 
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search roles...">
-        <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">All Status</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
+      {/* Trash toggle tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+        <button
+          onClick={() => setShowTrash(false)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          Roles
+        </button>
+        <button
+          onClick={() => setShowTrash(true)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5',
+            showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Trash
+          {summary && summary.is_deleted > 0 && (
+            <span className={cn(
+              'ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold',
+              showTrash ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+            )}>
+              {summary.is_deleted}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search roles...'}>
+        {!showTrash && (
+          <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="">All Status</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        )}
       </DataToolbar>
+
+      {showTrash && (
+        <div className="mt-3 mb-1 flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Roles in trash can be restored or permanently deleted. Permanent deletion cannot be undone.</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
       ) : paginatedItems.length === 0 ? (
-        <EmptyState icon={Shield} title="No roles found"
-          description={searchDebounce || filterStatus ? 'No roles match your filters' : 'Create your first role'}
-          action={!searchDebounce && !filterStatus ? <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Create role</Button> : undefined} />
+        <EmptyState
+          icon={showTrash ? Trash2 : Shield}
+          title={showTrash ? 'Trash is empty' : 'No roles found'}
+          description={showTrash ? 'No deleted roles' : (searchDebounce || filterStatus ? 'No roles match your filters' : 'Create your first role')}
+          action={!showTrash && !searchDebounce && !filterStatus ? <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Create role</Button> : undefined}
+        />
       ) : (
-        <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
@@ -216,28 +279,61 @@ export default function RolesPage() {
                 <TH><button onClick={() => handleSort('display_name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Display Name <SortIcon field="display_name" /></button></TH>
                 <TH><button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Name <SortIcon field="name" /></button></TH>
                 <TH><button onClick={() => handleSort('level')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Level <SortIcon field="level" /></button></TH>
-                <TH>System</TH>
+                {!showTrash && <TH>System</TH>}
+                {showTrash && <TH>Deleted</TH>}
                 <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="is_active" /></button></TH>
                 <TH className="text-right">Actions</TH>
               </TR>
             </THead>
             <TBody>
               {paginatedItems.map(r => (
-                <TR key={r.id}>
+                <TR key={r.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{r.id}</span></TD>
-                  <TD className="py-2.5"><span className="font-medium text-slate-900">{r.display_name}</span></TD>
+                  <TD className="py-2.5"><span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{r.display_name}</span></TD>
                   <TD className="py-2.5"><code className="text-xs text-slate-500 font-mono bg-slate-50 px-2 py-1 rounded">{r.name}</code></TD>
                   <TD className="py-2.5"><span className="text-slate-600">{r.level}</span></TD>
-                  <TD className="py-2.5">{r.is_system ? <Badge variant="info">Yes</Badge> : <span className="text-slate-400">—</span>}</TD>
-                  <TD className="py-2.5"><Badge variant={r.is_active ? 'success' : 'danger'}>{r.is_active ? 'Active' : 'Inactive'}</Badge></TD>
+                  {!showTrash && (
+                    <TD className="py-2.5">{r.is_system ? <Badge variant="info">Yes</Badge> : <span className="text-slate-400">—</span>}</TD>
+                  )}
+                  {showTrash && (
+                    <TD className="py-2.5">
+                      <span className="text-xs text-amber-600">{r.deleted_at ? fromNow(r.deleted_at) : '—'}</span>
+                    </TD>
+                  )}
+                  <TD className="py-2.5">
+                    {showTrash ? (
+                      <Badge variant="warning">Deleted</Badge>
+                    ) : (
+                      <Badge variant={r.is_active ? 'success' : 'danger'}>{r.is_active ? 'Active' : 'Inactive'}</Badge>
+                    )}
+                  </TD>
                   <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => setViewing(r)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
-                      <Link href={`/roles/${r.id}`}>
-                        <button className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                      </Link>
-                      {!r.is_system && (
-                        <button onClick={() => onDelete(r)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                      {showTrash ? (
+                        <>
+                          <button onClick={() => onRestore(r)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onPermanentDelete(r)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => setViewing(r)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <Link href={`/roles/${r.id}`}>
+                            <button className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          </Link>
+                          {!r.is_system && (
+                            <button onClick={() => onSoftDelete(r)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </TD>

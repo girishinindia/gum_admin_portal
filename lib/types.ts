@@ -23,6 +23,7 @@ export interface User {
   last_login_method?: string;
   login_count: number;
   created_at: string;
+  deleted_at?: string | null;
   roles?: Array<{ role: string; display_name: string; level: number }>;
   max_role_level?: number;
 }
@@ -37,6 +38,7 @@ export interface Role {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   permissions?: RolePermission[];
 }
 
@@ -350,6 +352,7 @@ export interface Branch {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   countries?: { name: string; iso2: string };
   states?: { name: string; state_code?: string };
   cities?: { name: string };
@@ -367,6 +370,7 @@ export interface Department {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   parent?: { id: number; name: string; code: string } | null;
   head?: { full_name: string; email: string } | null;
 }
@@ -383,6 +387,7 @@ export interface BranchDepartment {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   branches?: { name: string; code: string; branch_type: string };
   departments?: { name: string; code: string };
   local_head?: { full_name: string; email: string } | null;

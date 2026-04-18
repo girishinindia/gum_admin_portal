@@ -113,17 +113,22 @@ export const api = {
   createUser: (data: any, isFormData = false) => request('/users', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   getUser: (id: number) => request(`/users/${id}`),
   updateUser: (id: number, data: any, isFormData = false) => request(`/users/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteUser: (id: number) => request(`/users/${id}`, { method: 'DELETE' }),
+  restoreUser: (id: number) => request(`/users/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteUser: (id: number) => request(`/users/${id}/permanent`, { method: 'DELETE' }),
   assignUserRole: (id: number, data: any) => request(`/users/${id}/roles`, { method: 'POST', body: JSON.stringify(data) }),
   revokeUserRole: (id: number, roleId: number) => request(`/users/${id}/roles/${roleId}`, { method: 'DELETE' }),
   getUserSessions: (id: number) => request(`/users/${id}/sessions`),
   revokeAllSessions: (id: number) => request(`/users/${id}/revoke-sessions`, { method: 'POST' }),
 
   // Roles
-  listRoles: () => request('/roles'),
+  listRoles: (qs = '') => request(`/roles${qs}`),
   getRole: (id: number) => request(`/roles/${id}`),
   createRole: (data: any) => request('/roles', { method: 'POST', body: JSON.stringify(data) }),
   updateRole: (id: number, data: any) => request(`/roles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteRole: (id: number) => request(`/roles/${id}`, { method: 'DELETE' }),
+  restoreRole: (id: number) => request(`/roles/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteRole: (id: number) => request(`/roles/${id}/permanent`, { method: 'DELETE' }),
   getRolePermissions: (id: number) => request(`/roles/${id}/permissions`),
   assignBulkPermissions: (id: number, permission_ids: number[]) => request(`/roles/${id}/permissions/bulk`, { method: 'POST', body: JSON.stringify({ permission_ids }) }),
   revokeRolePermission: (id: number, pid: number) => request(`/roles/${id}/permissions/${pid}`, { method: 'DELETE' }),
@@ -279,6 +284,8 @@ export const api = {
   createBranch: (data: any) => request('/branches', { method: 'POST', body: JSON.stringify(data) }),
   updateBranch: (id: number, data: any) => request(`/branches/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteBranch: (id: number) => request(`/branches/${id}`, { method: 'DELETE' }),
+  restoreBranch: (id: number) => request(`/branches/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteBranch: (id: number) => request(`/branches/${id}/permanent`, { method: 'DELETE' }),
 
   // Departments
   listDepartments: (qs = '') => request(`/departments${qs}`, { auth: false }),
@@ -286,6 +293,8 @@ export const api = {
   createDepartment: (data: any) => request('/departments', { method: 'POST', body: JSON.stringify(data) }),
   updateDepartment: (id: number, data: any) => request(`/departments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteDepartment: (id: number) => request(`/departments/${id}`, { method: 'DELETE' }),
+  restoreDepartment: (id: number) => request(`/departments/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteDepartment: (id: number) => request(`/departments/${id}/permanent`, { method: 'DELETE' }),
 
   // Branch Departments
   listBranchDepartments: (qs = '') => request(`/branch-departments${qs}`, { auth: false }),
@@ -293,6 +302,8 @@ export const api = {
   createBranchDepartment: (data: any) => request('/branch-departments', { method: 'POST', body: JSON.stringify(data) }),
   updateBranchDepartment: (id: number, data: any) => request(`/branch-departments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteBranchDepartment: (id: number) => request(`/branch-departments/${id}`, { method: 'DELETE' }),
+  restoreBranchDepartment: (id: number) => request(`/branch-departments/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteBranchDepartment: (id: number) => request(`/branch-departments/${id}/permanent`, { method: 'DELETE' }),
 
   // Activity Logs
   authLogs: (qs = '') => request(`/activity-logs/auth${qs}`),
