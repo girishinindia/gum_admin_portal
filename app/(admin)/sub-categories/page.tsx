@@ -18,7 +18,7 @@ import { Plus, Layers, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, Chec
 import { cn, fromNow } from '@/lib/utils';
 import type { SubCategory, Category } from '@/lib/types';
 
-type SortField = 'id' | 'name' | 'code' | 'display_order' | 'is_active';
+type SortField = 'id' | 'code' | 'display_order' | 'is_active';
 
 export default function SubCategoriesPage() {
   const [items, setItems] = useState<SubCategory[]>([]);
@@ -123,7 +123,7 @@ export default function SubCategoriesPage() {
     setImageFile(null);
     setImagePreview(null);
     setDialogKey(k => k + 1);
-    reset({ category_id: categories[0]?.id || '', name: '', code: '', slug: '', display_order: 0, is_new: false, new_until: '' });
+    reset({ category_id: categories[0]?.id || '', code: '', slug: '', display_order: 0, is_new: false, new_until: '', og_site_name: '', og_type: '', twitter_site: '', twitter_card: '', robots_directive: '' });
     setDialogOpen(true);
   }
 
@@ -132,7 +132,7 @@ export default function SubCategoriesPage() {
     setImageFile(null);
     setImagePreview(null);
     setDialogKey(k => k + 1);
-    reset({ category_id: sc.category_id, name: sc.name, code: sc.code, slug: sc.slug, display_order: sc.display_order, is_new: sc.is_new, new_until: sc.new_until || '' });
+    reset({ category_id: sc.category_id, code: sc.code, slug: sc.slug, display_order: sc.display_order, is_new: sc.is_new, new_until: sc.new_until || '', og_site_name: sc.og_site_name || '', og_type: sc.og_type || '', twitter_site: sc.twitter_site || '', twitter_card: sc.twitter_card || '', robots_directive: sc.robots_directive || '' });
     setDialogOpen(true);
   }
 
@@ -162,7 +162,7 @@ export default function SubCategoriesPage() {
   }
 
   async function onSoftDelete(sc: SubCategory) {
-    if (!confirm(`Move "${sc.name}" to trash? You can restore it later.`)) return;
+    if (!confirm(`Move "${sc.code}" to trash? You can restore it later.`)) return;
     const res = await api.deleteSubCategory(sc.id);
     if (res.success) { toast.success('Sub-category moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
@@ -170,12 +170,12 @@ export default function SubCategoriesPage() {
 
   async function onRestore(sc: SubCategory) {
     const res = await api.restoreSubCategory(sc.id);
-    if (res.success) { toast.success(`"${sc.name}" restored`); load(); refreshSummary(); }
+    if (res.success) { toast.success(`"${sc.code}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(sc: SubCategory) {
-    if (!confirm(`PERMANENTLY delete "${sc.name}"? This cannot be undone.`)) return;
+    if (!confirm(`PERMANENTLY delete "${sc.code}"? This cannot be undone.`)) return;
     const res = await api.permanentDeleteSubCategory(sc.id);
     if (res.success) { toast.success('Sub-category permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
@@ -271,7 +271,7 @@ export default function SubCategoriesPage() {
               onChange={e => setFilterCategory(e.target.value)}
             >
               <option value="">All categories</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
             </select>
             <select
               value={filterStatus}
@@ -313,11 +313,10 @@ export default function SubCategoriesPage() {
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 {!showTrash && <TH className="w-14">Image</TH>}
                 <TH>
-                  <button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Name <SortIcon field="name" />
+                  <button onClick={() => handleSort('code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
+                    Code <SortIcon field="code" />
                   </button>
                 </TH>
-                <TH>Code</TH>
                 <TH>Category</TH>
                 <TH>
                   <button onClick={() => handleSort('display_order')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -342,7 +341,7 @@ export default function SubCategoriesPage() {
                     <TD className="py-2.5">
                       <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
                         {sc.image ? (
-                          <img src={sc.image} alt={sc.name} className="w-full h-full object-cover" />
+                          <img src={sc.image} alt={sc.code} className="w-full h-full object-cover" />
                         ) : (
                           <Layers className="w-4 h-4 text-slate-300" />
                         )}
@@ -350,13 +349,10 @@ export default function SubCategoriesPage() {
                     </TD>
                   )}
                   <TD className="py-2.5">
-                    <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{sc.name}</span>
+                    <span className={cn('font-mono text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{sc.code}</span>
                   </TD>
                   <TD className="py-2.5">
-                    <span className="font-mono text-xs text-slate-600">{sc.code}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <span className="text-slate-600">{sc.categories?.name || '—'}</span>
+                    <span className="text-slate-600">{sc.categories?.code || '—'}</span>
                   </TD>
                   <TD className="py-2.5">
                     <span className="text-slate-600">{sc.display_order}</span>
@@ -431,16 +427,15 @@ export default function SubCategoriesPage() {
             <div className="flex items-center gap-4 mb-6">
               <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
                 {viewing.image ? (
-                  <img src={viewing.image} alt={viewing.name} className="w-full h-full object-cover" />
+                  <img src={viewing.image} alt={viewing.code} className="w-full h-full object-cover" />
                 ) : (
                   <Layers className="w-8 h-8 text-slate-300" />
                 )}
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">{viewing.name}</h3>
+                <h3 className="text-lg font-semibold text-slate-900 font-mono">{viewing.code}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="muted" className="font-mono">{viewing.code}</Badge>
-                  {viewing.categories?.name && <Badge variant="info">{viewing.categories.name}</Badge>}
+                  {viewing.categories?.code && <Badge variant="info">{viewing.categories.code}</Badge>}
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
               </div>
@@ -448,8 +443,12 @@ export default function SubCategoriesPage() {
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
               <DetailRow label="Slug" value={`/${viewing.slug}`} />
               <DetailRow label="Display Order" value={String(viewing.display_order)} />
-              <DetailRow label="Sort Order" value={String(viewing.sort_order)} />
               <DetailRow label="New Until" value={viewing.new_until ? new Date(viewing.new_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : undefined} />
+              <DetailRow label="OG Site Name" value={viewing.og_site_name} />
+              <DetailRow label="OG Type" value={viewing.og_type} />
+              <DetailRow label="Twitter Site" value={viewing.twitter_site} />
+              <DetailRow label="Twitter Card" value={viewing.twitter_card} />
+              <DetailRow label="Robots Directive" value={viewing.robots_directive} />
               <DetailRow label="Created" value={new Date(viewing.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} />
               <DetailRow label="Updated" value={fromNow(viewing.updated_at)} />
             </div>
@@ -510,10 +509,9 @@ export default function SubCategoriesPage() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
             <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               {...register('category_id', { required: true })}>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
             </select>
           </div>
-          <Input label="Name" placeholder="React, Python, UI Design..." {...register('name', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Code" placeholder="react" {...register('code', { required: true })} />
             <Input label="Slug" placeholder="react" {...register('slug', { required: true })} />
@@ -526,6 +524,20 @@ export default function SubCategoriesPage() {
             <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" {...register('is_new')} />
             <span className="text-sm font-medium text-slate-700">Mark as New</span>
           </label>
+
+          {/* Language-neutral SEO defaults */}
+          <div className="border-t border-slate-100 pt-4 mt-2">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">SEO Defaults</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="OG Site Name" placeholder="GrowUpMore" {...register('og_site_name')} />
+              <Input label="OG Type" placeholder="website" {...register('og_type')} />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Input label="Twitter Site" placeholder="@growupmore" {...register('twitter_site')} />
+              <Input label="Twitter Card" placeholder="summary_large_image" {...register('twitter_card')} />
+            </div>
+            <Input label="Robots Directive" placeholder="index, follow" className="mt-3" {...register('robots_directive')} />
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button type="submit">{editing ? 'Save changes' : 'Create'}</Button>

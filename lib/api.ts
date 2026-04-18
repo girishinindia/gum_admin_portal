@@ -270,6 +270,8 @@ export const api = {
   createCategoryTranslation: (data: any, isFormData = false) => request('/category-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateCategoryTranslation: (id: number, data: any, isFormData = false) => request(`/category-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteCategoryTranslation: (id: number) => request(`/category-translations/${id}`, { method: 'DELETE' }),
+  restoreCategoryTranslation: (id: number) => request(`/category-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCategoryTranslation: (id: number) => request(`/category-translations/${id}/permanent`, { method: 'DELETE' }),
 
   // Sub-Category Translations
   listSubCategoryTranslations: (qs = '') => request(`/sub-category-translations${qs}`, { auth: false }),
@@ -277,6 +279,8 @@ export const api = {
   createSubCategoryTranslation: (data: any, isFormData = false) => request('/sub-category-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateSubCategoryTranslation: (id: number, data: any, isFormData = false) => request(`/sub-category-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteSubCategoryTranslation: (id: number) => request(`/sub-category-translations/${id}`, { method: 'DELETE' }),
+  restoreSubCategoryTranslation: (id: number) => request(`/sub-category-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSubCategoryTranslation: (id: number) => request(`/sub-category-translations/${id}/permanent`, { method: 'DELETE' }),
 
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),

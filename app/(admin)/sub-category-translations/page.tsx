@@ -14,12 +14,12 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookMarked, Trash2, Edit2, Globe, Wand2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, BookMarked, Trash2, Edit2, Globe, Wand2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { cn, fromNow } from '@/lib/utils';
 import type { SubCategoryTranslation, SubCategory, Language } from '@/lib/types';
 
 const TABS = ['Content', 'SEO Meta', 'Open Graph', 'Twitter'] as const;
-type SortField = 'id' | 'name' | 'is_active' | 'sort_order';
+type SortField = 'id' | 'name' | 'is_active';
 
 export default function SubCategoryTranslationsPage() {
   const [items, setItems] = useState<SubCategoryTranslation[]>([]);
@@ -28,8 +28,6 @@ export default function SubCategoryTranslationsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SubCategoryTranslation | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [ogImageFile, setOgImageFile] = useState<File | null>(null);
   const [ogImagePreview, setOgImagePreview] = useState<string | null>(null);
   const [twitterImageFile, setTwitterImageFile] = useState<File | null>(null);
@@ -47,7 +45,8 @@ export default function SubCategoryTranslationsPage() {
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [pageSize, setPageSize] = useState(10);
-  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number } | null>(null);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number } | null>(null);
+  const [showTrash, setShowTrash] = useState(false);
 
   const { register, handleSubmit, reset, setValue, getValues } = useForm();
 
@@ -60,18 +59,19 @@ export default function SubCategoryTranslationsPage() {
     const lang = languages.find(l => String(l.id) === String(v.language_id));
     const isoCode = lang?.iso_code || 'en';
     const subCatSlug = sc?.slug || 'sub-category';
-    const catSlug = sc?.categories?.code?.toLowerCase() || 'category';
-    const catName = sc?.categories?.name || 'Category';
+    const catSlug = sc?.categories?.slug || 'category';
+    const catCode = sc?.categories?.code || 'Category';
     const pageUrl = v.canonical_url || `${SITE_URL}/${isoCode}/categories/${catSlug}/${subCatSlug}`;
 
     const sd = [
       {
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
-        name: v.name || sc?.name || '',
+        name: v.name || '',
         ...(v.description && { description: v.description }),
         url: pageUrl,
         inLanguage: isoCode,
+        ...(sc?.image && { image: sc.image }),
         isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: SITE_URL },
         provider: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
       },
@@ -81,14 +81,14 @@ export default function SubCategoryTranslationsPage() {
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/${isoCode}` },
           { '@type': 'ListItem', position: 2, name: 'Categories', item: `${SITE_URL}/${isoCode}/categories` },
-          { '@type': 'ListItem', position: 3, name: catName, item: `${SITE_URL}/${isoCode}/categories/${catSlug}` },
-          { '@type': 'ListItem', position: 4, name: v.name || sc?.name || '' },
+          { '@type': 'ListItem', position: 3, name: catCode, item: `${SITE_URL}/${isoCode}/categories/${catSlug}` },
+          { '@type': 'ListItem', position: 4, name: v.name || '' },
         ],
       },
       {
         '@context': 'https://schema.org',
         '@type': 'ItemList',
-        name: v.name || sc?.name || '',
+        name: v.name || '',
         numberOfItems: 0,
         itemListElement: [],
       },
@@ -109,8 +109,8 @@ export default function SubCategoryTranslationsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterSubCategory, filterLanguage, filterStatus, sortField, sortOrder, pageSize]);
-  useEffect(() => { load(); }, [searchDebounce, page, filterSubCategory, filterLanguage, filterStatus, sortField, sortOrder, pageSize]);
+  useEffect(() => { setPage(1); }, [searchDebounce, filterSubCategory, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
+  useEffect(() => { load(); }, [searchDebounce, page, filterSubCategory, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
 
   async function refreshSummary() {
     const res = await api.getTableSummary('sub_category_translations');
@@ -123,9 +123,13 @@ export default function SubCategoryTranslationsPage() {
     qs.set('page', String(page));
     qs.set('limit', String(pageSize));
     if (searchDebounce) qs.set('search', searchDebounce);
-    if (filterSubCategory) qs.set('sub_category_id', filterSubCategory);
-    if (filterLanguage) qs.set('language_id', filterLanguage);
-    if (filterStatus) qs.set('is_active', filterStatus);
+    if (showTrash) {
+      qs.set('show_deleted', 'true');
+    } else {
+      if (filterSubCategory) qs.set('sub_category_id', filterSubCategory);
+      if (filterLanguage) qs.set('language_id', filterLanguage);
+      if (filterStatus) qs.set('is_active', filterStatus);
+    }
     qs.set('sort', sortField);
     qs.set('order', sortOrder);
     const res = await api.listSubCategoryTranslations('?' + qs.toString());
@@ -138,21 +142,20 @@ export default function SubCategoryTranslationsPage() {
   }
 
   function openCreate() {
-    setEditing(null); setImageFile(null); setImagePreview(null); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
+    setEditing(null); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
     reset({
       sub_category_id: subCategories[0]?.id || '', language_id: languages[0]?.id || '',
       name: '', description: '', is_new_title: '', tags: '',
       meta_title: '', meta_description: '', meta_keywords: '', canonical_url: '',
-      og_site_name: '', og_title: '', og_description: '', og_type: '', og_image: '', og_url: '',
-      twitter_site: '', twitter_title: '', twitter_description: '', twitter_image: '', twitter_card: 'summary_large_image',
-      robots_directive: 'index,follow', focus_keyword: '', structured_data: '[]',
-      sort_order: 0,
+      og_title: '', og_description: '', og_image: '', og_url: '',
+      twitter_title: '', twitter_description: '', twitter_image: '',
+      focus_keyword: '', structured_data: '[]',
     });
     setDialogOpen(true);
   }
 
   function openEdit(item: SubCategoryTranslation) {
-    setEditing(item); setImageFile(null); setImagePreview(null); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
+    setEditing(item); setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null); setDialogKey(k => k + 1); setActiveTab('Content');
     const tags = Array.isArray(item.tags) ? item.tags.join(', ') : '';
     const sd = item.structured_data ? JSON.stringify(item.structured_data, null, 2) : '[]';
     reset({
@@ -160,14 +163,13 @@ export default function SubCategoryTranslationsPage() {
       name: item.name, description: item.description || '', is_new_title: item.is_new_title || '', tags,
       meta_title: item.meta_title || '', meta_description: item.meta_description || '',
       meta_keywords: item.meta_keywords || '', canonical_url: item.canonical_url || '',
-      og_site_name: item.og_site_name || '', og_title: item.og_title || '',
-      og_description: item.og_description || '', og_type: item.og_type || '',
+      og_title: item.og_title || '',
+      og_description: item.og_description || '',
       og_image: item.og_image || '', og_url: item.og_url || '',
-      twitter_site: item.twitter_site || '', twitter_title: item.twitter_title || '',
+      twitter_title: item.twitter_title || '',
       twitter_description: item.twitter_description || '', twitter_image: item.twitter_image || '',
-      twitter_card: item.twitter_card || 'summary_large_image',
-      robots_directive: item.robots_directive || 'index,follow', focus_keyword: item.focus_keyword || '',
-      structured_data: sd, sort_order: item.sort_order,
+      focus_keyword: item.focus_keyword || '',
+      structured_data: sd,
     });
     setDialogOpen(true);
   }
@@ -179,7 +181,6 @@ export default function SubCategoryTranslationsPage() {
     Object.keys(data).forEach(k => {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
     });
-    if (imageFile) fd.append('image', imageFile, imageFile.name);
     if (ogImageFile) fd.append('og_image_file', ogImageFile, ogImageFile.name);
     if (twitterImageFile) fd.append('twitter_image_file', twitterImageFile, twitterImageFile.name);
 
@@ -192,10 +193,23 @@ export default function SubCategoryTranslationsPage() {
     } else toast.error(res.error || 'Failed');
   }
 
-  async function onDelete(item: SubCategoryTranslation) {
-    if (!confirm(`Delete translation "${item.name}"?`)) return;
+  async function onSoftDelete(item: SubCategoryTranslation) {
+    if (!confirm(`Move "${item.name}" to trash? You can restore it later.`)) return;
     const res = await api.deleteSubCategoryTranslation(item.id);
-    if (res.success) { toast.success('Deleted'); load(); refreshSummary(); }
+    if (res.success) { toast.success('Translation moved to trash'); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onRestore(item: SubCategoryTranslation) {
+    const res = await api.restoreSubCategoryTranslation(item.id);
+    if (res.success) { toast.success(`"${item.name}" restored`); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onPermanentDelete(item: SubCategoryTranslation) {
+    if (!confirm(`PERMANENTLY delete "${item.name}"? This cannot be undone.`)) return;
+    const res = await api.permanentDeleteSubCategoryTranslation(item.id);
+    if (res.success) { toast.success('Translation permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -221,14 +235,15 @@ export default function SubCategoryTranslationsPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader title="Sub-Category Translations" description="Manage multi-language translations for sub-categories"
-        actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button>} />
+        actions={!showTrash ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button> : undefined} />
 
       {summary && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-4 gap-4 mb-5">
           {[
             { label: 'Total Translations', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
             { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
             { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+            { label: 'In Trash', value: summary.is_deleted, icon: Trash2, color: 'bg-amber-50 text-amber-600' },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -246,26 +261,57 @@ export default function SubCategoryTranslationsPage() {
         </div>
       )}
 
+      {/* Trash toggle tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+        <button onClick={() => setShowTrash(false)}
+          className={cn('px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700')}>
+          Translations
+        </button>
+        <button onClick={() => setShowTrash(true)}
+          className={cn('px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5',
+            showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700')}>
+          <Trash2 className="w-3.5 h-3.5" /> Trash
+          {summary && summary.is_deleted > 0 && (
+            <span className={cn('ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold',
+              showTrash ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600')}>
+              {summary.is_deleted}
+            </span>
+          )}
+        </button>
+      </div>
+
       <div className="mb-4">
-        <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search translations...">
-          <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-            value={filterSubCategory} onChange={e => setFilterSubCategory(e.target.value)}>
-            <option value="">All sub-categories</option>
-            {subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.name}{sc.categories?.name ? ` (${sc.categories.name})` : ''}</option>)}
-          </select>
-          <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-            value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
-            <option value="">All languages</option>
-            {languages.map(l => <option key={l.id} value={l.id}>{l.name}{l.native_name ? ` (${l.native_name})` : ''}</option>)}
-          </select>
-          <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-            value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="">All Status</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
-          </select>
+        <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
+          {!showTrash && (
+            <>
+              <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                value={filterSubCategory} onChange={e => setFilterSubCategory(e.target.value)}>
+                <option value="">All sub-categories</option>
+                {subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.code}{sc.categories?.code ? ` (${sc.categories.code})` : ''}</option>)}
+              </select>
+              <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
+                <option value="">All languages</option>
+                {languages.map(l => <option key={l.id} value={l.id}>{l.name}{l.native_name ? ` (${l.native_name})` : ''}</option>)}
+              </select>
+              <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                <option value="">All Status</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </>
+          )}
         </DataToolbar>
       </div>
+
+      {showTrash && (
+        <div className="mb-3 flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Items in trash can be restored or permanently deleted. Permanent deletion cannot be undone.</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
@@ -274,39 +320,46 @@ export default function SubCategoryTranslationsPage() {
           action={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button>} />
       ) : (
         <>
-          <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
             <Table>
               <THead>
                 <TR className="hover:bg-transparent">
                   <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
-                  <TH className="w-14">Image</TH>
                   <TH><button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Name <SortIcon field="name" /></button></TH>
                   <TH>Sub-Category</TH>
                   <TH>Language</TH>
+                  {showTrash && <TH>Deleted</TH>}
                   <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="is_active" /></button></TH>
                   <TH className="text-right">Actions</TH>
                 </TR>
               </THead>
               <TBody>
                 {items.map(item => (
-                  <TR key={item.id}>
+                  <TR key={item.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
                     <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{item.id}</span></TD>
+                    <TD className="py-2.5"><span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{item.name}</span>{item.description && !showTrash && <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{item.description}</p>}</TD>
                     <TD className="py-2.5">
-                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
-                        {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <Globe className="w-4 h-4 text-slate-300" />}
-                      </div>
-                    </TD>
-                    <TD className="py-2.5"><span className="font-medium text-slate-900">{item.name}</span>{item.description && <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{item.description}</p>}</TD>
-                    <TD className="py-2.5">
-                      {item.sub_categories?.name ? <Badge variant="info">{item.sub_categories.name}</Badge> : <span className="text-slate-300">—</span>}
-                      {item.sub_categories?.categories?.name && <div className="text-xs text-slate-400 mt-0.5">{item.sub_categories.categories.name}</div>}
+                      {item.sub_categories?.code ? <Badge variant="info">{item.sub_categories.code}</Badge> : <span className="text-slate-300">—</span>}
+                      {item.sub_categories?.categories?.code && <div className="text-xs text-slate-400 mt-0.5">{item.sub_categories.categories.code}</div>}
                     </TD>
                     <TD className="py-2.5">{item.languages?.name ? <Badge variant="muted">{item.languages.name}{item.languages.iso_code ? ` (${item.languages.iso_code})` : ''}</Badge> : <span className="text-slate-300">—</span>}</TD>
-                    <TD className="py-2.5"><Badge variant={item.is_active ? 'success' : 'danger'}>{item.is_active ? 'Active' : 'Inactive'}</Badge></TD>
+                    {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{item.deleted_at ? fromNow(item.deleted_at) : '—'}</span></TD>}
+                    <TD className="py-2.5">
+                      {showTrash ? <Badge variant="warning">Deleted</Badge> : <Badge variant={item.is_active ? 'success' : 'danger'}>{item.is_active ? 'Active' : 'Inactive'}</Badge>}
+                    </TD>
                     <TD className="py-2.5">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => onDelete(item)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                        {showTrash ? (
+                          <>
+                            <button onClick={() => onRestore(item)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => onPermanentDelete(item)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => onSoftDelete(item)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </>
+                        )}
                       </div>
                     </TD>
                   </TR>
@@ -333,15 +386,12 @@ export default function SubCategoryTranslationsPage() {
           {/* Content Tab */}
           {activeTab === 'Content' && (
             <div className="space-y-4">
-              <ImageUpload key={dialogKey} label="Translation Image" hint="Resized to 400x400px WebP"
-                value={editing?.image} aspectRatio={1} maxWidth={400} maxHeight={400} shape="rounded"
-                onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }} />
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Sub-Category</label>
                   <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     {...register('sub_category_id', { required: true })}>
-                    {subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.name}{sc.categories?.name ? ` (${sc.categories.name})` : ''}</option>)}
+                    {subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.code}{sc.categories?.code ? ` (${sc.categories.code})` : ''}</option>)}
                   </select>
                 </div>
                 <div>
@@ -358,10 +408,7 @@ export default function SubCategoryTranslationsPage() {
                 <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
                   placeholder="Translated description..." {...register('description')} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="New Badge Title" placeholder="Custom 'New' label" {...register('is_new_title')} />
-                <Input label="Sort Order" type="number" {...register('sort_order')} />
-              </div>
+              <Input label="New Badge Title" placeholder="Custom 'New' label" {...register('is_new_title')} />
               <Input label="Tags" placeholder="tag1, tag2, tag3 (comma-separated)" {...register('tags')} />
             </div>
           )}
@@ -377,23 +424,6 @@ export default function SubCategoryTranslationsPage() {
               </div>
               <Input label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
               <Input label="Canonical URL" placeholder="https://..." {...register('canonical_url')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Robots Directive</label>
-                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  {...register('robots_directive')}>
-                  <option value="index,follow">index, follow (default)</option>
-                  <option value="noindex,follow">noindex, follow</option>
-                  <option value="index,nofollow">index, nofollow</option>
-                  <option value="noindex,nofollow">noindex, nofollow</option>
-                  <option value="noindex">noindex</option>
-                  <option value="nofollow">nofollow</option>
-                  <option value="none">none</option>
-                  <option value="noarchive">noarchive</option>
-                  <option value="nosnippet">nosnippet</option>
-                  <option value="noimageindex">noimageindex</option>
-                  <option value="noarchive,nosnippet">noarchive, nosnippet</option>
-                </select>
-              </div>
               <Input label="Focus Keyword" placeholder="Primary SEO keyword" {...register('focus_keyword')} />
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -412,17 +442,13 @@ export default function SubCategoryTranslationsPage() {
           {/* Open Graph Tab */}
           {activeTab === 'Open Graph' && (
             <div className="space-y-4">
-              <Input label="OG Site Name" placeholder="Site name" {...register('og_site_name')} />
               <Input label="OG Title" placeholder="Open Graph title" {...register('og_title')} />
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">OG Description</label>
                 <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
                   placeholder="Open Graph description..." {...register('og_description')} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="OG Type" placeholder="website" {...register('og_type')} />
-                <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
-              </div>
+              <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
               <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200x630px. Upload or enter URL below"
                 value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
                 onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }} />
@@ -433,7 +459,6 @@ export default function SubCategoryTranslationsPage() {
           {/* Twitter Tab */}
           {activeTab === 'Twitter' && (
             <div className="space-y-4">
-              <Input label="Twitter Site" placeholder="@handle" {...register('twitter_site')} />
               <Input label="Twitter Title" placeholder="Twitter card title" {...register('twitter_title')} />
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Twitter Description</label>
@@ -444,16 +469,6 @@ export default function SubCategoryTranslationsPage() {
                 value={editing?.twitter_image} aspectRatio={1200 / 600} maxWidth={1200} maxHeight={600} shape="rounded"
                 onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />
               <Input label="Or enter Twitter Image URL manually" placeholder="https://..." {...register('twitter_image')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Twitter Card Type</label>
-                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  {...register('twitter_card')}>
-                  <option value="summary_large_image">Summary Large Image</option>
-                  <option value="summary">Summary</option>
-                  <option value="app">App</option>
-                  <option value="player">Player</option>
-                </select>
-              </div>
             </div>
           )}
 

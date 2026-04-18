@@ -18,7 +18,7 @@ import { Plus, LayoutGrid, Trash2, Edit2, Eye, Star, ArrowUpDown, ArrowUp, Arrow
 import { cn, fromNow } from '@/lib/utils';
 import type { Category } from '@/lib/types';
 
-type SortField = 'id' | 'name' | 'code' | 'slug' | 'display_order' | 'is_active' | 'sort_order';
+type SortField = 'id' | 'code' | 'slug' | 'display_order' | 'is_active';
 
 export default function CategoriesPage() {
   const [items, setItems] = useState<Category[]>([]);
@@ -115,13 +115,13 @@ export default function CategoriesPage() {
 
   function openCreate() {
     setEditing(null); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1);
-    reset({ name: '', code: '', slug: '', display_order: 0, is_new: false, new_until: '' });
+    reset({ code: '', slug: '', display_order: 0, is_new: false, new_until: '', og_site_name: '', og_type: '', twitter_site: '', twitter_card: '', robots_directive: '' });
     setDialogOpen(true);
   }
 
   function openEdit(c: Category) {
     setEditing(c); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1);
-    reset({ name: c.name, code: c.code, slug: c.slug, display_order: c.display_order, is_new: c.is_new, new_until: c.new_until || '' });
+    reset({ code: c.code, slug: c.slug, display_order: c.display_order, is_new: c.is_new, new_until: c.new_until || '', og_site_name: c.og_site_name || '', og_type: c.og_type || '', twitter_site: c.twitter_site || '', twitter_card: c.twitter_card || '', robots_directive: c.robots_directive || '' });
     setDialogOpen(true);
   }
 
@@ -146,7 +146,7 @@ export default function CategoriesPage() {
   }
 
   async function onSoftDelete(c: Category) {
-    if (!confirm(`Move "${c.name}" to trash? You can restore it later.`)) return;
+    if (!confirm(`Move "${c.code}" to trash? You can restore it later.`)) return;
     const res = await api.deleteCategory(c.id);
     if (res.success) { toast.success('Category moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
@@ -154,12 +154,12 @@ export default function CategoriesPage() {
 
   async function onRestore(c: Category) {
     const res = await api.restoreCategory(c.id);
-    if (res.success) { toast.success(`"${c.name}" restored`); load(); refreshSummary(); }
+    if (res.success) { toast.success(`"${c.code}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(c: Category) {
-    if (!confirm(`PERMANENTLY delete "${c.name}"? This cannot be undone.`)) return;
+    if (!confirm(`PERMANENTLY delete "${c.code}"? This cannot be undone.`)) return;
     const res = await api.permanentDeleteCategory(c.id);
     if (res.success) { toast.success('Category permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
@@ -285,17 +285,10 @@ export default function CategoriesPage() {
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 {!showTrash && <TH className="w-14">Image</TH>}
                 <TH>
-                  <button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Name <SortIcon field="name" />
+                  <button onClick={() => handleSort('code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
+                    Code <SortIcon field="code" />
                   </button>
                 </TH>
-                {!showTrash && (
-                  <TH>
-                    <button onClick={() => handleSort('code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                      Code <SortIcon field="code" />
-                    </button>
-                  </TH>
-                )}
                 {!showTrash && <TH>Slug</TH>}
                 <TH>
                   <button onClick={() => handleSort('display_order')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -320,7 +313,7 @@ export default function CategoriesPage() {
                     <TD className="py-2.5">
                       <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
                         {c.image ? (
-                          <img src={c.image} alt={c.name} className="w-full h-full object-cover" />
+                          <img src={c.image} alt={c.code} className="w-full h-full object-cover" />
                         ) : (
                           <LayoutGrid className="w-4 h-4 text-slate-300" />
                         )}
@@ -328,13 +321,8 @@ export default function CategoriesPage() {
                     </TD>
                   )}
                   <TD className="py-2.5">
-                    <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.name}</span>
+                    <span className={cn('font-mono text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.code}</span>
                   </TD>
-                  {!showTrash && (
-                    <TD className="py-2.5">
-                      <span className="font-mono text-xs text-slate-600">{c.code}</span>
-                    </TD>
-                  )}
                   {!showTrash && (
                     <TD className="py-2.5">
                       <span className="text-xs text-slate-500">/{c.slug}</span>
@@ -414,19 +402,18 @@ export default function CategoriesPage() {
       <Dialog open={!!viewing} onClose={() => setViewing(null)} title="Category Details" size="md">
         {viewing && (
           <div className="p-6">
-            {/* Header: image + name */}
+            {/* Header: image + code */}
             <div className="flex items-center gap-4 mb-6">
               <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
                 {viewing.image ? (
-                  <img src={viewing.image} alt={viewing.name} className="w-full h-full object-cover" />
+                  <img src={viewing.image} alt={viewing.code} className="w-full h-full object-cover" />
                 ) : (
                   <LayoutGrid className="w-8 h-8 text-slate-300" />
                 )}
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">{viewing.name}</h3>
+                <h3 className="text-lg font-semibold text-slate-900 font-mono">{viewing.code}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="muted" className="font-mono">{viewing.code}</Badge>
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>
                     {viewing.is_active ? 'Active' : 'Inactive'}
                   </Badge>
@@ -439,8 +426,12 @@ export default function CategoriesPage() {
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
               <DetailRow label="Slug" value={`/${viewing.slug}`} />
               <DetailRow label="Display Order" value={String(viewing.display_order)} />
-              <DetailRow label="Sort Order" value={String(viewing.sort_order)} />
               <DetailRow label="New Until" value={viewing.new_until ? new Date(viewing.new_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : undefined} />
+              <DetailRow label="OG Site Name" value={viewing.og_site_name} />
+              <DetailRow label="OG Type" value={viewing.og_type} />
+              <DetailRow label="Twitter Site" value={viewing.twitter_site} />
+              <DetailRow label="Twitter Card" value={viewing.twitter_card} />
+              <DetailRow label="Robots Directive" value={viewing.robots_directive} />
               <DetailRow label="Created" value={new Date(viewing.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} />
               <DetailRow label="Updated" value={fromNow(viewing.updated_at)} />
             </div>
@@ -493,7 +484,6 @@ export default function CategoriesPage() {
           <ImageUpload key={dialogKey} label="Category Image" hint="Resized to 400x400px WebP"
             value={editing?.image} aspectRatio={1} maxWidth={400} maxHeight={400} shape="rounded"
             onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }} />
-          <Input label="Name" placeholder="Programming, Design..." {...register('name', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Code" placeholder="programming" {...register('code', { required: true })} />
             <Input label="Slug" placeholder="programming" {...register('slug', { required: true })} />
@@ -506,6 +496,20 @@ export default function CategoriesPage() {
             <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" {...register('is_new')} />
             <span className="text-sm font-medium text-slate-700">Mark as New</span>
           </label>
+
+          {/* Language-neutral SEO defaults */}
+          <div className="border-t border-slate-100 pt-4 mt-2">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">SEO Defaults</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="OG Site Name" placeholder="GrowUpMore" {...register('og_site_name')} />
+              <Input label="OG Type" placeholder="website" {...register('og_type')} />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Input label="Twitter Site" placeholder="@growupmore" {...register('twitter_site')} />
+              <Input label="Twitter Card" placeholder="summary_large_image" {...register('twitter_card')} />
+            </div>
+            <Input label="Robots Directive" placeholder="index, follow" className="mt-3" {...register('robots_directive')} />
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button type="submit">{editing ? 'Save changes' : 'Create'}</Button>

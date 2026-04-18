@@ -230,15 +230,21 @@ export interface SocialMedia {
 
 export interface Category {
   id: number;
-  name: string;
   code: string;
   slug: string;
   display_order: number;
   image?: string | null;
   is_new: boolean;
   new_until?: string | null;
+  og_site_name?: string | null;
+  og_type?: string | null;
+  twitter_site?: string | null;
+  twitter_card?: string | null;
+  robots_directive?: string | null;
   is_active: boolean;
-  sort_order: number;
+  is_deleted: boolean;
+  created_by?: number | null;
+  updated_by?: number | null;
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
@@ -247,19 +253,25 @@ export interface Category {
 export interface SubCategory {
   id: number;
   category_id: number;
-  name: string;
   code: string;
   slug: string;
   display_order: number;
   image?: string | null;
   is_new: boolean;
   new_until?: string | null;
+  og_site_name?: string | null;
+  og_type?: string | null;
+  twitter_site?: string | null;
+  twitter_card?: string | null;
+  robots_directive?: string | null;
   is_active: boolean;
-  sort_order: number;
+  is_deleted: boolean;
+  created_by?: number | null;
+  updated_by?: number | null;
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
-  categories?: { name: string; code: string };
+  categories?: { code: string; slug: string };
 }
 
 export interface CategoryTranslation {
@@ -269,31 +281,28 @@ export interface CategoryTranslation {
   name: string;
   description?: string | null;
   is_new_title?: string | null;
-  image?: string | null;
   tags?: any;
   meta_title?: string | null;
   meta_description?: string | null;
   meta_keywords?: string | null;
   canonical_url?: string | null;
-  og_site_name?: string | null;
   og_title?: string | null;
   og_description?: string | null;
-  og_type?: string | null;
   og_image?: string | null;
   og_url?: string | null;
-  twitter_site?: string | null;
   twitter_title?: string | null;
   twitter_description?: string | null;
   twitter_image?: string | null;
-  twitter_card?: string | null;
-  robots_directive?: string | null;
   focus_keyword?: string | null;
   structured_data?: any;
   is_active: boolean;
-  sort_order: number;
+  is_deleted: boolean;
+  created_by?: number | null;
+  updated_by?: number | null;
   created_at: string;
   updated_at: string;
-  categories?: { name: string; code: string; slug: string };
+  deleted_at?: string | null;
+  categories?: { code: string; slug: string };
   languages?: { name: string; native_name?: string; iso_code?: string };
 }
 
@@ -304,31 +313,28 @@ export interface SubCategoryTranslation {
   name: string;
   description?: string | null;
   is_new_title?: string | null;
-  image?: string | null;
   tags?: any;
   meta_title?: string | null;
   meta_description?: string | null;
   meta_keywords?: string | null;
   canonical_url?: string | null;
-  og_site_name?: string | null;
   og_title?: string | null;
   og_description?: string | null;
-  og_type?: string | null;
   og_image?: string | null;
   og_url?: string | null;
-  twitter_site?: string | null;
   twitter_title?: string | null;
   twitter_description?: string | null;
   twitter_image?: string | null;
-  twitter_card?: string | null;
-  robots_directive?: string | null;
   focus_keyword?: string | null;
   structured_data?: any;
   is_active: boolean;
-  sort_order: number;
+  is_deleted: boolean;
+  created_by?: number | null;
+  updated_by?: number | null;
   created_at: string;
   updated_at: string;
-  sub_categories?: { name: string; code: string; slug: string; category_id: number; categories?: { name: string; code: string } };
+  deleted_at?: string | null;
+  sub_categories?: { code: string; slug: string; image?: string | null; category_id: number; categories?: { code: string; slug: string } };
   languages?: { name: string; native_name?: string; iso_code?: string };
 }
 
