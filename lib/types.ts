@@ -88,6 +88,7 @@ export interface State {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   countries?: { name: string; iso2: string };
 }
 
@@ -101,6 +102,7 @@ export interface City {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   states?: { name: string; state_code?: string; country_id: number; countries?: { name: string; iso2: string } };
 }
 

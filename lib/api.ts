@@ -148,6 +148,8 @@ export const api = {
   createState: (data: any) => request('/states', { method: 'POST', body: JSON.stringify(data) }),
   updateState: (id: number, data: any) => request(`/states/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteState: (id: number) => request(`/states/${id}`, { method: 'DELETE' }),
+  restoreState: (id: number) => request(`/states/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteState: (id: number) => request(`/states/${id}/permanent`, { method: 'DELETE' }),
 
   // Cities
   listCities: (qs = '') => request(`/cities${qs}`, { auth: false }),
@@ -155,6 +157,8 @@ export const api = {
   createCity: (data: any) => request('/cities', { method: 'POST', body: JSON.stringify(data) }),
   updateCity: (id: number, data: any) => request(`/cities/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteCity: (id: number) => request(`/cities/${id}`, { method: 'DELETE' }),
+  restoreCity: (id: number) => request(`/cities/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCity: (id: number) => request(`/cities/${id}/permanent`, { method: 'DELETE' }),
 
   // Skills
   listSkills: (qs = '') => request(`/skills${qs}`, { auth: false }),

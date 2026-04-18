@@ -13,8 +13,8 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Building2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, Building2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { cn, fromNow } from '@/lib/utils';
 import type { City, State, Country } from '@/lib/types';
 
 type SortField = 'id' | 'name' | 'phonecode' | 'timezone' | 'is_active';
@@ -33,6 +33,9 @@ export default function CitiesPage() {
   const [filterState, setFilterState] = useState<number | ''>('');
   const [filterStatus, setFilterStatus] = useState('');
 
+  // Soft delete: toggle between active list and trash
+  const [showTrash, setShowTrash] = useState(false);
+
   // Pagination, search, sort
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -42,7 +45,7 @@ export default function CitiesPage() {
   const [searchDebounce, setSearchDebounce] = useState('');
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number; updated_at: string } | null>(null);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
 
   // Form-level state dropdown (filtered by selected country in dialog)
   const [formCountry, setFormCountry] = useState<number | ''>('');
@@ -56,7 +59,7 @@ export default function CitiesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterState, filterStatus, pageSize]);
+  useEffect(() => { setPage(1); }, [searchDebounce, filterState, filterStatus, pageSize, showTrash]);
 
   useEffect(() => { loadCountries(); }, []);
   useEffect(() => { loadStates(); }, [filterCountry]);
@@ -65,7 +68,7 @@ export default function CitiesPage() {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
   }, []);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterState, filterStatus, sortField, sortOrder]);
+  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterState, filterStatus, sortField, sortOrder, showTrash]);
 
   async function loadCountries() {
     const res = await api.listCountries('?limit=100');
@@ -85,9 +88,13 @@ export default function CitiesPage() {
     qs.set('limit', String(pageSize));
     if (searchDebounce) qs.set('search', searchDebounce);
     if (filterState) qs.set('state_id', String(filterState));
-    if (filterStatus) qs.set('is_active', filterStatus);
     qs.set('sort', sortField);
     qs.set('order', sortOrder);
+    if (showTrash) {
+      qs.set('show_deleted', 'true');
+    } else {
+      if (filterStatus) qs.set('is_active', filterStatus);
+    }
     const res = await api.listCities('?' + qs.toString());
     if (res.success) {
       setCities(res.data || []);
@@ -167,10 +174,23 @@ export default function CitiesPage() {
     }
   }
 
-  async function onDelete(c: City) {
-    if (!confirm(`Delete "${c.name}"? This cannot be undone.`)) return;
+  async function onSoftDelete(c: City) {
+    if (!confirm(`Move "${c.name}" to trash? You can restore it later.`)) return;
     const res = await api.deleteCity(c.id);
-    if (res.success) { toast.success('City deleted'); load(); refreshSummary(); }
+    if (res.success) { toast.success('City moved to trash'); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onRestore(c: City) {
+    const res = await api.restoreCity(c.id);
+    if (res.success) { toast.success(`"${c.name}" restored`); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onPermanentDelete(c: City) {
+    if (!confirm(`PERMANENTLY delete "${c.name}"? This cannot be undone.`)) return;
+    const res = await api.permanentDeleteCity(c.id);
+    if (res.success) { toast.success('City permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -182,22 +202,27 @@ export default function CitiesPage() {
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
 
-  const hasFilters = !!(searchDebounce || filterCountry || filterState || filterStatus);
+  const hasFilters = !!(searchDebounce || filterCountry || filterState || filterStatus) || showTrash;
 
   return (
     <div className="animate-fade-in">
       <PageHeader
         title="Cities"
         description="Manage cities within states"
-        actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add city</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add city</Button>}
+          </div>
+        }
       />
 
       {summary && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-4 gap-4 mb-5">
           {[
             { label: 'Total Cities', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
             { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
             { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+            { label: 'In Trash', value: summary.is_deleted, icon: Trash2, color: 'bg-amber-50 text-amber-600' },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -215,34 +240,81 @@ export default function CitiesPage() {
         </div>
       )}
 
-      {/* Toolbar: search + filters */}
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search cities...">
-        <select className={selectClass} value={filterCountry} onChange={e => setFilterCountry(e.target.value ? parseInt(e.target.value) : '')}>
-          <option value="">All Countries</option>
-          {countries.map(c => <option key={c.id} value={c.id}>{c.name} ({c.iso2})</option>)}
-        </select>
-        <select className={selectClass} value={filterState} onChange={e => setFilterState(e.target.value ? parseInt(e.target.value) : '')}>
-          <option value="">All States</option>
-          {states.map(s => <option key={s.id} value={s.id}>{s.name}{s.state_code ? ` (${s.state_code})` : ''}</option>)}
-        </select>
-        <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">All Status</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
+      {/* Trash toggle tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+        <button
+          onClick={() => setShowTrash(false)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          Cities
+        </button>
+        <button
+          onClick={() => setShowTrash(true)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5',
+            showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Trash
+          {summary && summary.is_deleted > 0 && (
+            <span className={cn(
+              'ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold',
+              showTrash ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+            )}>
+              {summary.is_deleted}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Toolbar: search + filters (only in normal view) */}
+      <DataToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={showTrash ? 'Search trash...' : 'Search cities...'}
+      >
+        {!showTrash && (
+          <>
+            <select className={selectClass} value={filterCountry} onChange={e => setFilterCountry(e.target.value ? parseInt(e.target.value) : '')}>
+              <option value="">All Countries</option>
+              {countries.map(c => <option key={c.id} value={c.id}>{c.name} ({c.iso2})</option>)}
+            </select>
+            <select className={selectClass} value={filterState} onChange={e => setFilterState(e.target.value ? parseInt(e.target.value) : '')}>
+              <option value="">All States</option>
+              {states.map(s => <option key={s.id} value={s.id}>{s.name}{s.state_code ? ` (${s.state_code})` : ''}</option>)}
+            </select>
+            <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">All Status</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </>
+        )}
       </DataToolbar>
+
+      {/* Trash banner */}
+      {showTrash && (
+        <div className="mt-3 mb-1 flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Items in trash can be restored or permanently deleted. Permanent deletion cannot be undone.</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
       ) : cities.length === 0 ? (
         <EmptyState
-          icon={Building2}
-          title="No cities yet"
-          description={hasFilters ? 'No cities match your filters' : 'Add your first city'}
-          action={!hasFilters ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add city</Button> : undefined}
+          icon={showTrash ? Trash2 : Building2}
+          title={showTrash ? 'Trash is empty' : 'No cities yet'}
+          description={showTrash ? 'No deleted cities' : (hasFilters ? 'No cities match your filters' : 'Add your first city')}
+          action={!showTrash && !searchDebounce && !filterCountry && !filterState && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add city</Button> : undefined}
         />
       ) : (
-        <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
@@ -252,18 +324,23 @@ export default function CitiesPage() {
                     City Name <SortIcon field="name" />
                   </button>
                 </TH>
-                <TH>State</TH>
-                <TH>Country</TH>
-                <TH>
-                  <button onClick={() => handleSort('phonecode')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Phone Code <SortIcon field="phonecode" />
-                  </button>
-                </TH>
-                <TH>
-                  <button onClick={() => handleSort('timezone')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Timezone <SortIcon field="timezone" />
-                  </button>
-                </TH>
+                {!showTrash && (
+                  <>
+                    <TH>State</TH>
+                    <TH>Country</TH>
+                    <TH>
+                      <button onClick={() => handleSort('phonecode')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
+                        Phone Code <SortIcon field="phonecode" />
+                      </button>
+                    </TH>
+                    <TH>
+                      <button onClick={() => handleSort('timezone')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
+                        Timezone <SortIcon field="timezone" />
+                      </button>
+                    </TH>
+                  </>
+                )}
+                {showTrash && <TH>Deleted</TH>}
                 <TH>
                   <button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
                     Status <SortIcon field="is_active" />
@@ -274,45 +351,71 @@ export default function CitiesPage() {
             </THead>
             <TBody>
               {cities.map(c => (
-                <TR key={c.id}>
+                <TR key={c.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{c.id}</span></TD>
                   <TD className="py-2.5">
-                    <span className="font-medium text-slate-900">{c.name}</span>
+                    <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.name}</span>
                   </TD>
+                  {!showTrash && (
+                    <>
+                      <TD className="py-2.5">
+                        <span className="text-slate-600">
+                          {c.states?.name || '—'}
+                          {c.states?.state_code && <span className="text-slate-400 ml-1">({c.states.state_code})</span>}
+                        </span>
+                      </TD>
+                      <TD className="py-2.5">
+                        <span className="text-slate-600">
+                          {c.states?.countries?.name || '—'}
+                          {c.states?.countries?.iso2 && <span className="text-slate-400 ml-1">({c.states.countries.iso2})</span>}
+                        </span>
+                      </TD>
+                      <TD className="py-2.5">
+                        <span className="text-slate-600">{c.phonecode || '—'}</span>
+                      </TD>
+                      <TD className="py-2.5">
+                        <span className="text-slate-600 text-xs">{c.timezone || '—'}</span>
+                      </TD>
+                    </>
+                  )}
+                  {showTrash && (
+                    <TD className="py-2.5">
+                      <span className="text-xs text-amber-600">{c.deleted_at ? fromNow(c.deleted_at) : '—'}</span>
+                    </TD>
+                  )}
                   <TD className="py-2.5">
-                    <span className="text-slate-600">
-                      {c.states?.name || '—'}
-                      {c.states?.state_code && <span className="text-slate-400 ml-1">({c.states.state_code})</span>}
-                    </span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <span className="text-slate-600">
-                      {c.states?.countries?.name || '—'}
-                      {c.states?.countries?.iso2 && <span className="text-slate-400 ml-1">({c.states.countries.iso2})</span>}
-                    </span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <span className="text-slate-600">{c.phonecode || '—'}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <span className="text-slate-600 text-xs">{c.timezone || '—'}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <Badge variant={c.is_active ? 'success' : 'danger'}>
-                      {c.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
+                    {showTrash ? (
+                      <Badge variant="warning">Deleted</Badge>
+                    ) : (
+                      <Badge variant={c.is_active ? 'success' : 'danger'}>
+                        {c.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    )}
                   </TD>
                   <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openView(c)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => openEdit(c)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => onDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {showTrash ? (
+                        <>
+                          <button onClick={() => onRestore(c)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onPermanentDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => openView(c)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => openEdit(c)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onSoftDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </TD>
                 </TR>
