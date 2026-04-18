@@ -121,10 +121,16 @@ export default function LanguagesPage() {
   }
 
   async function onSubmit(data: any) {
-    const payload = {
-      ...data,
-      for_material: data.for_material === true || data.for_material === 'true',
-    };
+    const payload = { ...data };
+
+    if (editing) {
+      // for_material & is_active are handled by their own toggle buttons,
+      // so strip them from the form payload to avoid overwriting with stale values
+      delete payload.for_material;
+      delete payload.is_active;
+    } else {
+      payload.for_material = data.for_material === true || data.for_material === 'true';
+    }
 
     const res = editing
       ? await api.updateLanguage(editing.id, payload)
