@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -12,12 +11,16 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
+import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookOpen, Trash2, Edit2, Globe, Wand2 } from 'lucide-react';
+import { Plus, BookOpen, Trash2, Edit2, Globe, Wand2, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { CategoryTranslation, Category, Language } from '@/lib/types';
 
 const TABS = ['Content', 'SEO Meta', 'Open Graph', 'Twitter'] as const;
+
+type SortField = 'id' | 'name' | 'is_active' | 'sort_order';
 
 export default function CategoryTranslationsPage() {
   const [items, setItems] = useState<CategoryTranslation[]>([]);
@@ -35,11 +38,17 @@ export default function CategoryTranslationsPage() {
   const [dialogKey, setDialogKey] = useState(0);
   const [filterCategory, setFilterCategory] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>('Content');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [searchDebounce, setSearchDebounce] = useState('');
+  const [sortField, setSortField] = useState<SortField>('id');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number } | null>(null);
 
   const { register, handleSubmit, reset, setValue, getValues } = useForm();
 
@@ -90,6 +99,7 @@ export default function CategoryTranslationsPage() {
   useEffect(() => {
     api.listCategories('?limit=100').then(res => { if (res.success) setCategories((res.data || []).filter((c: Category) => c.is_active)); });
     api.listLanguages('?for_material=true&limit=100').then(res => { if (res.success) setLanguages((res.data || []).filter((l: Language) => l.is_active)); });
+    refreshSummary();
   }, []);
 
   useEffect(() => {
@@ -97,19 +107,28 @@ export default function CategoryTranslationsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterCategory, filterLanguage]);
-  useEffect(() => { load(); }, [searchDebounce, page, filterCategory, filterLanguage]);
+  useEffect(() => { setPage(1); }, [searchDebounce, filterCategory, filterLanguage, filterStatus, sortField, sortOrder, pageSize]);
+  useEffect(() => { load(); }, [searchDebounce, page, filterCategory, filterLanguage, filterStatus, sortField, sortOrder, pageSize]);
+
+  async function refreshSummary() {
+    const res = await api.getTableSummary('category_translations');
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
+  }
 
   async function load() {
     setLoading(true);
-    const qs = new URLSearchParams({ page: String(page), limit: '20' });
+    const qs = new URLSearchParams({ page: String(page), limit: String(pageSize) });
     if (searchDebounce) qs.set('search', searchDebounce);
     if (filterCategory) qs.set('category_id', filterCategory);
     if (filterLanguage) qs.set('language_id', filterLanguage);
+    if (filterStatus) qs.set('is_active', filterStatus);
+    qs.set('sort', sortField);
+    qs.set('order', sortOrder);
     const res = await api.listCategoryTranslations('?' + qs.toString());
     if (res.success) {
       setItems(res.data || []);
       setTotalPages(res.pagination?.totalPages || 1);
+      setTotal(res.pagination?.total || 0);
     }
     setLoading(false);
   }
@@ -167,14 +186,14 @@ export default function CategoryTranslationsPage() {
       : await api.createCategoryTranslation(fd, true);
     if (res.success) {
       toast.success(editing ? 'Translation updated' : 'Translation created');
-      setDialogOpen(false); load();
+      setDialogOpen(false); load(); refreshSummary();
     } else toast.error(res.error || 'Failed');
   }
 
   async function onDelete(item: CategoryTranslation) {
     if (!confirm(`Delete translation "${item.name}"?`)) return;
     const res = await api.deleteCategoryTranslation(item.id);
-    if (res.success) { toast.success('Deleted'); load(); }
+    if (res.success) { toast.success('Deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -182,8 +201,19 @@ export default function CategoryTranslationsPage() {
     const fd = new FormData();
     fd.append('is_active', String(!item.is_active));
     const res = await api.updateCategoryTranslation(item.id, fd, true);
-    if (res.success) { toast.success(`${!item.is_active ? 'Activated' : 'Deactivated'}`); load(); }
+    if (res.success) { toast.success(`${!item.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
+  }
+
+  function handleSort(field: SortField) {
+    if (sortField === field) setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortOrder('asc'); }
+    setPage(1);
+  }
+
+  function SortIcon({ field }: { field: SortField }) {
+    if (sortField !== field) return <ArrowUpDown className="w-3.5 h-3.5 text-slate-300" />;
+    return sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-brand-600" /> : <ArrowDown className="w-3.5 h-3.5 text-brand-600" />;
   }
 
   return (
@@ -191,20 +221,47 @@ export default function CategoryTranslationsPage() {
       <PageHeader title="Category Translations" description="Manage multi-language translations for categories"
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button>} />
 
-      <div className="mb-4">
-        <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search translations...">
-          <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-            value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-            <option value="">All categories</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-            value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
-            <option value="">All languages</option>
-            {languages.map(l => <option key={l.id} value={l.id}>{l.name}{l.native_name ? ` (${l.native_name})` : ''}</option>)}
-          </select>
-        </DataToolbar>
-      </div>
+      {summary && (
+        <div className="grid grid-cols-3 gap-4 mb-5">
+          {[
+            { label: 'Total Translations', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
+            { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
+            { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+          ].map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 shadow-sm">
+                <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0', card.color)}>
+                  <Icon className="w-4.5 h-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-slate-500 font-medium">{card.label}</div>
+                  <div className="text-xl font-bold text-slate-900 leading-tight">{card.value.toLocaleString()}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search translations...">
+        <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+          <option value="">All categories</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
+          <option value="">All languages</option>
+          {languages.map(l => <option key={l.id} value={l.id}>{l.name}{l.native_name ? ` (${l.native_name})` : ''}</option>)}
+        </select>
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+          className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat">
+          <option value="">All Status</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </DataToolbar>
 
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
@@ -213,38 +270,44 @@ export default function CategoryTranslationsPage() {
           action={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button>} />
       ) : (
         <>
-          <div className="grid gap-3">
-            {items.map(item => (
-              <Card key={item.id} className="p-4 hover:shadow-card-hover transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
-                    {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Globe className="w-5 h-5 text-slate-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-display font-semibold text-slate-900">{item.name}</h3>
-                      {item.categories?.name && <Badge variant="info">{item.categories.name}</Badge>}
-                      {item.languages?.name && <Badge variant="muted">{item.languages.name}{item.languages.iso_code ? ` (${item.languages.iso_code})` : ''}</Badge>}
-                      {!item.is_active && <Badge variant="danger">Inactive</Badge>}
-                    </div>
-                    {item.description && <p className="text-xs text-slate-500 mt-0.5 truncate">{item.description}</p>}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => onToggleActive(item)}>
-                      {item.is_active ? 'Deactivate' : 'Activate'}
-                    </Button>
-                    <button type="button" onClick={() => openEdit(item)} className="p-2 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50"><Edit2 className="w-4 h-4" /></button>
-                    <button type="button" onClick={() => onDelete(item)} className="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+          <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <Table>
+              <THead>
+                <TR className="hover:bg-transparent">
+                  <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
+                  <TH className="w-14">Image</TH>
+                  <TH><button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Name <SortIcon field="name" /></button></TH>
+                  <TH>Category</TH>
+                  <TH>Language</TH>
+                  <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="is_active" /></button></TH>
+                  <TH className="text-right">Actions</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {items.map(item => (
+                  <TR key={item.id}>
+                    <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{item.id}</span></TD>
+                    <TD className="py-2.5">
+                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
+                        {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <Globe className="w-4 h-4 text-slate-300" />}
+                      </div>
+                    </TD>
+                    <TD className="py-2.5"><span className="font-medium text-slate-900">{item.name}</span>{item.description && <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{item.description}</p>}</TD>
+                    <TD className="py-2.5">{item.categories?.name ? <Badge variant="info">{item.categories.name}</Badge> : <span className="text-slate-300">—</span>}</TD>
+                    <TD className="py-2.5">{item.languages?.name ? <Badge variant="muted">{item.languages.name}{item.languages.iso_code ? ` (${item.languages.iso_code})` : ''}</Badge> : <span className="text-slate-300">—</span>}</TD>
+                    <TD className="py-2.5"><Badge variant={item.is_active ? 'success' : 'danger'}>{item.is_active ? 'Active' : 'Inactive'}</Badge></TD>
+                    <TD className="py-2.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => onDelete(item)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={(s) => setPageSize(s)} total={total} showingCount={items.length} />
           </div>
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
 

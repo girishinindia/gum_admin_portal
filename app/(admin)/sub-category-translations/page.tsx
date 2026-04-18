@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -12,12 +11,15 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
+import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookMarked, Trash2, Edit2, Globe, Wand2 } from 'lucide-react';
+import { Plus, BookMarked, Trash2, Edit2, Globe, Wand2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { SubCategoryTranslation, SubCategory, Language } from '@/lib/types';
 
 const TABS = ['Content', 'SEO Meta', 'Open Graph', 'Twitter'] as const;
+type SortField = 'id' | 'name' | 'is_active' | 'sort_order';
 
 export default function SubCategoryTranslationsPage() {
   const [items, setItems] = useState<SubCategoryTranslation[]>([]);
@@ -35,11 +37,17 @@ export default function SubCategoryTranslationsPage() {
   const [dialogKey, setDialogKey] = useState(0);
   const [filterSubCategory, setFilterSubCategory] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>('Content');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [searchDebounce, setSearchDebounce] = useState('');
+  const [sortField, setSortField] = useState<SortField>('id');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [pageSize, setPageSize] = useState(10);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number } | null>(null);
 
   const { register, handleSubmit, reset, setValue, getValues } = useForm();
 
@@ -93,6 +101,7 @@ export default function SubCategoryTranslationsPage() {
   useEffect(() => {
     api.listSubCategories('?limit=100').then(res => { if (res.success) setSubCategories((res.data || []).filter((sc: SubCategory) => sc.is_active)); });
     api.listLanguages('?for_material=true&limit=100').then(res => { if (res.success) setLanguages((res.data || []).filter((l: Language) => l.is_active)); });
+    refreshSummary();
   }, []);
 
   useEffect(() => {
@@ -100,19 +109,30 @@ export default function SubCategoryTranslationsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterSubCategory, filterLanguage]);
-  useEffect(() => { load(); }, [searchDebounce, page, filterSubCategory, filterLanguage]);
+  useEffect(() => { setPage(1); }, [searchDebounce, filterSubCategory, filterLanguage, filterStatus, sortField, sortOrder, pageSize]);
+  useEffect(() => { load(); }, [searchDebounce, page, filterSubCategory, filterLanguage, filterStatus, sortField, sortOrder, pageSize]);
+
+  async function refreshSummary() {
+    const res = await api.getTableSummary('sub_category_translations');
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
+  }
 
   async function load() {
     setLoading(true);
-    const qs = new URLSearchParams({ page: String(page), limit: '20' });
+    const qs = new URLSearchParams();
+    qs.set('page', String(page));
+    qs.set('limit', String(pageSize));
     if (searchDebounce) qs.set('search', searchDebounce);
     if (filterSubCategory) qs.set('sub_category_id', filterSubCategory);
     if (filterLanguage) qs.set('language_id', filterLanguage);
+    if (filterStatus) qs.set('is_active', filterStatus);
+    qs.set('sort', sortField);
+    qs.set('order', sortOrder);
     const res = await api.listSubCategoryTranslations('?' + qs.toString());
     if (res.success) {
       setItems(res.data || []);
       setTotalPages(res.pagination?.totalPages || 1);
+      setTotal(res.pagination?.total || 0);
     }
     setLoading(false);
   }
@@ -168,14 +188,14 @@ export default function SubCategoryTranslationsPage() {
       : await api.createSubCategoryTranslation(fd, true);
     if (res.success) {
       toast.success(editing ? 'Translation updated' : 'Translation created');
-      setDialogOpen(false); load();
+      setDialogOpen(false); load(); refreshSummary();
     } else toast.error(res.error || 'Failed');
   }
 
   async function onDelete(item: SubCategoryTranslation) {
     if (!confirm(`Delete translation "${item.name}"?`)) return;
     const res = await api.deleteSubCategoryTranslation(item.id);
-    if (res.success) { toast.success('Deleted'); load(); }
+    if (res.success) { toast.success('Deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -183,8 +203,19 @@ export default function SubCategoryTranslationsPage() {
     const fd = new FormData();
     fd.append('is_active', String(!item.is_active));
     const res = await api.updateSubCategoryTranslation(item.id, fd, true);
-    if (res.success) { toast.success(`${!item.is_active ? 'Activated' : 'Deactivated'}`); load(); }
+    if (res.success) { toast.success(`${!item.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
+  }
+
+  function handleSort(field: SortField) {
+    if (sortField === field) setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortOrder('asc'); }
+    setPage(1);
+  }
+
+  function SortIcon({ field }: { field: SortField }) {
+    if (sortField !== field) return <ArrowUpDown className="w-3.5 h-3.5 text-slate-300" />;
+    return sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-brand-600" /> : <ArrowDown className="w-3.5 h-3.5 text-brand-600" />;
   }
 
   return (
@@ -192,17 +223,46 @@ export default function SubCategoryTranslationsPage() {
       <PageHeader title="Sub-Category Translations" description="Manage multi-language translations for sub-categories"
         actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button>} />
 
+      {summary && (
+        <div className="grid grid-cols-3 gap-4 mb-5">
+          {[
+            { label: 'Total Translations', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
+            { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
+            { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+          ].map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 shadow-sm">
+                <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0', card.color)}>
+                  <Icon className="w-4.5 h-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-slate-500 font-medium">{card.label}</div>
+                  <div className="text-xl font-bold text-slate-900 leading-tight">{card.value.toLocaleString()}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="mb-4">
         <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search translations...">
-          <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             value={filterSubCategory} onChange={e => setFilterSubCategory(e.target.value)}>
             <option value="">All sub-categories</option>
             {subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.name}{sc.categories?.name ? ` (${sc.categories.name})` : ''}</option>)}
           </select>
-          <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
             <option value="">All languages</option>
             {languages.map(l => <option key={l.id} value={l.id}>{l.name}{l.native_name ? ` (${l.native_name})` : ''}</option>)}
+          </select>
+          <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option value="">All Status</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
           </select>
         </DataToolbar>
       </div>
@@ -214,39 +274,47 @@ export default function SubCategoryTranslationsPage() {
           action={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button>} />
       ) : (
         <>
-          <div className="grid gap-3">
-            {items.map(item => (
-              <Card key={item.id} className="p-4 hover:shadow-card-hover transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
-                    {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Globe className="w-5 h-5 text-slate-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-display font-semibold text-slate-900">{item.name}</h3>
-                      {item.sub_categories?.name && <Badge variant="info">{item.sub_categories.name}</Badge>}
-                      {item.sub_categories?.categories?.name && <Badge variant="success">{item.sub_categories.categories.name}</Badge>}
-                      {item.languages?.name && <Badge variant="muted">{item.languages.name}{item.languages.iso_code ? ` (${item.languages.iso_code})` : ''}</Badge>}
-                      {!item.is_active && <Badge variant="danger">Inactive</Badge>}
-                    </div>
-                    {item.description && <p className="text-xs text-slate-500 mt-0.5 truncate">{item.description}</p>}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => onToggleActive(item)}>
-                      {item.is_active ? 'Deactivate' : 'Activate'}
-                    </Button>
-                    <button type="button" onClick={() => openEdit(item)} className="p-2 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50"><Edit2 className="w-4 h-4" /></button>
-                    <button type="button" onClick={() => onDelete(item)} className="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+          <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <Table>
+              <THead>
+                <TR className="hover:bg-transparent">
+                  <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
+                  <TH className="w-14">Image</TH>
+                  <TH><button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Name <SortIcon field="name" /></button></TH>
+                  <TH>Sub-Category</TH>
+                  <TH>Language</TH>
+                  <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="is_active" /></button></TH>
+                  <TH className="text-right">Actions</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {items.map(item => (
+                  <TR key={item.id}>
+                    <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{item.id}</span></TD>
+                    <TD className="py-2.5">
+                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
+                        {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <Globe className="w-4 h-4 text-slate-300" />}
+                      </div>
+                    </TD>
+                    <TD className="py-2.5"><span className="font-medium text-slate-900">{item.name}</span>{item.description && <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{item.description}</p>}</TD>
+                    <TD className="py-2.5">
+                      {item.sub_categories?.name ? <Badge variant="info">{item.sub_categories.name}</Badge> : <span className="text-slate-300">—</span>}
+                      {item.sub_categories?.categories?.name && <div className="text-xs text-slate-400 mt-0.5">{item.sub_categories.categories.name}</div>}
+                    </TD>
+                    <TD className="py-2.5">{item.languages?.name ? <Badge variant="muted">{item.languages.name}{item.languages.iso_code ? ` (${item.languages.iso_code})` : ''}</Badge> : <span className="text-slate-300">—</span>}</TD>
+                    <TD className="py-2.5"><Badge variant={item.is_active ? 'success' : 'danger'}>{item.is_active ? 'Active' : 'Inactive'}</Badge></TD>
+                    <TD className="py-2.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => onDelete(item)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={(s) => setPageSize(s)} total={total} showingCount={items.length} />
           </div>
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
 

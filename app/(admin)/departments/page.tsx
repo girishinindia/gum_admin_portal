@@ -55,6 +55,11 @@ export default function DepartmentsPage() {
   // Load departments on page/filter/search change
   useEffect(() => { load(); }, [searchDebounce, page, filterParent]);
 
+  async function refreshDepartments() {
+    const res = await api.listDepartments('?limit=100');
+    if (res.success) setDepartments(res.data || []);
+  }
+
   async function load() {
     setLoading(true);
     const qs = new URLSearchParams({ page: String(page), limit: '20' });
@@ -103,14 +108,14 @@ export default function DepartmentsPage() {
       : await api.createDepartment(payload);
     if (res.success) {
       toast.success(editing ? 'Department updated' : 'Department created');
-      setDialogOpen(false); load();
+      setDialogOpen(false); load(); refreshDepartments();
     } else toast.error(res.error || 'Failed');
   }
 
   async function onDelete(d: Department) {
     if (!confirm(`Delete "${d.name}"?`)) return;
     const res = await api.deleteDepartment(d.id);
-    if (res.success) { toast.success('Deleted'); load(); }
+    if (res.success) { toast.success('Deleted'); load(); refreshDepartments(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -153,7 +158,7 @@ export default function DepartmentsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-display font-semibold text-slate-900">{d.name}</h3>
                     {d.code && <Badge variant="muted" className="font-mono">{d.code}</Badge>}
-                    {d.parent && <Badge variant="info" className="text-xs">Parent: {d.parent.name}</Badge>}
+                    {d.parent_department_id && (() => { const p = departments.find(dep => dep.id === d.parent_department_id); return p ? <Badge variant="info" className="text-xs">Parent: {p.name}</Badge> : null; })()}
                     {d.head && <Badge variant="success" className="text-xs">Head: {d.head.full_name}</Badge>}
                     {!d.is_active && <Badge variant="danger">Inactive</Badge>}
                   </div>
