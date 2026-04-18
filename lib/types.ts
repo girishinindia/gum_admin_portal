@@ -116,6 +116,7 @@ export interface Skill {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface Language {
@@ -129,6 +130,7 @@ export interface Language {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface EducationLevel {
@@ -142,6 +144,7 @@ export interface EducationLevel {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface DocumentType {
@@ -152,6 +155,7 @@ export interface DocumentType {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface Document {
@@ -164,6 +168,7 @@ export interface Document {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   document_types?: { name: string };
 }
 
@@ -178,6 +183,7 @@ export interface Designation {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface Specialization {
@@ -189,6 +195,7 @@ export interface Specialization {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface LearningGoal {
@@ -200,6 +207,7 @@ export interface LearningGoal {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface SocialMedia {
@@ -215,6 +223,7 @@ export interface SocialMedia {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface Category {
@@ -230,6 +239,7 @@ export interface Category {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface SubCategory {
@@ -246,6 +256,7 @@ export interface SubCategory {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   categories?: { name: string; code: string };
 }
 

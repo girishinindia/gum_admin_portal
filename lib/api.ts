@@ -166,6 +166,8 @@ export const api = {
   createSkill: (data: any, isFormData = false) => request('/skills', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateSkill: (id: number, data: any, isFormData = false) => request(`/skills/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteSkill: (id: number) => request(`/skills/${id}`, { method: 'DELETE' }),
+  restoreSkill: (id: number) => request(`/skills/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSkill: (id: number) => request(`/skills/${id}/permanent`, { method: 'DELETE' }),
 
   // Languages
   listLanguages: (qs = '') => request(`/languages${qs}`, { auth: false }),
@@ -173,6 +175,8 @@ export const api = {
   createLanguage: (data: any) => request('/languages', { method: 'POST', body: JSON.stringify(data) }),
   updateLanguage: (id: number, data: any) => request(`/languages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteLanguage: (id: number) => request(`/languages/${id}`, { method: 'DELETE' }),
+  restoreLanguage: (id: number) => request(`/languages/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteLanguage: (id: number) => request(`/languages/${id}/permanent`, { method: 'DELETE' }),
 
   // Education Levels
   listEducationLevels: (qs = '') => request(`/education-levels${qs}`, { auth: false }),
@@ -180,6 +184,8 @@ export const api = {
   createEducationLevel: (data: any) => request('/education-levels', { method: 'POST', body: JSON.stringify(data) }),
   updateEducationLevel: (id: number, data: any) => request(`/education-levels/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteEducationLevel: (id: number) => request(`/education-levels/${id}`, { method: 'DELETE' }),
+  restoreEducationLevel: (id: number) => request(`/education-levels/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteEducationLevel: (id: number) => request(`/education-levels/${id}/permanent`, { method: 'DELETE' }),
 
   // Document Types
   listDocumentTypes: (qs = '') => request(`/document-types${qs}`, { auth: false }),
@@ -187,6 +193,8 @@ export const api = {
   createDocumentType: (data: any) => request('/document-types', { method: 'POST', body: JSON.stringify(data) }),
   updateDocumentType: (id: number, data: any) => request(`/document-types/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteDocumentType: (id: number) => request(`/document-types/${id}`, { method: 'DELETE' }),
+  restoreDocumentType: (id: number) => request(`/document-types/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteDocumentType: (id: number) => request(`/document-types/${id}/permanent`, { method: 'DELETE' }),
 
   // Documents
   listDocuments: (qs = '') => request(`/documents${qs}`, { auth: false }),
@@ -194,6 +202,8 @@ export const api = {
   createDocument: (data: any, isFormData = false) => request('/documents', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateDocument: (id: number, data: any, isFormData = false) => request(`/documents/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteDocument: (id: number) => request(`/documents/${id}`, { method: 'DELETE' }),
+  restoreDocument: (id: number) => request(`/documents/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteDocument: (id: number) => request(`/documents/${id}/permanent`, { method: 'DELETE' }),
 
   // Designations
   listDesignations: (qs = '') => request(`/designations${qs}`, { auth: false }),
@@ -201,6 +211,8 @@ export const api = {
   createDesignation: (data: any) => request('/designations', { method: 'POST', body: JSON.stringify(data) }),
   updateDesignation: (id: number, data: any) => request(`/designations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteDesignation: (id: number) => request(`/designations/${id}`, { method: 'DELETE' }),
+  restoreDesignation: (id: number) => request(`/designations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteDesignation: (id: number) => request(`/designations/${id}/permanent`, { method: 'DELETE' }),
 
   // Specializations
   listSpecializations: (qs = '') => request(`/specializations${qs}`, { auth: false }),
@@ -208,6 +220,8 @@ export const api = {
   createSpecialization: (data: any) => request('/specializations', { method: 'POST', body: JSON.stringify(data) }),
   updateSpecialization: (id: number, data: any) => request(`/specializations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSpecialization: (id: number) => request(`/specializations/${id}`, { method: 'DELETE' }),
+  restoreSpecialization: (id: number) => request(`/specializations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSpecialization: (id: number) => request(`/specializations/${id}/permanent`, { method: 'DELETE' }),
 
   // Learning Goals
   listLearningGoals: (qs = '') => request(`/learning-goals${qs}`, { auth: false }),
@@ -215,6 +229,8 @@ export const api = {
   createLearningGoal: (data: any) => request('/learning-goals', { method: 'POST', body: JSON.stringify(data) }),
   updateLearningGoal: (id: number, data: any) => request(`/learning-goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteLearningGoal: (id: number) => request(`/learning-goals/${id}`, { method: 'DELETE' }),
+  restoreLearningGoal: (id: number) => request(`/learning-goals/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteLearningGoal: (id: number) => request(`/learning-goals/${id}/permanent`, { method: 'DELETE' }),
 
   // Social Medias
   listSocialMedias: (qs = '') => request(`/social-medias${qs}`, { auth: false }),
@@ -222,6 +238,8 @@ export const api = {
   createSocialMedia: (data: any, isFormData = false) => request('/social-medias', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateSocialMedia: (id: number, data: any, isFormData = false) => request(`/social-medias/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteSocialMedia: (id: number) => request(`/social-medias/${id}`, { method: 'DELETE' }),
+  restoreSocialMedia: (id: number) => request(`/social-medias/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSocialMedia: (id: number) => request(`/social-medias/${id}/permanent`, { method: 'DELETE' }),
 
   // Categories
   listCategories: (qs = '') => request(`/categories${qs}`, { auth: false }),
@@ -229,6 +247,8 @@ export const api = {
   createCategory: (data: any, isFormData = false) => request('/categories', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateCategory: (id: number, data: any, isFormData = false) => request(`/categories/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteCategory: (id: number) => request(`/categories/${id}`, { method: 'DELETE' }),
+  restoreCategory: (id: number) => request(`/categories/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCategory: (id: number) => request(`/categories/${id}/permanent`, { method: 'DELETE' }),
 
   // Sub-Categories
   listSubCategories: (qs = '') => request(`/sub-categories${qs}`, { auth: false }),
@@ -236,6 +256,8 @@ export const api = {
   createSubCategory: (data: any, isFormData = false) => request('/sub-categories', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateSubCategory: (id: number, data: any, isFormData = false) => request(`/sub-categories/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteSubCategory: (id: number) => request(`/sub-categories/${id}`, { method: 'DELETE' }),
+  restoreSubCategory: (id: number) => request(`/sub-categories/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSubCategory: (id: number) => request(`/sub-categories/${id}/permanent`, { method: 'DELETE' }),
 
   // Category Translations
   listCategoryTranslations: (qs = '') => request(`/category-translations${qs}`, { auth: false }),

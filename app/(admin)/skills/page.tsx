@@ -14,8 +14,8 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Sparkles, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, Sparkles, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { cn, fromNow } from '@/lib/utils';
 import type { Skill } from '@/lib/types';
 
 const CATEGORIES = [
@@ -63,7 +63,10 @@ export default function SkillsPage() {
   const [searchDebounce, setSearchDebounce] = useState('');
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number; updated_at: string } | null>(null);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
+
+  // Soft delete: toggle between active list and trash
+  const [showTrash, setShowTrash] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -73,13 +76,13 @@ export default function SkillsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterCategory, filterStatus, pageSize]);
+  useEffect(() => { setPage(1); }, [searchDebounce, filterCategory, filterStatus, pageSize, showTrash]);
   useEffect(() => {
     api.getTableSummary('skills').then(res => {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
   }, []);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterCategory, filterStatus, sortField, sortOrder]);
+  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterCategory, filterStatus, sortField, sortOrder, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -87,10 +90,14 @@ export default function SkillsPage() {
     qs.set('page', String(page));
     qs.set('limit', String(pageSize));
     if (searchDebounce) qs.set('search', searchDebounce);
-    if (filterCategory) qs.set('category', filterCategory);
-    if (filterStatus) qs.set('is_active', filterStatus);
     qs.set('sort', sortField);
     qs.set('order', sortOrder);
+    if (showTrash) {
+      qs.set('show_deleted', 'true');
+    } else {
+      if (filterCategory) qs.set('category', filterCategory);
+      if (filterStatus) qs.set('is_active', filterStatus);
+    }
     const res = await api.listSkills('?' + qs.toString());
     if (res.success) {
       setSkills(res.data || []);
@@ -167,10 +174,23 @@ export default function SkillsPage() {
     }
   }
 
-  async function onDelete(s: Skill) {
-    if (!confirm(`Delete "${s.name}"? Icon will also be removed.`)) return;
+  async function onSoftDelete(s: Skill) {
+    if (!confirm(`Move to trash? You can restore it later.`)) return;
     const res = await api.deleteSkill(s.id);
-    if (res.success) { toast.success('Skill deleted'); load(); refreshSummary(); }
+    if (res.success) { toast.success('Skill moved to trash'); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onRestore(s: Skill) {
+    const res = await api.restoreSkill(s.id);
+    if (res.success) { toast.success(`"${s.name}" restored`); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onPermanentDelete(s: Skill) {
+    if (!confirm(`PERMANENTLY delete? This cannot be undone and icon will be removed.`)) return;
+    const res = await api.permanentDeleteSkill(s.id);
+    if (res.success) { toast.success('Skill permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -189,15 +209,20 @@ export default function SkillsPage() {
       <PageHeader
         title="Skills"
         description="Manage skills, technologies, and certifications"
-        actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add skill</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add skill</Button>}
+          </div>
+        }
       />
 
       {summary && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-4 gap-4 mb-5">
           {[
             { label: 'Total Skills', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
             { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
             { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+            { label: 'In Trash', value: summary.is_deleted, icon: Trash2, color: 'bg-amber-50 text-amber-600' },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -215,30 +240,79 @@ export default function SkillsPage() {
         </div>
       )}
 
-      {/* Toolbar: search + filters */}
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search skills...">
-        <select className={selectClass} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-          <option value="">All Categories</option>
-          {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </select>
-        <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">All Status</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
+      {/* Trash toggle tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+        <button
+          onClick={() => setShowTrash(false)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          Skills
+        </button>
+        <button
+          onClick={() => setShowTrash(true)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5',
+            showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Trash
+          {summary && summary.is_deleted > 0 && (
+            <span className={cn(
+              'ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold',
+              showTrash ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+            )}>
+              {summary.is_deleted}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Toolbar: search + filters (only in normal view) */}
+      <DataToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={showTrash ? 'Search trash...' : 'Search skills...'}
+      >
+        {!showTrash && (
+          <>
+            <select className={selectClass} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+              <option value="">All Categories</option>
+              {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+            <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">All Status</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </>
+        )}
       </DataToolbar>
 
+      {/* Trash banner */}
+      {showTrash && (
+        <div className="mt-3 mb-1 flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Items in trash can be restored or permanently deleted. Permanent deletion cannot be undone.</span>
+        </div>
+      )}
+
       {loading ? (
-        <div className="mt-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+        <div className="mt-4 space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
+        </div>
       ) : skills.length === 0 ? (
         <EmptyState
-          icon={Sparkles}
-          title="No skills yet"
-          description={searchDebounce || filterCategory || filterStatus ? 'No skills match your filters' : 'Add your first skill'}
-          action={!searchDebounce && !filterCategory && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add skill</Button> : undefined}
+          icon={showTrash ? Trash2 : Sparkles}
+          title={showTrash ? 'Trash is empty' : 'No skills yet'}
+          description={showTrash ? 'No deleted skills' : (searchDebounce || filterCategory || filterStatus ? 'No skills match your filters' : 'Add your first skill')}
+          action={!showTrash && !searchDebounce && !filterCategory && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add skill</Button> : undefined}
         />
       ) : (
-        <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
@@ -249,12 +323,17 @@ export default function SkillsPage() {
                     Name <SortIcon field="name" />
                   </button>
                 </TH>
-                <TH>
-                  <button onClick={() => handleSort('category')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Category <SortIcon field="category" />
-                  </button>
-                </TH>
-                <TH>Description</TH>
+                {!showTrash && (
+                  <>
+                    <TH>
+                      <button onClick={() => handleSort('category')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
+                        Category <SortIcon field="category" />
+                      </button>
+                    </TH>
+                    <TH>Description</TH>
+                  </>
+                )}
+                {showTrash && <TH>Deleted</TH>}
                 <TH>
                   <button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
                     Status <SortIcon field="is_active" />
@@ -265,7 +344,7 @@ export default function SkillsPage() {
             </THead>
             <TBody>
               {skills.map(s => (
-                <TR key={s.id}>
+                <TR key={s.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{s.id}</span></TD>
                   <TD className="py-2.5">
                     <div className="w-8 h-8 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
@@ -278,32 +357,58 @@ export default function SkillsPage() {
                     </div>
                   </TD>
                   <TD className="py-2.5">
-                    <span className="font-medium text-slate-900">{s.name}</span>
+                    <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{s.name}</span>
                   </TD>
+                  {!showTrash && (
+                    <>
+                      <TD className="py-2.5">
+                        <Badge variant={(categoryColors[s.category] || 'muted') as any}>
+                          {CATEGORIES.find(c => c.value === s.category)?.label || s.category}
+                        </Badge>
+                      </TD>
+                      <TD className="py-2.5">
+                        <span className="text-slate-600 text-sm line-clamp-1">{s.description || '—'}</span>
+                      </TD>
+                    </>
+                  )}
+                  {showTrash && (
+                    <TD className="py-2.5">
+                      <span className="text-xs text-amber-600">{s.deleted_at ? fromNow(s.deleted_at) : '—'}</span>
+                    </TD>
+                  )}
                   <TD className="py-2.5">
-                    <Badge variant={(categoryColors[s.category] || 'muted') as any}>
-                      {CATEGORIES.find(c => c.value === s.category)?.label || s.category}
-                    </Badge>
-                  </TD>
-                  <TD className="py-2.5">
-                    <span className="text-slate-600 text-sm line-clamp-1">{s.description || '—'}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <Badge variant={s.is_active ? 'success' : 'danger'}>
-                      {s.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
+                    {showTrash ? (
+                      <Badge variant="warning">Deleted</Badge>
+                    ) : (
+                      <Badge variant={s.is_active ? 'success' : 'danger'}>
+                        {s.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    )}
                   </TD>
                   <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openView(s)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => openEdit(s)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => onDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {showTrash ? (
+                        <>
+                          <button onClick={() => onRestore(s)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => openView(s)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => openEdit(s)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onSoftDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </TD>
                 </TR>

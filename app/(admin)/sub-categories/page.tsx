@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Layers, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
+import { Plus, Layers, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { SubCategory, Category } from '@/lib/types';
 
@@ -44,7 +44,8 @@ export default function SubCategoriesPage() {
   const [filterStatus, setFilterStatus] = useState<string>('');
 
   // Table summary stats
-  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number } | null>(null);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number } | null>(null);
+  const [showTrash, setShowTrash] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -65,8 +66,8 @@ export default function SubCategoriesPage() {
     });
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterCategory, filterStatus, pageSize]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterCategory, filterStatus]);
+  useEffect(() => { setPage(1); }, [searchDebounce, filterCategory, filterStatus, pageSize, showTrash]);
+  useEffect(() => { load(); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterCategory, filterStatus, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -74,10 +75,14 @@ export default function SubCategoriesPage() {
     qs.set('page', String(page));
     qs.set('limit', String(pageSize));
     if (searchDebounce) qs.set('search', searchDebounce);
-    if (filterCategory) qs.set('category_id', filterCategory);
-    if (filterStatus) qs.set('is_active', filterStatus);
     qs.set('sort', sortField);
     qs.set('order', sortOrder);
+    if (showTrash) {
+      qs.set('show_deleted', 'true');
+    } else {
+      if (filterCategory) qs.set('category_id', filterCategory);
+      if (filterStatus) qs.set('is_active', filterStatus);
+    }
     const res = await api.listSubCategories('?' + qs.toString());
     if (res.success) {
       setItems(res.data || []);
@@ -156,10 +161,23 @@ export default function SubCategoriesPage() {
     }
   }
 
-  async function onDelete(sc: SubCategory) {
-    if (!confirm(`Delete "${sc.name}"?`)) return;
+  async function onSoftDelete(sc: SubCategory) {
+    if (!confirm(`Move "${sc.name}" to trash? You can restore it later.`)) return;
     const res = await api.deleteSubCategory(sc.id);
-    if (res.success) { toast.success('Sub-category deleted'); load(); refreshSummary(); }
+    if (res.success) { toast.success('Sub-category moved to trash'); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onRestore(sc: SubCategory) {
+    const res = await api.restoreSubCategory(sc.id);
+    if (res.success) { toast.success(`"${sc.name}" restored`); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onPermanentDelete(sc: SubCategory) {
+    if (!confirm(`PERMANENTLY delete "${sc.name}"? This cannot be undone.`)) return;
+    const res = await api.permanentDeleteSubCategory(sc.id);
+    if (res.success) { toast.success('Sub-category permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -176,16 +194,21 @@ export default function SubCategoriesPage() {
       <PageHeader
         title="Sub-Categories"
         description="Manage sub-categories within categories"
-        actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-category</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-category</Button>}
+          </div>
+        }
       />
 
       {/* Summary Stats from table_summary */}
       {summary && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-4 gap-4 mb-5">
           {[
             { label: 'Total Sub-Categories', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
             { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
             { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+            { label: 'In Trash', value: summary.is_deleted, icon: Trash2, color: 'bg-amber-50 text-amber-600' },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -203,30 +226,73 @@ export default function SubCategoriesPage() {
         </div>
       )}
 
+      {/* Trash toggle tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+        <button
+          onClick={() => setShowTrash(false)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          Sub-Categories
+        </button>
+        <button
+          onClick={() => setShowTrash(true)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5',
+            showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Trash
+          {summary && summary.is_deleted > 0 && (
+            <span className={cn(
+              'ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold',
+              showTrash ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+            )}>
+              {summary.is_deleted}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Toolbar: search + filters */}
       <DataToolbar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search sub-categories..."
+        searchPlaceholder={showTrash ? 'Search trash...' : 'Search sub-categories...'}
       >
-        <select
-          className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat"
-          value={filterCategory}
-          onChange={e => setFilterCategory(e.target.value)}
-        >
-          <option value="">All categories</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat"
-        >
-          <option value="">All Status</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
+        {!showTrash && (
+          <>
+            <select
+              className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat"
+              value={filterCategory}
+              onChange={e => setFilterCategory(e.target.value)}
+            >
+              <option value="">All categories</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat"
+            >
+              <option value="">All Status</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </>
+        )}
       </DataToolbar>
+
+      {/* Trash banner */}
+      {showTrash && (
+        <div className="mt-3 mb-1 flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Items in trash can be restored or permanently deleted. Permanent deletion cannot be undone.</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-4 space-y-2">
@@ -234,18 +300,18 @@ export default function SubCategoriesPage() {
         </div>
       ) : items.length === 0 ? (
         <EmptyState
-          icon={Layers}
-          title="No sub-categories yet"
-          description={searchDebounce || filterCategory || filterStatus ? 'No sub-categories match your filters' : 'Add your first sub-category'}
-          action={!searchDebounce && !filterCategory && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-category</Button> : undefined}
+          icon={showTrash ? Trash2 : Layers}
+          title={showTrash ? 'Trash is empty' : 'No sub-categories yet'}
+          description={showTrash ? 'No deleted sub-categories' : (searchDebounce || filterCategory || filterStatus ? 'No sub-categories match your filters' : 'Add your first sub-category')}
+          action={!showTrash && !searchDebounce && !filterCategory && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-category</Button> : undefined}
         />
       ) : (
-        <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
-                <TH className="w-14">Image</TH>
+                {!showTrash && <TH className="w-14">Image</TH>}
                 <TH>
                   <button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
                     Name <SortIcon field="name" />
@@ -258,7 +324,8 @@ export default function SubCategoriesPage() {
                     Order <SortIcon field="display_order" />
                   </button>
                 </TH>
-                <TH>New</TH>
+                {!showTrash && <TH>New</TH>}
+                {showTrash && <TH>Deleted</TH>}
                 <TH>
                   <button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
                     Status <SortIcon field="is_active" />
@@ -269,19 +336,21 @@ export default function SubCategoriesPage() {
             </THead>
             <TBody>
               {items.map(sc => (
-                <TR key={sc.id}>
+                <TR key={sc.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{sc.id}</span></TD>
+                  {!showTrash && (
+                    <TD className="py-2.5">
+                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
+                        {sc.image ? (
+                          <img src={sc.image} alt={sc.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Layers className="w-4 h-4 text-slate-300" />
+                        )}
+                      </div>
+                    </TD>
+                  )}
                   <TD className="py-2.5">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
-                      {sc.image ? (
-                        <img src={sc.image} alt={sc.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <Layers className="w-4 h-4 text-slate-300" />
-                      )}
-                    </div>
-                  </TD>
-                  <TD className="py-2.5">
-                    <span className="font-medium text-slate-900">{sc.name}</span>
+                    <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{sc.name}</span>
                   </TD>
                   <TD className="py-2.5">
                     <span className="font-mono text-xs text-slate-600">{sc.code}</span>
@@ -292,25 +361,49 @@ export default function SubCategoriesPage() {
                   <TD className="py-2.5">
                     <span className="text-slate-600">{sc.display_order}</span>
                   </TD>
+                  {!showTrash && (
+                    <TD className="py-2.5">
+                      {sc.is_new ? <Badge variant="success">New</Badge> : <span className="text-slate-300">—</span>}
+                    </TD>
+                  )}
+                  {showTrash && (
+                    <TD className="py-2.5">
+                      <span className="text-xs text-amber-600">{sc.deleted_at ? fromNow(sc.deleted_at) : '—'}</span>
+                    </TD>
+                  )}
                   <TD className="py-2.5">
-                    {sc.is_new ? <Badge variant="success">New</Badge> : <span className="text-slate-300">—</span>}
-                  </TD>
-                  <TD className="py-2.5">
-                    <Badge variant={sc.is_active ? 'success' : 'danger'}>
-                      {sc.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
+                    {showTrash ? (
+                      <Badge variant="warning">Deleted</Badge>
+                    ) : (
+                      <Badge variant={sc.is_active ? 'success' : 'danger'}>
+                        {sc.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    )}
                   </TD>
                   <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openView(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => openEdit(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => onDelete(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {showTrash ? (
+                        <>
+                          <button onClick={() => onRestore(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onPermanentDelete(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => openView(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => openEdit(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onSoftDelete(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </TD>
                 </TR>

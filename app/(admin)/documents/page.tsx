@@ -14,8 +14,8 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, FileImage, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, FileImage, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { cn, fromNow } from '@/lib/utils';
 import type { Document as Doc, DocumentType } from '@/lib/types';
 
 type SortField = 'id' | 'name' | 'is_active';
@@ -30,7 +30,7 @@ export default function DocumentsPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
-  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number; updated_at: string } | null>(null);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
 
   // Pagination, search, sort, filters
   const [filterType, setFilterType] = useState('');
@@ -43,6 +43,9 @@ export default function DocumentsPage() {
   const [searchDebounce, setSearchDebounce] = useState('');
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Soft delete: toggle between active list and trash
+  const [showTrash, setShowTrash] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -59,14 +62,15 @@ export default function DocumentsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // Load summary once on mount
   useEffect(() => {
     api.getTableSummary('documents').then(res => {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterType, filterStatus, pageSize]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterType, filterStatus, sortField, sortOrder]);
+  useEffect(() => { setPage(1); }, [searchDebounce, filterType, filterStatus, pageSize, showTrash]);
+  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterType, filterStatus, sortField, sortOrder, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -74,10 +78,14 @@ export default function DocumentsPage() {
     qs.set('page', String(page));
     qs.set('limit', String(pageSize));
     if (searchDebounce) qs.set('search', searchDebounce);
-    if (filterType) qs.set('document_type_id', filterType);
-    if (filterStatus) qs.set('is_active', filterStatus);
     qs.set('sort', sortField);
     qs.set('order', sortOrder);
+    if (showTrash) {
+      qs.set('show_deleted', 'true');
+    } else {
+      if (filterType) qs.set('document_type_id', String(filterType));
+      if (filterStatus) qs.set('is_active', filterStatus);
+    }
     const res = await api.listDocuments('?' + qs.toString());
     if (res.success) {
       setDocuments(res.data || []);
@@ -158,10 +166,23 @@ export default function DocumentsPage() {
     }
   }
 
-  async function onDelete(d: Doc) {
-    if (!confirm(`Delete "${d.name}"? File will also be removed.`)) return;
+  async function onSoftDelete(d: Doc) {
+    if (!confirm(`Move "${d.name}" to trash? You can restore it later.`)) return;
     const res = await api.deleteDocument(d.id);
-    if (res.success) { toast.success('Document deleted'); load(); refreshSummary(); }
+    if (res.success) { toast.success('Document moved to trash'); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onRestore(d: Doc) {
+    const res = await api.restoreDocument(d.id);
+    if (res.success) { toast.success(`"${d.name}" restored`); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onPermanentDelete(d: Doc) {
+    if (!confirm(`PERMANENTLY delete "${d.name}"? This cannot be undone and file will be removed.`)) return;
+    const res = await api.permanentDeleteDocument(d.id);
+    if (res.success) { toast.success('Document permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -180,15 +201,21 @@ export default function DocumentsPage() {
       <PageHeader
         title="Documents"
         description="Manage documents and uploaded files"
-        actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add document</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add document</Button>}
+          </div>
+        }
       />
 
+      {/* Summary Stats from table_summary */}
       {summary && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-4 gap-4 mb-5">
           {[
             { label: 'Total Documents', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
             { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
             { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+            { label: 'In Trash', value: summary.is_deleted, icon: Trash2, color: 'bg-amber-50 text-amber-600' },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -206,30 +233,77 @@ export default function DocumentsPage() {
         </div>
       )}
 
-      {/* Toolbar: search + filters */}
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search documents...">
-        <select className={selectClass} value={filterType} onChange={e => setFilterType(e.target.value)}>
-          <option value="">All Types</option>
-          {docTypes.map(dt => <option key={dt.id} value={dt.id}>{dt.name}</option>)}
-        </select>
-        <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">All Status</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
+      {/* Trash toggle tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+        <button
+          onClick={() => setShowTrash(false)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          Documents
+        </button>
+        <button
+          onClick={() => setShowTrash(true)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5',
+            showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Trash
+          {summary && summary.is_deleted > 0 && (
+            <span className={cn(
+              'ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold',
+              showTrash ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+            )}>
+              {summary.is_deleted}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Toolbar: search + filters (only in normal view) */}
+      <DataToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={showTrash ? 'Search trash...' : 'Search documents...'}
+      >
+        {!showTrash && (
+          <>
+            <select className={selectClass} value={filterType} onChange={e => setFilterType(e.target.value)}>
+              <option value="">All Types</option>
+              {docTypes.map(dt => <option key={dt.id} value={dt.id}>{dt.name}</option>)}
+            </select>
+            <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">All Status</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </>
+        )}
       </DataToolbar>
+
+      {/* Trash banner */}
+      {showTrash && (
+        <div className="mt-3 mb-1 flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Items in trash can be restored or permanently deleted. Permanent deletion cannot be undone.</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
       ) : documents.length === 0 ? (
         <EmptyState
-          icon={FileImage}
-          title="No documents yet"
-          description={searchDebounce || filterType || filterStatus ? 'No documents match your filters' : 'Add your first document'}
-          action={!searchDebounce && !filterType && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add document</Button> : undefined}
+          icon={showTrash ? Trash2 : FileImage}
+          title={showTrash ? 'Trash is empty' : 'No documents yet'}
+          description={showTrash ? 'No deleted documents' : (searchDebounce || filterType || filterStatus ? 'No documents match your filters' : 'Add your first document')}
+          action={!showTrash && !searchDebounce && !filterType && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add document</Button> : undefined}
         />
       ) : (
-        <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
@@ -240,8 +314,13 @@ export default function DocumentsPage() {
                     Name <SortIcon field="name" />
                   </button>
                 </TH>
-                <TH>Document Type</TH>
-                <TH>Description</TH>
+                {!showTrash && (
+                  <>
+                    <TH>Document Type</TH>
+                    <TH>Description</TH>
+                  </>
+                )}
+                {showTrash && <TH>Deleted</TH>}
                 <TH>
                   <button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
                     Status <SortIcon field="is_active" />
@@ -252,7 +331,7 @@ export default function DocumentsPage() {
             </THead>
             <TBody>
               {documents.map(d => (
-                <TR key={d.id}>
+                <TR key={d.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{d.id}</span></TD>
                   <TD className="py-2.5">
                     <div className="w-8 h-8 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
@@ -265,34 +344,60 @@ export default function DocumentsPage() {
                     </div>
                   </TD>
                   <TD className="py-2.5">
-                    <span className="font-medium text-slate-900">{d.name}</span>
+                    <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{d.name}</span>
                   </TD>
+                  {!showTrash && (
+                    <>
+                      <TD className="py-2.5">
+                        {d.document_types?.name ? (
+                          <Badge variant="info">{d.document_types.name}</Badge>
+                        ) : (
+                          <span className="text-slate-400 text-sm">—</span>
+                        )}
+                      </TD>
+                      <TD className="py-2.5">
+                        <span className="text-slate-600 text-sm line-clamp-1">{d.description || '—'}</span>
+                      </TD>
+                    </>
+                  )}
+                  {showTrash && (
+                    <TD className="py-2.5">
+                      <span className="text-xs text-amber-600">{d.deleted_at ? fromNow(d.deleted_at) : '—'}</span>
+                    </TD>
+                  )}
                   <TD className="py-2.5">
-                    {d.document_types?.name ? (
-                      <Badge variant="info">{d.document_types.name}</Badge>
+                    {showTrash ? (
+                      <Badge variant="warning">Deleted</Badge>
                     ) : (
-                      <span className="text-slate-400 text-sm">—</span>
+                      <Badge variant={d.is_active ? 'success' : 'danger'}>
+                        {d.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
                     )}
                   </TD>
                   <TD className="py-2.5">
-                    <span className="text-slate-600 text-sm line-clamp-1">{d.description || '—'}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <Badge variant={d.is_active ? 'success' : 'danger'}>
-                      {d.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TD>
-                  <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openView(d)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => openEdit(d)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => onDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {showTrash ? (
+                        <>
+                          <button onClick={() => onRestore(d)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onPermanentDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => openView(d)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => openEdit(d)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onSoftDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </TD>
                 </TR>
