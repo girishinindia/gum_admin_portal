@@ -139,6 +139,8 @@ export const api = {
   createCountry: (data: any, isFormData = false) => request('/countries', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   updateCountry: (id: number, data: any, isFormData = false) => request(`/countries/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   deleteCountry: (id: number) => request(`/countries/${id}`, { method: 'DELETE' }),
+  restoreCountry: (id: number) => request(`/countries/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCountry: (id: number) => request(`/countries/${id}/permanent`, { method: 'DELETE' }),
 
   // States
   listStates: (qs = '') => request(`/states${qs}`, { auth: false }),

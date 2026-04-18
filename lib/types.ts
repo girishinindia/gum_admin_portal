@@ -74,6 +74,7 @@ export interface Country {
   flag_image?: string | null;
   is_active: boolean;
   sort_order: number;
+  deleted_at?: string | null;
   created_at: string;
   updated_at: string;
 }

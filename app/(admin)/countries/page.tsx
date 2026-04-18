@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Globe2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
+import { Plus, Globe2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Country } from '@/lib/types';
 
@@ -41,8 +41,11 @@ export default function CountriesPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [filterStatus, setFilterStatus] = useState<string>('');
 
+  // Soft delete: toggle between active list and trash
+  const [showTrash, setShowTrash] = useState(false);
+
   // Table summary stats
-  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number; updated_at: string } | null>(null);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -59,8 +62,8 @@ export default function CountriesPage() {
     });
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterStatus, pageSize]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus]);
+  useEffect(() => { setPage(1); }, [searchDebounce, filterStatus, pageSize, showTrash]);
+  useEffect(() => { load(); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -70,7 +73,11 @@ export default function CountriesPage() {
     if (searchDebounce) qs.set('search', searchDebounce);
     qs.set('sort', sortField);
     qs.set('order', sortOrder);
-    if (filterStatus) qs.set('is_active', filterStatus);
+    if (showTrash) {
+      qs.set('show_deleted', 'true');
+    } else {
+      if (filterStatus) qs.set('is_active', filterStatus);
+    }
     const res = await api.listCountries('?' + qs.toString());
     if (res.success) {
       setCountries(res.data || []);
@@ -152,10 +159,23 @@ export default function CountriesPage() {
     }
   }
 
-  async function onDelete(c: Country) {
-    if (!confirm(`Delete "${c.name}"? Flag image will also be removed.`)) return;
+  async function onSoftDelete(c: Country) {
+    if (!confirm(`Move "${c.name}" to trash? You can restore it later.`)) return;
     const res = await api.deleteCountry(c.id);
-    if (res.success) { toast.success('Country deleted'); load(); refreshSummary(); }
+    if (res.success) { toast.success('Country moved to trash'); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onRestore(c: Country) {
+    const res = await api.restoreCountry(c.id);
+    if (res.success) { toast.success(`"${c.name}" restored`); load(); refreshSummary(); }
+    else toast.error(res.error || 'Failed');
+  }
+
+  async function onPermanentDelete(c: Country) {
+    if (!confirm(`PERMANENTLY delete "${c.name}"? This cannot be undone and flag image will be removed.`)) return;
+    const res = await api.permanentDeleteCountry(c.id);
+    if (res.success) { toast.success('Country permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -172,16 +192,21 @@ export default function CountriesPage() {
       <PageHeader
         title="Countries"
         description="Manage countries, currencies, and flag images"
-        actions={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add country</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add country</Button>}
+          </div>
+        }
       />
 
       {/* Summary Stats from table_summary */}
       {summary && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-4 gap-4 mb-5">
           {[
             { label: 'Total Countries', value: summary.total, icon: BarChart3, color: 'bg-blue-50 text-blue-600' },
             { label: 'Active', value: summary.is_active, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
             { label: 'Inactive', value: summary.is_inactive, icon: XCircle, color: 'bg-red-50 text-red-600' },
+            { label: 'In Trash', value: summary.is_deleted, icon: Trash2, color: 'bg-amber-50 text-amber-600' },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -199,22 +224,63 @@ export default function CountriesPage() {
         </div>
       )}
 
-      {/* Toolbar: search + status filter */}
+      {/* Trash toggle tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+        <button
+          onClick={() => setShowTrash(false)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          Countries
+        </button>
+        <button
+          onClick={() => setShowTrash(true)}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5',
+            showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+          )}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Trash
+          {summary && summary.is_deleted > 0 && (
+            <span className={cn(
+              'ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold',
+              showTrash ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+            )}>
+              {summary.is_deleted}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Toolbar: search + status filter (only in normal view) */}
       <DataToolbar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search countries..."
+        searchPlaceholder={showTrash ? 'Search trash...' : 'Search countries...'}
       >
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat"
-        >
-          <option value="">All Status</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
+        {!showTrash && (
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat"
+          >
+            <option value="">All Status</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        )}
       </DataToolbar>
+
+      {/* Trash banner */}
+      {showTrash && (
+        <div className="mt-3 mb-1 flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Items in trash can be restored or permanently deleted. Permanent deletion cannot be undone.</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-4 space-y-2">
@@ -222,13 +288,13 @@ export default function CountriesPage() {
         </div>
       ) : countries.length === 0 ? (
         <EmptyState
-          icon={Globe2}
-          title="No countries yet"
-          description={searchDebounce || filterStatus ? 'No countries match your filters' : 'Add your first country'}
-          action={!searchDebounce && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add country</Button> : undefined}
+          icon={showTrash ? Trash2 : Globe2}
+          title={showTrash ? 'Trash is empty' : 'No countries yet'}
+          description={showTrash ? 'No deleted countries' : (searchDebounce || filterStatus ? 'No countries match your filters' : 'Add your first country')}
+          action={!showTrash && !searchDebounce && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add country</Button> : undefined}
         />
       ) : (
-        <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
@@ -244,18 +310,23 @@ export default function CountriesPage() {
                     ISO <SortIcon field="iso2" />
                   </button>
                 </TH>
-                <TH>
-                  <button onClick={() => handleSort('phone_code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Phone Code <SortIcon field="phone_code" />
-                  </button>
-                </TH>
-                <TH>Nationality</TH>
-                <TH>
-                  <button onClick={() => handleSort('currency')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Currency <SortIcon field="currency" />
-                  </button>
-                </TH>
-                <TH>Language</TH>
+                {!showTrash && (
+                  <>
+                    <TH>
+                      <button onClick={() => handleSort('phone_code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
+                        Phone Code <SortIcon field="phone_code" />
+                      </button>
+                    </TH>
+                    <TH>Nationality</TH>
+                    <TH>
+                      <button onClick={() => handleSort('currency')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
+                        Currency <SortIcon field="currency" />
+                      </button>
+                    </TH>
+                    <TH>Language</TH>
+                  </>
+                )}
+                {showTrash && <TH>Deleted</TH>}
                 <TH>
                   <button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
                     Status <SortIcon field="is_active" />
@@ -266,12 +337,11 @@ export default function CountriesPage() {
             </THead>
             <TBody>
               {countries.map(c => (
-                <TR key={c.id}>
+                <TR key={c.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{c.id}</span></TD>
                   <TD className="py-2.5">
                     <div className="w-10 h-7 rounded overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
                       {c.flag_image ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={c.flag_image} alt={c.name} className="w-full h-full object-cover" />
                       ) : (
                         <Globe2 className="w-4 h-4 text-slate-300" />
@@ -279,46 +349,72 @@ export default function CountriesPage() {
                     </div>
                   </TD>
                   <TD className="py-2.5">
-                    <span className="font-medium text-slate-900">{c.name}</span>
+                    <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.name}</span>
                   </TD>
                   <TD className="py-2.5">
                     <span className="font-mono text-xs text-slate-600">{c.iso2} / {c.iso3}</span>
                   </TD>
+                  {!showTrash && (
+                    <>
+                      <TD className="py-2.5">
+                        <span className="text-slate-600">{c.phone_code || '—'}</span>
+                      </TD>
+                      <TD className="py-2.5">
+                        <span className="text-slate-600">{c.nationality || '—'}</span>
+                      </TD>
+                      <TD className="py-2.5">
+                        {c.currency ? (
+                          <span className="text-slate-600">
+                            {c.currency_symbol && <span className="text-slate-400 mr-0.5">{c.currency_symbol}</span>}
+                            {c.currency}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </TD>
+                      <TD className="py-2.5">
+                        <span className="text-slate-600">{c.national_language || '—'}</span>
+                      </TD>
+                    </>
+                  )}
+                  {showTrash && (
+                    <TD className="py-2.5">
+                      <span className="text-xs text-amber-600">{c.deleted_at ? fromNow(c.deleted_at) : '—'}</span>
+                    </TD>
+                  )}
                   <TD className="py-2.5">
-                    <span className="text-slate-600">{c.phone_code || '—'}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <span className="text-slate-600">{c.nationality || '—'}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    {c.currency ? (
-                      <span className="text-slate-600">
-                        {c.currency_symbol && <span className="text-slate-400 mr-0.5">{c.currency_symbol}</span>}
-                        {c.currency}
-                      </span>
+                    {showTrash ? (
+                      <Badge variant="warning">Deleted</Badge>
                     ) : (
-                      <span className="text-slate-300">—</span>
+                      <Badge variant={c.is_active ? 'success' : 'danger'}>
+                        {c.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
                     )}
                   </TD>
                   <TD className="py-2.5">
-                    <span className="text-slate-600">{c.national_language || '—'}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <Badge variant={c.is_active ? 'success' : 'danger'}>
-                      {c.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TD>
-                  <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openView(c)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => openEdit(c)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => onDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {showTrash ? (
+                        <>
+                          <button onClick={() => onRestore(c)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onPermanentDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => openView(c)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => openEdit(c)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onSoftDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </TD>
                 </TR>
@@ -347,7 +443,6 @@ export default function CountriesPage() {
             <div className="flex items-center gap-4 mb-6">
               <div className="w-20 h-14 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
                 {viewing.flag_image ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={viewing.flag_image} alt={viewing.name} className="w-full h-full object-cover" />
                 ) : (
                   <Globe2 className="w-8 h-8 text-slate-300" />
