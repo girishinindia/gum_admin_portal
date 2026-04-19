@@ -242,7 +242,7 @@ export interface Category {
   twitter_card?: string | null;
   robots_directive?: string | null;
   is_active: boolean;
-  is_deleted: boolean;
+
   created_by?: number | null;
   updated_by?: number | null;
   created_at: string;
@@ -265,7 +265,7 @@ export interface SubCategory {
   twitter_card?: string | null;
   robots_directive?: string | null;
   is_active: boolean;
-  is_deleted: boolean;
+
   created_by?: number | null;
   updated_by?: number | null;
   created_at: string;
@@ -296,7 +296,7 @@ export interface CategoryTranslation {
   focus_keyword?: string | null;
   structured_data?: any;
   is_active: boolean;
-  is_deleted: boolean;
+
   created_by?: number | null;
   updated_by?: number | null;
   created_at: string;
@@ -328,7 +328,7 @@ export interface SubCategoryTranslation {
   focus_keyword?: string | null;
   structured_data?: any;
   is_active: boolean;
-  is_deleted: boolean;
+
   created_by?: number | null;
   updated_by?: number | null;
   created_at: string;

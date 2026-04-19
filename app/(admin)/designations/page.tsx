@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Award, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Award, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Designation } from '@/lib/types';
 
@@ -54,6 +54,8 @@ export default function DesignationsPage() {
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showTrash, setShowTrash] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -65,8 +67,8 @@ export default function DesignationsPage() {
     });
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterBand, filterStatus, pageSize, showTrash]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterBand, filterStatus, sortField, sortOrder, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterBand, filterStatus, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, filterBand, filterStatus, sortField, sortOrder, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -135,6 +137,70 @@ export default function DesignationsPage() {
   async function onToggleActive(d: Designation) {
     const res = await api.updateDesignation(d.id, { is_active: !d.is_active });
     if (res.success) { toast.success(`${!d.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); } else toast.error(res.error || 'Failed');
+  }
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === items.length && items.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(items.map(d => d.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} designation(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    let succeeded = 0;
+    for (const id of selectedIds) {
+      const res = await api.deleteDesignation(id);
+      if (res.success) succeeded++;
+    }
+    setBulkActionLoading(false);
+    toast.success(`${succeeded} designation(s) moved to trash`);
+    setSelectedIds(new Set());
+    load();
+    refreshSummary();
+  }
+
+  async function handleBulkRestore() {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    let succeeded = 0;
+    for (const id of selectedIds) {
+      const res = await api.restoreDesignation(id);
+      if (res.success) succeeded++;
+    }
+    setBulkActionLoading(false);
+    toast.success(`${succeeded} designation(s) restored`);
+    setSelectedIds(new Set());
+    load();
+    refreshSummary();
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} designation(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    let succeeded = 0;
+    for (const id of selectedIds) {
+      const res = await api.permanentDeleteDesignation(id);
+      if (res.success) succeeded++;
+    }
+    setBulkActionLoading(false);
+    toast.success(`${succeeded} designation(s) permanently deleted`);
+    setSelectedIds(new Set());
+    load();
+    refreshSummary();
   }
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
@@ -241,9 +307,48 @@ export default function DesignationsPage() {
           action={!showTrash && !searchDebounce && !filterBand && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add designation</Button> : undefined} />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between gap-3 px-4 py-3 bg-brand-50 border-b border-brand-200">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50">
+                      <RotateCcw className="w-3.5 h-3.5" /> Restore
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 border-red-200 hover:bg-red-50">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={handleBulkSoftDelete} disabled={bulkActionLoading} className="text-red-600 border-red-200 hover:bg-red-50">
+                    <Trash2 className="w-3.5 h-3.5" /> Move to Trash
+                  </Button>
+                )}
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  disabled={bulkActionLoading}
+                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-white transition-colors disabled:opacity-50"
+                  title="Clear selection"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-12 px-3">
+                  <input
+                    type="checkbox"
+                    checked={items.length > 0 && selectedIds.size === items.length}
+                    onChange={toggleSelectAll}
+                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  />
+                </TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH><button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Name <SortIcon field="name" /></button></TH>
                 <TH><button onClick={() => handleSort('code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Code <SortIcon field="code" /></button></TH>
@@ -256,7 +361,15 @@ export default function DesignationsPage() {
             </THead>
             <TBody>
               {items.map(d => (
-                <TR key={d.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR key={d.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(d.id) && 'bg-brand-50/40')}>
+                  <TD className="py-2.5 px-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(d.id)}
+                      onChange={() => toggleSelect(d.id)}
+                      className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                    />
+                  </TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{d.id}</span></TD>
                   <TD className="py-2.5"><span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{d.name}</span></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-600">{d.code || '—'}</span></TD>

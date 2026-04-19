@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, GraduationCap, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, GraduationCap, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { EducationLevel } from '@/lib/types';
 
@@ -53,6 +53,8 @@ export default function EducationLevelsPage() {
 
   // Soft delete: toggle between active list and trash
   const [showTrash, setShowTrash] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -68,8 +70,8 @@ export default function EducationLevelsPage() {
     });
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterCategory, filterStatus, pageSize, showTrash]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterCategory, filterStatus, sortField, sortOrder, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterCategory, filterStatus, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, filterCategory, filterStatus, sortField, sortOrder, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -179,6 +181,96 @@ export default function EducationLevelsPage() {
     const res = await api.updateEducationLevel(l.id, { is_active: !l.is_active });
     if (res.success) { toast.success(`${!l.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
+  }
+
+  function toggleSelect(id: number) {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === levels.length && levels.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(levels.map(l => l.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} education level(s) to trash? You can restore them later.`)) return;
+
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of selectedIds) {
+      const res = await api.deleteEducationLevel(id);
+      if (res.success) success++;
+    }
+    setBulkActionLoading(false);
+
+    if (success === selectedIds.size) {
+      toast.success(`${success} education level(s) moved to trash`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } else {
+      toast.error(`Failed to move ${selectedIds.size - success} item(s)`);
+      load();
+      refreshSummary();
+    }
+  }
+
+  async function handleBulkRestore() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Restore ${selectedIds.size} education level(s)?`)) return;
+
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of selectedIds) {
+      const res = await api.restoreEducationLevel(id);
+      if (res.success) success++;
+    }
+    setBulkActionLoading(false);
+
+    if (success === selectedIds.size) {
+      toast.success(`${success} education level(s) restored`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } else {
+      toast.error(`Failed to restore ${selectedIds.size - success} item(s)`);
+      load();
+      refreshSummary();
+    }
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} education level(s)? This cannot be undone.`)) return;
+
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of selectedIds) {
+      const res = await api.permanentDeleteEducationLevel(id);
+      if (res.success) success++;
+    }
+    setBulkActionLoading(false);
+
+    if (success === selectedIds.size) {
+      toast.success(`${success} education level(s) permanently deleted`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } else {
+      toast.error(`Failed to delete ${selectedIds.size - success} item(s)`);
+      load();
+      refreshSummary();
+    }
   }
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
@@ -293,9 +385,72 @@ export default function EducationLevelsPage() {
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {/* Bulk action toolbar */}
+          {selectedIds.size > 0 && (
+            <div className={cn('border-b px-4 py-3 flex items-center justify-between', showTrash ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200')}>
+              <div className="flex items-center gap-2">
+                <span className={cn('text-sm font-medium', showTrash ? 'text-amber-700' : 'text-blue-700')}>
+                  {selectedIds.size} selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleBulkRestore}
+                      disabled={bulkActionLoading}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                      Restore
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleBulkPermanentDelete}
+                      disabled={bulkActionLoading}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Delete Permanently
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkSoftDelete}
+                    disabled={bulkActionLoading}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Move to Trash
+                  </Button>
+                )}
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  disabled={bulkActionLoading}
+                  className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                  title="Clear selection"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-12 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === levels.length && levels.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                  />
+                </TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH>
                   <button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -332,7 +487,21 @@ export default function EducationLevelsPage() {
             </THead>
             <TBody>
               {levels.map(l => (
-                <TR key={l.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR
+                  key={l.id}
+                  className={cn(
+                    selectedIds.has(l.id) ? (showTrash ? 'bg-amber-100/50' : 'bg-blue-100/30') : (showTrash ? 'bg-amber-50/30' : undefined),
+                    'hover:bg-opacity-75'
+                  )}
+                >
+                  <TD className="py-2.5 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(l.id)}
+                      onChange={() => toggleSelect(l.id)}
+                      className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                    />
+                  </TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{l.id}</span></TD>
                   <TD className="py-2.5">
                     <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{l.name}</span>

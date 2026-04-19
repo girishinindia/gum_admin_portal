@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Globe2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Globe2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Country } from '@/lib/types';
 
@@ -44,6 +44,10 @@ export default function CountriesPage() {
   // Soft delete: toggle between active list and trash
   const [showTrash, setShowTrash] = useState(false);
 
+  // Bulk select and actions
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
   // Table summary stats
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
 
@@ -62,8 +66,8 @@ export default function CountriesPage() {
     });
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterStatus, pageSize, showTrash]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterStatus, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -187,6 +191,71 @@ export default function CountriesPage() {
     else toast.error(res.error || 'Failed');
   }
 
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === countries.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(countries.map(c => c.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} countries to trash?`)) return;
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of Array.from(selectedIds)) {
+      const res = await api.deleteCountry(id);
+      if (res.success) success++;
+    }
+    setBulkActionLoading(false);
+    toast.success(`${success}/${selectedIds.size} countries moved to trash`);
+    setSelectedIds(new Set());
+    load();
+    refreshSummary();
+  }
+
+  async function handleBulkRestore() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Restore ${selectedIds.size} countries?`)) return;
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of Array.from(selectedIds)) {
+      const res = await api.restoreCountry(id);
+      if (res.success) success++;
+    }
+    setBulkActionLoading(false);
+    toast.success(`${success}/${selectedIds.size} countries restored`);
+    setSelectedIds(new Set());
+    load();
+    refreshSummary();
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} countries? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of Array.from(selectedIds)) {
+      const res = await api.permanentDeleteCountry(id);
+      if (res.success) success++;
+    }
+    setBulkActionLoading(false);
+    toast.success(`${success}/${selectedIds.size} countries permanently deleted`);
+    setSelectedIds(new Set());
+    load();
+    refreshSummary();
+  }
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -295,9 +364,68 @@ export default function CountriesPage() {
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {selectedIds.size > 0 && (
+            <div className={cn('px-4 py-3 border-b flex items-center justify-between', showTrash ? 'bg-amber-50 border-amber-200' : 'bg-brand-50 border-slate-200')}>
+              <div className={cn('text-sm font-medium', showTrash ? 'text-amber-900' : 'text-brand-900')}>
+                {selectedIds.size} selected
+              </div>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleBulkRestore}
+                      disabled={bulkActionLoading}
+                      className="h-8 px-2.5 text-xs"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                      Restore
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={handleBulkPermanentDelete}
+                      disabled={bulkActionLoading}
+                      className="h-8 px-2.5 text-xs"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Delete
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={handleBulkSoftDelete}
+                    disabled={bulkActionLoading}
+                    className="h-8 px-2.5 text-xs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Move to Trash
+                  </Button>
+                )}
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  disabled={bulkActionLoading}
+                  className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-12 px-3">
+                  <input
+                    type="checkbox"
+                    checked={countries.length > 0 && selectedIds.size === countries.length}
+                    onChange={toggleSelectAll}
+                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  />
+                </TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH className="w-14">Flag</TH>
                 <TH>
@@ -337,7 +465,17 @@ export default function CountriesPage() {
             </THead>
             <TBody>
               {countries.map(c => (
-                <TR key={c.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR key={c.id} className={cn(
+                  selectedIds.has(c.id) ? 'bg-brand-50/40' : (showTrash ? 'bg-amber-50/30' : undefined)
+                )}>
+                  <TD className="py-2.5 px-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(c.id)}
+                      onChange={() => toggleSelect(c.id)}
+                      className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                    />
+                  </TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{c.id}</span></TD>
                   <TD className="py-2.5">
                     <div className="w-10 h-7 rounded overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">

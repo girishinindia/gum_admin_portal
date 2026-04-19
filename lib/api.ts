@@ -282,6 +282,24 @@ export const api = {
   restoreSubCategoryTranslation: (id: number) => request(`/sub-category-translations/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteSubCategoryTranslation: (id: number) => request(`/sub-category-translations/${id}/permanent`, { method: 'DELETE' }),
 
+  // Category Translation Coverage
+  getCategoryTranslationCoverage: () => request('/category-translations/coverage', { auth: false }),
+
+  // Sub-Category Translation Coverage
+  getSubCategoryTranslationCoverage: () => request('/sub-category-translations/coverage', { auth: false }),
+
+  // AI — Category Translations
+  generateTranslation: (data: { category_id: number; target_language_code: string; target_language_name: string; prompt?: string; provider?: string }) =>
+    request('/ai/generate-translation', { method: 'POST', body: JSON.stringify(data) }),
+  bulkGenerateTranslations: (data: { category_id: number; prompt?: string; provider?: string }) =>
+    request('/ai/bulk-generate-translations', { method: 'POST', body: JSON.stringify(data) }),
+
+  // AI — Sub-Category Translations
+  generateSubCategoryTranslation: (data: { sub_category_id: number; target_language_code: string; target_language_name: string; prompt?: string; provider?: string }) =>
+    request('/ai/generate-sub-category-translation', { method: 'POST', body: JSON.stringify(data) }),
+  bulkGenerateSubCategoryTranslations: (data: { sub_category_id: number; prompt?: string; provider?: string }) =>
+    request('/ai/bulk-generate-sub-category-translations', { method: 'POST', body: JSON.stringify(data) }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),

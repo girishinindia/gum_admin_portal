@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, MapPin, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, MapPin, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { State, Country } from '@/lib/types';
 
@@ -42,6 +42,8 @@ export default function StatesPage() {
 
   // Soft delete: toggle between active list and trash
   const [showTrash, setShowTrash] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -51,14 +53,14 @@ export default function StatesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterCountry, filterStatus, pageSize, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterCountry, filterStatus, pageSize, showTrash]);
   useEffect(() => { loadCountries(); }, []);
   useEffect(() => {
     api.getTableSummary('states').then(res => {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
   }, []);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterCountry, filterStatus, sortField, sortOrder, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, filterCountry, filterStatus, sortField, sortOrder, showTrash]);
 
   async function loadCountries() {
     const res = await api.listCountries('?limit=100');
@@ -166,6 +168,70 @@ export default function StatesPage() {
     const res = await api.updateState(s.id, { is_active: !s.is_active });
     if (res.success) { toast.success(`State ${!s.is_active ? 'activated' : 'deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
+  }
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === states.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(states.map(s => s.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} state(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const res = await api.deleteState(id);
+      if (res.success) successCount++;
+    }
+    setBulkActionLoading(false);
+    toast.success(`${successCount} state(s) moved to trash`);
+    setSelectedIds(new Set());
+    load();
+    refreshSummary();
+  }
+
+  async function handleBulkRestore() {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const res = await api.restoreState(id);
+      if (res.success) successCount++;
+    }
+    setBulkActionLoading(false);
+    toast.success(`${successCount} state(s) restored`);
+    setSelectedIds(new Set());
+    load();
+    refreshSummary();
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} state(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const res = await api.permanentDeleteState(id);
+      if (res.success) successCount++;
+    }
+    setBulkActionLoading(false);
+    toast.success(`${successCount} state(s) permanently deleted`);
+    setSelectedIds(new Set());
+    load();
+    refreshSummary();
   }
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
@@ -277,9 +343,67 @@ export default function StatesPage() {
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {selectedIds.size > 0 && (
+            <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-700">{selectedIds.size} selected</span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBulkRestore}
+                      disabled={bulkActionLoading}
+                      className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                      Restore
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBulkPermanentDelete}
+                      disabled={bulkActionLoading}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                      Delete Permanently
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBulkSoftDelete}
+                    disabled={bulkActionLoading}
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Move to Trash
+                  </Button>
+                )}
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  disabled={bulkActionLoading}
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+                  title="Clear selection"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={states.length > 0 && selectedIds.size === states.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 cursor-pointer"
+                  />
+                </TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH>
                   <button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -303,7 +427,17 @@ export default function StatesPage() {
             </THead>
             <TBody>
               {states.map(s => (
-                <TR key={s.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR key={s.id} className={cn(
+                  selectedIds.has(s.id) ? 'bg-brand-50 border-l-4 border-brand-500' : (showTrash ? 'bg-amber-50/30' : undefined)
+                )}>
+                  <TD className="py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(s.id)}
+                      onChange={() => toggleSelect(s.id)}
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                  </TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{s.id}</span></TD>
                   <TD className="py-2.5">
                     <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{s.name}</span>

@@ -14,11 +14,32 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, LayoutGrid, Trash2, Edit2, Eye, Star, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, LayoutGrid, Trash2, Edit2, Eye, Star, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Zap, Loader2, Check, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Category } from '@/lib/types';
 
 type SortField = 'id' | 'code' | 'slug' | 'display_order' | 'is_active';
+
+interface CoverageItem {
+  category_id: number;
+  total_languages: number;
+  translated_count: number;
+  missing_count: number;
+  is_complete: boolean;
+  translated_languages: { id: number; name: string; iso_code: string }[];
+  missing_languages: { id: number; name: string; iso_code: string }[];
+}
+
+interface BulkResult { iso_code: string; language: string; status: 'success' | 'error'; error?: string; id?: number }
+
+type AIProvider = 'anthropic' | 'openai' | 'gemini';
+const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
+  { value: 'anthropic', label: 'Anthropic', model: 'Claude Haiku 4.5' },
+  { value: 'openai', label: 'OpenAI', model: 'GPT-4o Mini' },
+  { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
+];
+
+const DEFAULT_BULK_PROMPT = `Create content in English language for selected category with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.`;
 
 export default function CategoriesPage() {
   const [items, setItems] = useState<Category[]>([]);
@@ -47,6 +68,20 @@ export default function CategoriesPage() {
   // Trash mode
   const [showTrash, setShowTrash] = useState(false);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
+  // Coverage + Bulk Generate
+  const [coverage, setCoverage] = useState<Record<number, CoverageItem>>({});
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkCategory, setBulkCategory] = useState<Category | null>(null);
+  const [bulkPrompt, setBulkPrompt] = useState(DEFAULT_BULK_PROMPT);
+  const [bulkProvider, setBulkProvider] = useState<AIProvider>('anthropic');
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
+  const [bulkDone, setBulkDone] = useState(false);
+
   const { register, handleSubmit, reset } = useForm();
 
   // Search debounce
@@ -55,15 +90,16 @@ export default function CategoriesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Load summary once on mount
+  // Load summary + coverage once on mount
   useEffect(() => {
     api.getTableSummary('categories').then(res => {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
+    loadCoverage();
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterStatus, pageSize, showTrash]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterStatus, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -90,6 +126,50 @@ export default function CategoriesPage() {
   async function refreshSummary() {
     const res = await api.getTableSummary('categories');
     if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
+  }
+
+  async function loadCoverage() {
+    const res = await api.getCategoryTranslationCoverage();
+    if (res.success && Array.isArray(res.data)) {
+      const map: Record<number, CoverageItem> = {};
+      res.data.forEach((c: CoverageItem) => { map[c.category_id] = c; });
+      setCoverage(map);
+    }
+  }
+
+  function openBulkGenerate(c: Category) {
+    setBulkCategory(c);
+    setBulkPrompt(DEFAULT_BULK_PROMPT);
+    setBulkProvider('anthropic');
+    setBulkResults([]);
+    setBulkDone(false);
+    setBulkLoading(false);
+    setBulkOpen(true);
+  }
+
+  async function handleBulkGenerate() {
+    if (!bulkCategory) return;
+    setBulkLoading(true);
+    setBulkResults([]);
+    setBulkDone(false);
+    try {
+      const res = await api.bulkGenerateTranslations({
+        category_id: bulkCategory.id,
+        prompt: bulkPrompt,
+        provider: bulkProvider,
+      });
+      if (res.success && res.data) {
+        setBulkResults(res.data.results || []);
+        toast.success(`Generated translations using ${AI_PROVIDERS.find(p => p.value === bulkProvider)?.label}`);
+        loadCoverage();
+      } else {
+        toast.error(res.error || 'Bulk generation failed');
+      }
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkLoading(false);
+    setBulkDone(true);
   }
 
   function handleSort(field: SortField) {
@@ -171,6 +251,65 @@ export default function CategoriesPage() {
     const res = await api.updateCategory(c.id, fd, true);
     if (res.success) { toast.success(`${!c.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
+  }
+
+  // Bulk selection helpers
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === items.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(items.map(i => i.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (!confirm(`Move ${selectedIds.size} item(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    let ok = 0;
+    for (const id of selectedIds) {
+      const res = await api.deleteCategory(id);
+      if (res.success) ok++;
+    }
+    toast.success(`${ok} item(s) moved to trash`);
+    setSelectedIds(new Set());
+    load(); refreshSummary();
+    setBulkActionLoading(false);
+  }
+
+  async function handleBulkRestore() {
+    if (!confirm(`Restore ${selectedIds.size} item(s)?`)) return;
+    setBulkActionLoading(true);
+    let ok = 0;
+    for (const id of selectedIds) {
+      const res = await api.restoreCategory(id);
+      if (res.success) ok++;
+    }
+    toast.success(`${ok} item(s) restored`);
+    setSelectedIds(new Set());
+    load(); refreshSummary();
+    setBulkActionLoading(false);
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    let ok = 0;
+    for (const id of selectedIds) {
+      const res = await api.permanentDeleteCategory(id);
+      if (res.success) ok++;
+    }
+    toast.success(`${ok} item(s) permanently deleted`);
+    setSelectedIds(new Set());
+    load(); refreshSummary();
+    setBulkActionLoading(false);
   }
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
@@ -279,9 +418,35 @@ export default function CategoriesPage() {
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {/* Bulk action toolbar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
+              <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>
+                      <RotateCcw className="w-3.5 h-3.5" /> Restore Selected
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Selected
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                  <X className="w-3.5 h-3.5" /> Clear
+                </Button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 {!showTrash && <TH className="w-14">Image</TH>}
                 <TH>
@@ -296,6 +461,7 @@ export default function CategoriesPage() {
                   </button>
                 </TH>
                 {!showTrash && <TH>New</TH>}
+                {!showTrash && <TH>Translations</TH>}
                 {showTrash && <TH>Deleted</TH>}
                 <TH>
                   <button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -307,7 +473,8 @@ export default function CategoriesPage() {
             </THead>
             <TBody>
               {items.map(c => (
-                <TR key={c.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR key={c.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(c.id) && 'bg-brand-50/40')}>
+                  <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{c.id}</span></TD>
                   {!showTrash && (
                     <TD className="py-2.5">
@@ -338,6 +505,35 @@ export default function CategoriesPage() {
                       ) : (
                         <span className="text-slate-300">—</span>
                       )}
+                    </TD>
+                  )}
+                  {!showTrash && (
+                    <TD className="py-2.5">
+                      {(() => {
+                        const cov = coverage[c.id];
+                        if (!cov) return <span className="text-slate-300 text-xs">—</span>;
+                        const complete = cov.is_complete;
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full',
+                              complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                            )}>
+                              {complete ? <Check className="w-3 h-3" /> : null}
+                              {cov.translated_count}/{cov.total_languages}
+                            </span>
+                            {!complete && (
+                              <button
+                                onClick={() => openBulkGenerate(c)}
+                                className="p-1 rounded-md text-violet-500 hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                                title="Generate missing translations"
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </TD>
                   )}
                   {showTrash && (
@@ -442,6 +638,117 @@ export default function CategoriesPage() {
               <Button onClick={() => { setViewing(null); openEdit(viewing); }}>
                 <Edit2 className="w-4 h-4" /> Edit
               </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* ── Bulk Generate Translations Dialog ── */}
+      <Dialog open={bulkOpen} onClose={() => !bulkLoading && setBulkOpen(false)} title="AI Generate Translations" size="lg">
+        {bulkCategory && (
+          <div className="p-6 space-y-5">
+            {/* Category info */}
+            <div className="flex items-center gap-3 bg-slate-50 rounded-lg px-4 py-3">
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white flex items-center justify-center border border-slate-200 flex-shrink-0">
+                {bulkCategory.image ? (
+                  <img src={bulkCategory.image} alt={bulkCategory.code} className="w-full h-full object-cover" />
+                ) : (
+                  <LayoutGrid className="w-5 h-5 text-slate-300" />
+                )}
+              </div>
+              <div>
+                <div className="font-semibold text-slate-900 font-mono text-sm">{bulkCategory.code}</div>
+                <div className="text-xs text-slate-500">/{bulkCategory.slug}</div>
+              </div>
+            </div>
+
+            {/* Missing languages */}
+            {coverage[bulkCategory.id] && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Missing Translations ({coverage[bulkCategory.id].missing_count} of {coverage[bulkCategory.id].total_languages} languages)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {coverage[bulkCategory.id].missing_languages.map(lang => (
+                    <span key={lang.id} className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-md font-medium">
+                      {lang.name} ({lang.iso_code})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* AI Provider selector */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">AI Provider</label>
+              <div className="grid grid-cols-3 gap-2">
+                {AI_PROVIDERS.map(p => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    disabled={bulkLoading}
+                    onClick={() => setBulkProvider(p.value)}
+                    className={cn(
+                      'px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-left',
+                      bulkProvider === p.value
+                        ? 'border-violet-500 bg-violet-50 text-violet-700 ring-1 ring-violet-500/20'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <div className="font-semibold">{p.label}</div>
+                    <div className="text-xs opacity-70 mt-0.5">{p.model}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Prompt */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Prompt</label>
+              <textarea
+                value={bulkPrompt}
+                onChange={e => setBulkPrompt(e.target.value)}
+                disabled={bulkLoading}
+                rows={4}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 disabled:opacity-50 resize-none"
+              />
+            </div>
+
+            {/* Results */}
+            {bulkResults.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Results</label>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {bulkResults.map((r, i) => (
+                    <div key={i} className={cn(
+                      'flex items-center justify-between px-3 py-2 rounded-lg text-sm',
+                      r.status === 'success' ? 'bg-emerald-50' : 'bg-red-50'
+                    )}>
+                      <span className="font-medium text-slate-700">{r.language} ({r.iso_code})</span>
+                      <span className={cn('flex items-center gap-1 text-xs font-medium', r.status === 'success' ? 'text-emerald-600' : 'text-red-600')}>
+                        {r.status === 'success' ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                        {r.status === 'success' ? 'Saved' : r.error || 'Error'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkLoading}>
+                {bulkDone ? 'Close' : 'Cancel'}
+              </Button>
+              {!bulkDone && (
+                <Button onClick={handleBulkGenerate} disabled={bulkLoading || !bulkPrompt.trim()}>
+                  {bulkLoading ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+                  ) : (
+                    <><Zap className="w-4 h-4" /> Generate All</>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         )}

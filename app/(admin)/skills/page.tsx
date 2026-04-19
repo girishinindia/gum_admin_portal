@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Sparkles, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Sparkles, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Skill } from '@/lib/types';
 
@@ -67,6 +67,8 @@ export default function SkillsPage() {
 
   // Soft delete: toggle between active list and trash
   const [showTrash, setShowTrash] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -76,13 +78,13 @@ export default function SkillsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterCategory, filterStatus, pageSize, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterCategory, filterStatus, pageSize, showTrash]);
   useEffect(() => {
     api.getTableSummary('skills').then(res => {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
   }, []);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterCategory, filterStatus, sortField, sortOrder, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, filterCategory, filterStatus, sortField, sortOrder, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -204,6 +206,78 @@ export default function SkillsPage() {
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
 
+  // Bulk selection helpers
+  function toggleSelect(id: number) {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === skills.length && skills.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(skills.map(s => s.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} skill(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const res = await api.deleteSkill(id);
+      if (res.success) successCount++;
+    }
+    setBulkActionLoading(false);
+    if (successCount > 0) {
+      toast.success(`${successCount} skill(s) moved to trash`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    }
+  }
+
+  async function handleBulkRestore() {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const res = await api.restoreSkill(id);
+      if (res.success) successCount++;
+    }
+    setBulkActionLoading(false);
+    if (successCount > 0) {
+      toast.success(`${successCount} skill(s) restored`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    }
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} skill(s)? This cannot be undone and icons will be removed.`)) return;
+    setBulkActionLoading(true);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const res = await api.permanentDeleteSkill(id);
+      if (res.success) successCount++;
+    }
+    setBulkActionLoading(false);
+    if (successCount > 0) {
+      toast.success(`${successCount} skill(s) permanently deleted`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    }
+  }
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -313,9 +387,47 @@ export default function SkillsPage() {
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {selectedIds.size > 0 && (
+            <div className={cn('flex items-center justify-between px-4 py-3 border-b', showTrash ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200')}>
+              <span className={cn('text-sm font-medium', showTrash ? 'text-amber-900' : 'text-blue-900')}>
+                {selectedIds.size} selected
+              </span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>
+                      <RotateCcw className="w-4 h-4" /> Restore
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700">
+                      <Trash2 className="w-4 h-4" /> Delete Permanently
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={handleBulkSoftDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700">
+                    <Trash2 className="w-4 h-4" /> Move to Trash
+                  </Button>
+                )}
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  title="Clear selection"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-10 px-3">
+                  <input
+                    type="checkbox"
+                    checked={skills.length > 0 && selectedIds.size === skills.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 cursor-pointer"
+                  />
+                </TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH className="w-12">Icon</TH>
                 <TH>
@@ -344,7 +456,20 @@ export default function SkillsPage() {
             </THead>
             <TBody>
               {skills.map(s => (
-                <TR key={s.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR
+                  key={s.id}
+                  className={cn(
+                    selectedIds.has(s.id) ? (showTrash ? 'bg-amber-100/50' : 'bg-blue-50/50') : (showTrash ? 'bg-amber-50/30' : undefined)
+                  )}
+                >
+                  <TD className="py-2.5 px-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(s.id)}
+                      onChange={() => toggleSelect(s.id)}
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                  </TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{s.id}</span></TD>
                   <TD className="py-2.5">
                     <div className="w-8 h-8 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">

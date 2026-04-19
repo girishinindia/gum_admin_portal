@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Compass, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Compass, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Specialization } from '@/lib/types';
 
@@ -59,6 +59,8 @@ export default function SpecializationsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
   const [showTrash, setShowTrash] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -68,11 +70,12 @@ export default function SpecializationsPage() {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
   }, []);
-  useEffect(() => { setPage(1); }, [searchDebounce, filterCat, filterStatus, pageSize, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterCat, filterStatus, pageSize, showTrash]);
   useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterCat, filterStatus, sortField, sortOrder, showTrash]);
 
   async function load() {
     setLoading(true);
+    setSelectedIds(new Set());
     const qs = new URLSearchParams();
     qs.set('page', String(page)); qs.set('limit', String(pageSize));
     if (searchDebounce) qs.set('search', searchDebounce);
@@ -140,6 +143,77 @@ export default function SpecializationsPage() {
   }
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
+
+  function toggleSelect(id: number) {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === items.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(items.map(s => s.id)));
+  }
+
+  async function handleBulkSoftDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} item(s) to trash? You can restore them later.`)) return;
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of selectedIds) {
+      const res = await api.deleteSpecialization(id);
+      if (res.success) success++;
+    }
+    setBulkActionLoading(false);
+    if (success > 0) {
+      toast.success(`${success} item(s) moved to trash`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } else {
+      toast.error('No items were moved');
+    }
+  }
+
+  async function handleBulkRestore() {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of selectedIds) {
+      const res = await api.restoreSpecialization(id);
+      if (res.success) success++;
+    }
+    setBulkActionLoading(false);
+    if (success > 0) {
+      toast.success(`${success} item(s) restored`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } else {
+      toast.error('No items were restored');
+    }
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    let success = 0;
+    for (const id of selectedIds) {
+      const res = await api.permanentDeleteSpecialization(id);
+      if (res.success) success++;
+    }
+    setBulkActionLoading(false);
+    if (success > 0) {
+      toast.success(`${success} item(s) permanently deleted`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } else {
+      toast.error('No items were deleted');
+    }
+  }
 
   return (
     <div className="animate-fade-in">
@@ -238,9 +312,49 @@ export default function SpecializationsPage() {
           action={!showTrash && !searchDebounce && !filterCat && !filterStatus ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add specialization</Button> : undefined} />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {selectedIds.size > 0 && (
+            <div className={cn('px-4 py-3 border-b flex items-center justify-between', showTrash ? 'bg-amber-50 border-amber-200' : 'bg-brand-50/40 border-slate-200')}>
+              <div className="flex items-center gap-2">
+                <span className={cn('text-sm font-medium', showTrash ? 'text-amber-900' : 'text-brand-900')}>
+                  {selectedIds.size} selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>
+                      <RotateCcw className="w-3.5 h-3.5" /> Restore
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={handleBulkSoftDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                    <Trash2 className="w-3.5 h-3.5" /> Move to Trash
+                  </Button>
+                )}
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className={cn('p-1.5 rounded-md transition-colors', showTrash ? 'text-amber-600 hover:bg-amber-100' : 'text-brand-600 hover:bg-brand-100')}
+                  title="Clear selection"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-12">
+                  <input
+                    type="checkbox"
+                    checked={items.length > 0 && selectedIds.size === items.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-300 text-brand-600 cursor-pointer"
+                  />
+                </TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH>
                   <button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -266,7 +380,15 @@ export default function SpecializationsPage() {
             </THead>
             <TBody>
               {items.map(s => (
-                <TR key={s.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR key={s.id} className={cn(selectedIds.has(s.id) && 'bg-brand-50/40', showTrash ? 'bg-amber-50/30' : undefined)}>
+                  <TD className="py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(s.id)}
+                      onChange={() => toggleSelect(s.id)}
+                      className="w-4 h-4 rounded border-slate-300 text-brand-600 cursor-pointer"
+                    />
+                  </TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{s.id}</span></TD>
                   <TD className="py-2.5">
                     <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{s.name}</span>

@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Link2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Link2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { BranchDepartment, Branch, Department } from '@/lib/types';
 
@@ -42,6 +42,8 @@ export default function BranchDepartmentsPage() {
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showTrash, setShowTrash] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -64,8 +66,8 @@ export default function BranchDepartmentsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterBranch, filterDepartment, filterStatus, pageSize, showTrash]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterBranch, filterDepartment, filterStatus, sortField, sortOrder, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterBranch, filterDepartment, filterStatus, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, filterBranch, filterDepartment, filterStatus, sortField, sortOrder, showTrash]);
 
   async function refreshSummary() {
     const res = await api.getTableSummary('branch_departments');
@@ -201,6 +203,84 @@ export default function BranchDepartmentsPage() {
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
 
+  function toggleSelect(id: number) {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === items.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(items.map(item => item.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} assignment(s) to trash? You can restore them later.`)) return;
+
+    setBulkActionLoading(true);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const res = await api.deleteBranchDepartment(id);
+      if (res.success) successCount++;
+    }
+    setBulkActionLoading(false);
+
+    if (successCount > 0) {
+      toast.success(`${successCount} assignment(s) moved to trash`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    }
+  }
+
+  async function handleBulkRestore() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Restore ${selectedIds.size} assignment(s)?`)) return;
+
+    setBulkActionLoading(true);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const res = await api.restoreBranchDepartment(id);
+      if (res.success) successCount++;
+    }
+    setBulkActionLoading(false);
+
+    if (successCount > 0) {
+      toast.success(`${successCount} assignment(s) restored`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    }
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} assignment(s)? This cannot be undone.`)) return;
+
+    setBulkActionLoading(true);
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const res = await api.permanentDeleteBranchDepartment(id);
+      if (res.success) successCount++;
+    }
+    setBulkActionLoading(false);
+
+    if (successCount > 0) {
+      toast.success(`${successCount} assignment(s) permanently deleted`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    }
+  }
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -316,9 +396,70 @@ export default function BranchDepartmentsPage() {
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {selectedIds.size > 0 && (
+            <div className={cn('px-4 py-3 border-b flex items-center justify-between', showTrash ? 'bg-amber-50 border-amber-200' : 'bg-brand-50 border-brand-200')}>
+              <span className={cn('text-sm font-medium', showTrash ? 'text-amber-900' : 'text-brand-900')}>
+                {selectedIds.size} selected
+              </span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleBulkRestore}
+                      disabled={bulkActionLoading}
+                      className="h-8"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> Restore
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={handleBulkPermanentDelete}
+                      disabled={bulkActionLoading}
+                      className="h-8"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={handleBulkSoftDelete}
+                    disabled={bulkActionLoading}
+                    className="h-8"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Move to Trash
+                  </Button>
+                )}
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  disabled={bulkActionLoading}
+                  className={cn(
+                    'p-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                    showTrash ? 'text-amber-600 hover:bg-amber-100' : 'text-brand-600 hover:bg-brand-100'
+                  )}
+                  title="Clear selection"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-12">
+                  <input
+                    type="checkbox"
+                    checked={items.length > 0 && selectedIds.size === items.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-300 text-brand-600 cursor-pointer"
+                    title="Select all on this page"
+                  />
+                </TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH>Branch</TH>
                 <TH>Department</TH>
@@ -332,7 +473,20 @@ export default function BranchDepartmentsPage() {
             </THead>
             <TBody>
               {items.map(item => (
-                <TR key={item.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR
+                  key={item.id}
+                  className={cn(
+                    selectedIds.has(item.id) ? 'bg-brand-50/40' : (showTrash ? 'bg-amber-50/30' : undefined)
+                  )}
+                >
+                  <TD className="py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleSelect(item.id)}
+                      className="w-4 h-4 rounded border-slate-300 text-brand-600 cursor-pointer"
+                    />
+                  </TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{item.id}</span></TD>
                   <TD className="py-2.5">
                     <div className="flex items-center gap-1.5">

@@ -18,7 +18,7 @@ import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Shield, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Shield, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Role } from '@/lib/types';
 
@@ -49,12 +49,14 @@ export default function RolesPage() {
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showTrash, setShowTrash] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm({ resolver: zodResolver(schema) });
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(1); }, [searchDebounce, filterStatus, pageSize, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterStatus, pageSize, showTrash]);
 
   useEffect(() => {
     api.getTableSummary('roles').then(res => {
@@ -69,6 +71,7 @@ export default function RolesPage() {
       router.replace('/my-permissions');
       return;
     }
+    setSelectedIds(new Set());
     load();
   }, [authLoading, isSuperAdmin, router, showTrash]);
 
@@ -169,6 +172,60 @@ export default function RolesPage() {
     const res = await api.updateRole(role.id, { is_active: !role.is_active });
     if (res.success) { toast.success(`Role ${!role.is_active ? 'activated' : 'deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
+  }
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(selectedIds.size === paginatedItems.length ? new Set() : new Set(paginatedItems.map(i => i.id)));
+  }
+
+  async function handleBulkSoftDelete() {
+    if (!confirm(`Move ${selectedIds.size} item(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    let ok = 0;
+    for (const id of selectedIds) {
+      const res = await api.deleteRole(id);
+      if (res.success) ok++;
+    }
+    toast.success(`${ok} item(s) moved to trash`);
+    setSelectedIds(new Set());
+    load(); refreshSummary();
+    setBulkActionLoading(false);
+  }
+
+  async function handleBulkRestore() {
+    if (!confirm(`Restore ${selectedIds.size} item(s)?`)) return;
+    setBulkActionLoading(true);
+    let ok = 0;
+    for (const id of selectedIds) {
+      const res = await api.restoreRole(id);
+      if (res.success) ok++;
+    }
+    toast.success(`${ok} item(s) restored`);
+    setSelectedIds(new Set());
+    load(); refreshSummary();
+    setBulkActionLoading(false);
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    let ok = 0;
+    for (const id of selectedIds) {
+      const res = await api.permanentDeleteRole(id);
+      if (res.success) ok++;
+    }
+    toast.success(`${ok} item(s) permanently deleted`);
+    setSelectedIds(new Set());
+    load(); refreshSummary();
+    setBulkActionLoading(false);
   }
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
@@ -272,9 +329,26 @@ export default function RolesPage() {
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
+              <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}><RotateCcw className="w-3.5 h-3.5" /> Restore Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Permanently</Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Selected</Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-10"><input type="checkbox" checked={paginatedItems.length > 0 && selectedIds.size === paginatedItems.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH><button onClick={() => handleSort('display_name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Display Name <SortIcon field="display_name" /></button></TH>
                 <TH><button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Name <SortIcon field="name" /></button></TH>
@@ -287,7 +361,8 @@ export default function RolesPage() {
             </THead>
             <TBody>
               {paginatedItems.map(r => (
-                <TR key={r.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR key={r.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(r.id) && 'bg-brand-50/40')}>
+                  <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{r.id}</span></TD>
                   <TD className="py-2.5"><span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{r.display_name}</span></TD>
                   <TD className="py-2.5"><code className="text-xs text-slate-500 font-mono bg-slate-50 px-2 py-1 rounded">{r.name}</code></TD>

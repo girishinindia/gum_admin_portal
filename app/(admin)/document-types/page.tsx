@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, FolderOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { DocumentType } from '@/lib/types';
 
@@ -38,6 +38,8 @@ export default function DocumentTypesPage() {
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showTrash, setShowTrash] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -53,7 +55,7 @@ export default function DocumentTypesPage() {
     });
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterStatus, pageSize, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterStatus, pageSize, showTrash]);
   useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterStatus, sortField, sortOrder, showTrash]);
 
   async function load() {
@@ -161,6 +163,77 @@ export default function DocumentTypesPage() {
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
 
+  function toggleSelect(id: number) {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === types.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(types.map(dt => dt.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (!confirm(`Move ${selectedIds.size} item(s) to trash? You can restore them later.`)) return;
+    setBulkActionLoading(true);
+    try {
+      for (const id of selectedIds) {
+        await api.deleteDocumentType(id);
+      }
+      toast.success(`${selectedIds.size} item(s) moved to trash`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } catch (error) {
+      toast.error('Failed to move items to trash');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  }
+
+  async function handleBulkRestore() {
+    setBulkActionLoading(true);
+    try {
+      for (const id of selectedIds) {
+        await api.restoreDocumentType(id);
+      }
+      toast.success(`${selectedIds.size} item(s) restored`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } catch (error) {
+      toast.error('Failed to restore items');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    try {
+      for (const id of selectedIds) {
+        await api.permanentDeleteDocumentType(id);
+      }
+      toast.success(`${selectedIds.size} item(s) permanently deleted`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } catch (error) {
+      toast.error('Failed to permanently delete items');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  }
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -264,9 +337,26 @@ export default function DocumentTypesPage() {
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
+              <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}><RotateCcw className="w-3.5 h-3.5" /> Restore Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Permanently</Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Selected</Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-10"><input type="checkbox" checked={types.length > 0 && selectedIds.size === types.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH>
                   <button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -290,7 +380,8 @@ export default function DocumentTypesPage() {
             </THead>
             <TBody>
               {types.map(dt => (
-                <TR key={dt.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR key={dt.id} className={cn(selectedIds.has(dt.id) ? 'bg-brand-50/40' : showTrash ? 'bg-amber-50/30' : undefined)}>
+                  <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(dt.id)} onChange={() => toggleSelect(dt.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{dt.id}</span></TD>
                   <TD className="py-2.5">
                     <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{dt.name}</span>

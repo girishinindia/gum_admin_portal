@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Building2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Building2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { City, State, Country } from '@/lib/types';
 
@@ -35,6 +35,10 @@ export default function CitiesPage() {
 
   // Soft delete: toggle between active list and trash
   const [showTrash, setShowTrash] = useState(false);
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   // Pagination, search, sort
   const [page, setPage] = useState(1);
@@ -59,7 +63,7 @@ export default function CitiesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounce, filterState, filterStatus, pageSize, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterState, filterStatus, pageSize, showTrash]);
 
   useEffect(() => { loadCountries(); }, []);
   useEffect(() => { loadStates(); }, [filterCountry]);
@@ -83,6 +87,7 @@ export default function CitiesPage() {
 
   async function load() {
     setLoading(true);
+    setSelectedIds(new Set());
     const qs = new URLSearchParams();
     qs.set('page', String(page));
     qs.set('limit', String(pageSize));
@@ -202,6 +207,89 @@ export default function CitiesPage() {
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
 
+  // Bulk selection functions
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === cities.length && cities.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(cities.map(c => c.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Move ${selectedIds.size} ${selectedIds.size === 1 ? 'city' : 'cities'} to trash?`)) return;
+
+    setBulkActionLoading(true);
+    let succeeded = 0;
+    for (const id of selectedIds) {
+      const res = await api.deleteCity(id);
+      if (res.success) succeeded++;
+    }
+    setBulkActionLoading(false);
+
+    if (succeeded > 0) {
+      toast.success(`${succeeded} ${succeeded === 1 ? 'city' : 'cities'} moved to trash`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } else {
+      toast.error('Failed to move cities to trash');
+    }
+  }
+
+  async function handleBulkRestore() {
+    if (selectedIds.size === 0) return;
+
+    setBulkActionLoading(true);
+    let succeeded = 0;
+    for (const id of selectedIds) {
+      const res = await api.restoreCity(id);
+      if (res.success) succeeded++;
+    }
+    setBulkActionLoading(false);
+
+    if (succeeded > 0) {
+      toast.success(`${succeeded} ${succeeded === 1 ? 'city' : 'cities'} restored`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } else {
+      toast.error('Failed to restore cities');
+    }
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} ${selectedIds.size === 1 ? 'city' : 'cities'}? This cannot be undone.`)) return;
+
+    setBulkActionLoading(true);
+    let succeeded = 0;
+    for (const id of selectedIds) {
+      const res = await api.permanentDeleteCity(id);
+      if (res.success) succeeded++;
+    }
+    setBulkActionLoading(false);
+
+    if (succeeded > 0) {
+      toast.success(`${succeeded} ${succeeded === 1 ? 'city' : 'cities'} permanently deleted`);
+      setSelectedIds(new Set());
+      load();
+      refreshSummary();
+    } else {
+      toast.error('Failed to permanently delete cities');
+    }
+  }
+
   const hasFilters = !!(searchDebounce || filterCountry || filterState || filterStatus) || showTrash;
 
   return (
@@ -315,9 +403,67 @@ export default function CitiesPage() {
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {selectedIds.size > 0 && (
+            <div className={cn('px-4 py-3 border-b flex items-center justify-between', showTrash ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200')}>
+              <div className="flex items-center gap-2">
+                <span className={cn('text-sm font-medium', showTrash ? 'text-amber-900' : 'text-slate-700')}>
+                  {selectedIds.size} selected
+                </span>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className={cn('p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors')}
+                  title="Clear selection"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBulkRestore}
+                      disabled={bulkActionLoading}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                      Restore
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={handleBulkPermanentDelete}
+                      disabled={bulkActionLoading}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Delete Permanently
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={handleBulkSoftDelete}
+                    disabled={bulkActionLoading}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Move to Trash
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-12 px-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === cities.length && cities.length > 0}
+                    onChange={toggleSelectAll}
+                    className="rounded border-slate-300"
+                  />
+                </TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH>
                   <button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -351,7 +497,15 @@ export default function CitiesPage() {
             </THead>
             <TBody>
               {cities.map(c => (
-                <TR key={c.id} className={showTrash ? 'bg-amber-50/30' : undefined}>
+                <TR key={c.id} className={cn(selectedIds.has(c.id) && 'bg-blue-50', showTrash ? 'bg-amber-50/30' : undefined)}>
+                  <TD className="py-2.5 px-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(c.id)}
+                      onChange={() => toggleSelect(c.id)}
+                      className="rounded border-slate-300"
+                    />
+                  </TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{c.id}</span></TD>
                   <TD className="py-2.5">
                     <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.name}</span>
