@@ -16,9 +16,16 @@ import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { MultiLangField, initMLIFields, setMLILanguage, useMLIScript } from '@/components/ui/MultiLangField';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookOpen, Trash2, Edit2, Globe, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Mic, Eye, Loader2, X } from 'lucide-react';
+import { Plus, BookOpen, Trash2, Edit2, Globe, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Mic, Eye, Loader2, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { TopicTranslation, Topic, Language } from '@/lib/types';
+
+type AIProvider = 'anthropic' | 'openai' | 'gemini';
+const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
+  { value: 'anthropic', label: 'Anthropic', model: 'Claude Haiku 4.5' },
+  { value: 'openai', label: 'OpenAI', model: 'GPT-4o Mini' },
+  { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
+];
 
 type SortField = 'id' | 'name' | 'is_active';
 
@@ -64,12 +71,18 @@ export default function TopicTranslationsPage() {
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
   const mliReady = useMLIScript();
   const [formLoading, setFormLoading] = useState(false);
   const [formMode, setFormMode] = useState<'new' | 'existing'>('new');
   const [viewOpen, setViewOpen] = useState(false);
   const [viewItem, setViewItem] = useState<TopicTranslation | null>(null);
+
+  // AI Generate
+  const [aiPrompt, setAiPrompt] = useState('Translate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
 
   const watchedLangId = watch('language_id');
   const selectedLangCode = useMemo(() => {
@@ -244,6 +257,45 @@ export default function TopicTranslationsPage() {
   }
 
   function openView(item: TopicTranslation) { setViewItem(item); setViewOpen(true); }
+
+  async function handleAIGenerate() {
+    const topicId = getValues('topic_id');
+    const langId = getValues('language_id');
+    if (!topicId || !langId) { toast.error('Please select a topic and language first'); return; }
+
+    const lang = languages.find(l => String(l.id) === String(langId));
+    if (!lang) { toast.error('Language not found'); return; }
+
+    setAiLoading(true);
+    try {
+      const res = await api.generateTopicTranslation({
+        topic_id: Number(topicId),
+        target_language_code: lang.iso_code || '',
+        target_language_name: lang.name,
+        prompt: aiPrompt,
+        provider: aiProvider,
+      });
+
+      if (res.success && res.data?.translated) {
+        const t = res.data.translated;
+        setValue('name', t.name || '');
+        setValue('short_intro', t.short_intro || '');
+        setValue('long_intro', t.long_intro || '');
+        setValue('prerequisites', t.prerequisites || '');
+        setValue('learning_objectives', t.learning_objectives || '');
+
+        const providerLabel = AI_PROVIDERS.find(p => p.value === aiProvider)?.label || aiProvider;
+        const tokens = res.data.usage?.total_tokens || 0;
+        toast.success(`AI generated ${lang.name} translation via ${providerLabel} (${tokens} tokens)`);
+      } else {
+        toast.error(res.error || 'AI generation failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'AI generation failed');
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   function toggleSelect(id: number) { setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
   function toggleSelectAll() { setSelectedIds(selectedIds.size === items.length ? new Set() : new Set(items.map(i => i.id))); }
@@ -456,6 +508,56 @@ export default function TopicTranslationsPage() {
       {/* Edit / Create Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Topic Translation' : 'Add Topic Translation'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+          {/* AI Generate Panel */}
+          <div className="border border-indigo-200 rounded-lg overflow-hidden">
+            <button type="button" onClick={() => setAiPanelOpen(!aiPanelOpen)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 transition-colors text-sm font-medium text-indigo-700">
+              <span className="flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Generate Content</span>
+              {aiPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {aiPanelOpen && (
+              <div className="px-4 py-3 bg-white space-y-3">
+                <p className="text-xs text-slate-500">
+                  {selectedLangCode === 'en'
+                    ? <>AI will generate <strong>English</strong> content (name, intro, prerequisites, learning objectives) for the selected topic.</>
+                    : <>AI will translate the <strong>English</strong> version into <strong>{languages.find(l => String(l.id) === String(watchedLangId))?.name || 'the selected language'}</strong>. English translation must exist first.</>
+                  }
+                </p>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">AI Provider</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {AI_PROVIDERS.map(p => (
+                      <button key={p.value} type="button" disabled={aiLoading} onClick={() => setAiProvider(p.value)}
+                        className={cn(
+                          'px-3 py-2 rounded-lg border text-sm font-medium transition-all text-left',
+                          aiProvider === p.value
+                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500/20'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                        )}>
+                        <div className="font-semibold text-xs">{p.label}</div>
+                        <div className="text-[10px] opacity-70 mt-0.5">{p.model}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    {selectedLangCode === 'en' ? 'Generation Prompt' : 'Translation Prompt'}
+                  </label>
+                  <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} disabled={aiLoading}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[60px] resize-y disabled:opacity-50"
+                    placeholder={selectedLangCode === 'en'
+                      ? 'e.g. Generate educational content with clear prerequisites and objectives.'
+                      : 'e.g. Translate exactly with same meaning. Keep technical/brand words in English.'}
+                  />
+                </div>
+                <Button type="button" onClick={handleAIGenerate} disabled={aiLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+                  {aiLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+                </Button>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             <Badge variant={formMode === 'existing' ? 'info' : 'success'}>
               {formMode === 'existing' ? 'Editing existing translation' : 'New translation'}

@@ -514,7 +514,7 @@ export default function SubjectsPage() {
                         if (!cov) return <span className="text-slate-300 text-xs">—</span>;
                         const complete = cov.is_complete;
                         return (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span className={cn(
                               'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full',
                               complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
@@ -522,6 +522,7 @@ export default function SubjectsPage() {
                               {complete ? <Check className="w-3 h-3" /> : null}
                               {cov.translated_count}/{cov.total_languages}
                             </span>
+                            {!complete && <span title="AI translation available"><Sparkles className="w-3.5 h-3.5 text-indigo-400" /></span>}
                           </div>
                         );
                       })()}

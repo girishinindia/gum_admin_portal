@@ -457,9 +457,12 @@ export default function TopicsPage() {
                         if (!cov) return <span className="text-slate-300 text-xs">{'\u2014'}</span>;
                         const complete = cov.is_complete;
                         return (
-                          <Badge variant={complete ? 'success' : 'warning'}>
-                            {cov.translated_count}/{cov.total_languages}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant={complete ? 'success' : 'warning'}>
+                              {cov.translated_count}/{cov.total_languages}
+                            </Badge>
+                            {!complete && <span title="AI translation available"><Sparkles className="w-3.5 h-3.5 text-indigo-400" /></span>}
+                          </div>
                         );
                       })()}
                     </TD>

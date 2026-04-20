@@ -357,6 +357,24 @@ export const api = {
   bulkGenerateSubCategoryTranslations: (data: { sub_category_id: number; prompt?: string; provider?: string }) =>
     request('/ai/bulk-generate-sub-category-translations', { method: 'POST', body: JSON.stringify(data) }),
 
+  // AI — Subject Translations
+  generateSubjectTranslation: (data: { subject_id: number; target_language_code: string; target_language_name: string; prompt?: string; provider?: string }) =>
+    request('/ai/generate-subject-translation', { method: 'POST', body: JSON.stringify(data) }),
+  bulkGenerateSubjectTranslations: (data: { subject_id: number; prompt?: string; provider?: string }) =>
+    request('/ai/bulk-generate-subject-translations', { method: 'POST', body: JSON.stringify(data) }),
+
+  // AI — Chapter Translations
+  generateChapterTranslation: (data: { chapter_id: number; target_language_code: string; target_language_name: string; prompt?: string; provider?: string }) =>
+    request('/ai/generate-chapter-translation', { method: 'POST', body: JSON.stringify(data) }),
+  bulkGenerateChapterTranslations: (data: { chapter_id: number; prompt?: string; provider?: string }) =>
+    request('/ai/bulk-generate-chapter-translations', { method: 'POST', body: JSON.stringify(data) }),
+
+  // AI — Topic Translations
+  generateTopicTranslation: (data: { topic_id: number; target_language_code: string; target_language_name: string; prompt?: string; provider?: string }) =>
+    request('/ai/generate-topic-translation', { method: 'POST', body: JSON.stringify(data) }),
+  bulkGenerateTopicTranslations: (data: { topic_id: number; prompt?: string; provider?: string }) =>
+    request('/ai/bulk-generate-topic-translations', { method: 'POST', body: JSON.stringify(data) }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),
