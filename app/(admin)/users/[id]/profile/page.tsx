@@ -1864,7 +1864,7 @@ export default function UserProfilePage() {
                                   <div className="text-sm text-slate-700">{rec.years_of_experience || '—'}</div>
                                 </TD>
                                 <TD>
-                                  {rec.is_primary_skill && <Badge variant="default" className="text-[10px] px-1 py-0">Primary</Badge>}
+                                  {rec.is_primary && <Badge variant="default" className="text-[10px] px-1 py-0">Primary</Badge>}
                                 </TD>
                                 <TD>
                                   <div className="flex items-center gap-0.5">
@@ -2004,8 +2004,8 @@ export default function UserProfilePage() {
                                 </TD>
                                 <TD>
                                   <div className="flex gap-1">
-                                    {rec.is_primary_language && <Badge variant="default" className="text-[10px] px-1 py-0">Primary</Badge>}
-                                    {rec.is_native_language && <Badge variant="default" className="text-[10px] px-1 py-0">Native</Badge>}
+                                    {rec.is_primary && <Badge variant="default" className="text-[10px] px-1 py-0">Primary</Badge>}
+                                    {rec.is_native && <Badge variant="default" className="text-[10px] px-1 py-0">Native</Badge>}
                                   </div>
                                 </TD>
                                 <TD>
