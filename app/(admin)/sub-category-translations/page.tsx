@@ -770,10 +770,9 @@ export default function SubCategoryTranslationsPage() {
               <MultiLangField id="sct-og-title" label="OG Title" placeholder="Open Graph title" {...register('og_title')} />
               <MultiLangField id="sct-og-desc" label="OG Description" placeholder="Open Graph description..." multiline {...register('og_description')} />
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
-              <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200x630px. Upload or enter URL below"
+              <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200x630px"
                 value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
                 onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }} />
-              <Input label="Or enter OG Image URL manually" placeholder="https://..." {...register('og_image')} />
             </div>
           )}
 
@@ -782,10 +781,9 @@ export default function SubCategoryTranslationsPage() {
             <div className="space-y-4">
               <MultiLangField id="sct-tw-title" label="Twitter Title" placeholder="Twitter card title" {...register('twitter_title')} />
               <MultiLangField id="sct-tw-desc" label="Twitter Description" placeholder="Twitter card description..." multiline {...register('twitter_description')} />
-              <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200x600px. Upload or enter URL below"
+              <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200x600px"
                 value={editing?.twitter_image} aspectRatio={1200 / 600} maxWidth={1200} maxHeight={600} shape="rounded"
                 onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />
-              <Input label="Or enter Twitter Image URL manually" placeholder="https://..." {...register('twitter_image')} />
             </div>
           )}
 

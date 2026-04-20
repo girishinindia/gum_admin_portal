@@ -98,6 +98,12 @@ const navGroups: NavGroup[] = [
         icon: FileQuestion,
         subLinks: [{ href: '/topic-translations', label: 'Translations' }],
       },
+      {
+        href: '/sub-topics',
+        label: 'Sub-Topics',
+        icon: FileQuestion,
+        subLinks: [{ href: '/sub-topic-translations', label: 'Translations' }],
+      },
     ],
   },
 ];

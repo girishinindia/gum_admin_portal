@@ -550,6 +550,74 @@ export interface TopicTranslation {
   languages?: { name: string; native_name?: string; iso_code?: string };
 }
 
+export interface SubTopic {
+  id: number;
+  topic_id: number;
+  slug: string | null;
+  display_order: number;
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced' | 'expert' | 'all_levels';
+  estimated_minutes: number | null;
+  view_count: number;
+  video_id: string | null;
+  video_url: string | null;
+  video_thumbnail_url: string | null;
+  video_status: 'uploading' | 'processing' | 'ready' | 'failed' | null;
+  youtube_url: string | null;
+  video_source: 'bunny' | 'youtube' | null;
+  is_active: boolean;
+  deleted_at: string | null;
+  created_by: number | null;
+  updated_by: number | null;
+  created_at: string;
+  updated_at: string;
+  // FK joins
+  topics?: { slug: string; chapter_id: number };
+}
+
+export interface SubTopicTranslation {
+  id: number;
+  sub_topic_id: number;
+  language_id: number;
+  name: string;
+  short_intro: string | null;
+  long_intro: string | null;
+  image: string | null;
+  video_title: string | null;
+  video_description: string | null;
+  video_thumbnail: string | null;
+  video_duration_minutes: number | null;
+  tags: string[] | null;
+  page: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  meta_keywords: string | null;
+  canonical_url: string | null;
+  og_site_name: string | null;
+  og_title: string | null;
+  og_description: string | null;
+  og_type: string | null;
+  og_image: string | null;
+  og_url: string | null;
+  twitter_site: string | null;
+  twitter_title: string | null;
+  twitter_description: string | null;
+  twitter_image: string | null;
+  twitter_card: string | null;
+  robots_directive: string | null;
+  focus_keyword: string | null;
+  structured_data: any[] | null;
+  is_active: boolean;
+  sort_order: number;
+  deleted_at: string | null;
+  created_by: number | null;
+  updated_by: number | null;
+  created_at: string;
+  updated_at: string;
+  // FK joins
+  sub_topics?: { slug: string; topic_id: number; topics?: { slug: string; chapter_id: number; chapters?: { slug: string; subject_id: number } } };
+  languages?: { name: string; native_name: string; iso_code: string };
+}
+
 export interface AuthTokens {
   access_token: string;
   refresh_token: string;

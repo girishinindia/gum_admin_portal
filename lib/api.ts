@@ -345,6 +345,55 @@ export const api = {
   permanentDeleteTopicTranslation: (id: number) => request(`/topic-translations/${id}/permanent`, { method: 'DELETE' }),
   getTopicTranslationCoverage: () => request('/topic-translations/coverage', { auth: false }),
 
+  // Sub-Topics
+  listSubTopics: (qs = '') => request(`/sub-topics${qs}`, { auth: false }),
+  getSubTopic: (id: number) => request(`/sub-topics/${id}`, { auth: false }),
+  createSubTopic: (data: any) => request('/sub-topics', { method: 'POST', body: JSON.stringify(data) }),
+  updateSubTopic: (id: number, data: any) => request(`/sub-topics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteSubTopic: (id: number) => request(`/sub-topics/${id}`, { method: 'DELETE' }),
+  restoreSubTopic: (id: number) => request(`/sub-topics/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSubTopic: (id: number) => request(`/sub-topics/${id}/permanent`, { method: 'DELETE' }),
+
+  // Sub-Topic Video
+  uploadSubTopicVideo: (id: number, file: File, onProgress?: (percent: number) => void): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const fd = new FormData();
+      fd.append('video', file, file.name);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_URL}/sub-topics/${id}/upload-video`);
+      if (tokens.access) xhr.setRequestHeader('Authorization', `Bearer ${tokens.access}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch {
+          resolve({ success: false, error: 'Invalid response' });
+        }
+      };
+      xhr.onerror = () => reject(new Error('Upload failed'));
+      xhr.send(fd);
+    });
+  },
+
+  deleteSubTopicVideo: (id: number) => request(`/sub-topics/${id}/video`, { method: 'DELETE' }),
+
+  getSubTopicVideoStatus: (id: number) => request(`/sub-topics/${id}/video-status`),
+
+  // Sub-Topic Translations
+  listSubTopicTranslations: (qs = '') => request(`/sub-topic-translations${qs}`, { auth: false }),
+  getSubTopicTranslation: (id: number) => request(`/sub-topic-translations/${id}`, { auth: false }),
+  createSubTopicTranslation: (data: any, isFormData = false) => request('/sub-topic-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateSubTopicTranslation: (id: number, data: any, isFormData = false) => request(`/sub-topic-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteSubTopicTranslation: (id: number) => request(`/sub-topic-translations/${id}`, { method: 'DELETE' }),
+  restoreSubTopicTranslation: (id: number) => request(`/sub-topic-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSubTopicTranslation: (id: number) => request(`/sub-topic-translations/${id}/permanent`, { method: 'DELETE' }),
+  getSubTopicTranslationCoverage: () => request('/sub-topic-translations/coverage', { auth: false }),
+
   // AI — Category Translations
   generateTranslation: (data: { category_id: number; target_language_code: string; target_language_name: string; prompt?: string; provider?: string }) =>
     request('/ai/generate-translation', { method: 'POST', body: JSON.stringify(data) }),
@@ -374,6 +423,12 @@ export const api = {
     request('/ai/generate-topic-translation', { method: 'POST', body: JSON.stringify(data) }),
   bulkGenerateTopicTranslations: (data: { topic_id: number; prompt?: string; provider?: string }) =>
     request('/ai/bulk-generate-topic-translations', { method: 'POST', body: JSON.stringify(data) }),
+
+  // AI — Sub-Topic Translations
+  generateSubTopicTranslation: (data: { sub_topic_id: number; target_language_code: string; target_language_name: string; prompt?: string; provider?: string }) =>
+    request('/ai/generate-sub-topic-translation', { method: 'POST', body: JSON.stringify(data) }),
+  bulkGenerateSubTopicTranslations: (data: { sub_topic_id: number; prompt?: string; provider?: string }) =>
+    request('/ai/bulk-generate-sub-topic-translations', { method: 'POST', body: JSON.stringify(data) }),
 
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
