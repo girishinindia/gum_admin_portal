@@ -8,6 +8,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
@@ -70,6 +71,7 @@ export default function SkillsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
+  const [aiOpen, setAiOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
 
   // Search debounce
@@ -285,6 +287,7 @@ export default function SkillsPage() {
         description="Manage skills, technologies, and certifications"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add skill</Button>}
           </div>
         }
@@ -396,7 +399,7 @@ export default function SkillsPage() {
                 {showTrash ? (
                   <>
                     <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>
-                      <RotateCcw className="w-4 h-4" /> Restore
+                      <RotateCcw className="w-4 h-4" /> Restore Selected
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700">
                       <Trash2 className="w-4 h-4" /> Delete Permanently
@@ -517,7 +520,7 @@ export default function SkillsPage() {
                           <button onClick={() => onRestore(s)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -670,6 +673,8 @@ export default function SkillsPage() {
           </div>
         </form>
       </Dialog>
+
+      <AiMasterDialog module="skills" moduleLabel="Skills" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createSkill(item)} updateFn={(id, item) => api.updateSkill(id, item)} defaultPrompt="Generate skills in these categories: technical (Python, JavaScript, TypeScript, Java, C#, Go, Rust, SQL, HTML/CSS, Shell/Bash), framework (React, Angular, Vue.js, Next.js, Node.js, Express.js, Django, Flask, Spring Boot, .NET), tool (Git, Docker, Kubernetes, VS Code, Jira, Figma, Postman, Jenkins, Terraform, Ansible), soft_skill (Communication, Leadership, Problem Solving, Critical Thinking, Teamwork, Time Management, Adaptability, Creativity), domain (Data Science, Machine Learning, Cloud Computing, Cybersecurity, DevOps, Blockchain, IoT, AI/NLP), certification (AWS Certified, Google Cloud Certified, Azure Certified, PMP, Scrum Master, CKA, CISSP, CompTIA). Each record needs: name, category, description (1 line), is_active=true, sort_order sequential." onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

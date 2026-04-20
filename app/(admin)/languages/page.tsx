@@ -8,12 +8,13 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Languages as LanguagesIcon, Trash2, Edit2, Eye, BookOpen, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Languages as LanguagesIcon, Trash2, Edit2, Eye, BookOpen, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Language } from '@/lib/types';
 
@@ -43,6 +44,7 @@ export default function LanguagesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
+  const [aiOpen, setAiOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
 
   // Search debounce
@@ -268,6 +270,7 @@ export default function LanguagesPage() {
         description="Manage languages for content and localization"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add language</Button>}
           </div>
         }
@@ -378,7 +381,7 @@ export default function LanguagesPage() {
                       disabled={bulkActionLoading}
                     >
                       <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                      Restore
+                      Restore Selected
                     </Button>
                     <Button
                       variant="outline"
@@ -514,7 +517,7 @@ export default function LanguagesPage() {
                           <button onClick={() => onRestore(l)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(l)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(l)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -673,6 +676,7 @@ export default function LanguagesPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="languages" moduleLabel="Languages" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createLanguage(item)} updateFn={(id, item) => api.updateLanguage(id, item)} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

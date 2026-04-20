@@ -8,12 +8,13 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, FolderOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { DocumentType } from '@/lib/types';
 
@@ -40,6 +41,7 @@ export default function DocumentTypesPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -241,6 +243,7 @@ export default function DocumentTypesPage() {
         description="Manage document categories and classifications"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add type</Button>}
           </div>
         }
@@ -415,7 +418,7 @@ export default function DocumentTypesPage() {
                           <button onClick={() => onRestore(dt)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(dt)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(dt)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -534,6 +537,7 @@ export default function DocumentTypesPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="document_types" moduleLabel="Document Types" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createDocumentType(item)} updateFn={(id, item) => api.updateDocumentType(id, item)} defaultPrompt="Generate exactly these 10 document type categories: 1) Identity Proof — Government-issued photo ID (Aadhar, PAN, Passport, etc.), 2) Residence Proof — Proof of current/permanent residence (utility bill, rent agreement), 3) Academic Document — Educational certificates, marksheets, transcripts, degrees, 4) Professional Document — Experience letters, offer letters, relieving letters, pay slips, 5) Financial Document — Bank account details, cancelled cheque, PAN for KYC/payments, 6) Medical Document — Medical certificates, fitness certificate, disability certificate, 7) Legal Document — Affidavits, NOC, court orders, power of attorney, 8) Certification — Professional certifications (AWS, Google, PMP, Scrum Master), 9) Profile Photo — Passport-size photograph for profile and ID card, 10) Signature — Digital or scanned signature. Fields: name, description, is_active=true, sort_order sequential." onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

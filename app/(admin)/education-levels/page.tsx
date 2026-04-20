@@ -8,12 +8,13 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, GraduationCap, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, GraduationCap, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { EducationLevel } from '@/lib/types';
 
@@ -56,6 +57,7 @@ export default function EducationLevelsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
+  const [aiOpen, setAiOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
 
   // Search debounce
@@ -282,6 +284,7 @@ export default function EducationLevelsPage() {
         description="Manage education levels and qualifications"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add level</Button>}
           </div>
         }
@@ -403,7 +406,7 @@ export default function EducationLevelsPage() {
                       disabled={bulkActionLoading}
                     >
                       <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                      Restore
+                      Restore Selected
                     </Button>
                     <Button
                       size="sm"
@@ -542,7 +545,7 @@ export default function EducationLevelsPage() {
                           <button onClick={() => onRestore(l)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(l)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(l)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -684,6 +687,7 @@ export default function EducationLevelsPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="education_levels" moduleLabel="Education Levels" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createEducationLevel(item)} updateFn={(id, item) => api.updateEducationLevel(id, item)} defaultPrompt="Generate Indian education levels in this exact order: PRE_SCHOOL — Nursery (level_order=1), LKG (2), UKG (3). SCHOOL — Primary School class 1-5 (4), Middle School 6-8 (5), Secondary SSC 9-10 (6), Higher Secondary HSC 11-12 (7), Senior Secondary Science HSC-Sci (8), Commerce HSC-Com (9), Arts HSC-Arts (10). DIPLOMA — ITI Certificate (11), Polytechnic Diploma (12), Diploma (13), Advanced Diploma (14). UNDERGRADUATE — Associate Degree (15), B.A. (16), B.Sc. (17), B.Com. (18), B.Tech. (19), B.E. (20), BBA (21), BCA (22), B.Des. (23), LL.B. (24), MBBS (25), BDS (26), B.Pharm. (27), B.Ed. (28), BFA (29), B.Arch. (30). POSTGRADUATE — PG Diploma (31), M.A. (32), M.Sc. (33), M.Com. (34), M.Tech. (35), MBA (36), MCA (37), M.Des. (38), LL.M. (39), M.Ed. (40), MPH (41), MSW (42). DOCTORAL — M.Phil. (43), Ph.D. (44), M.D. (45), M.S. Surgery (46), D.Sc. (47), Post-Doctoral (48). PROFESSIONAL — CA (49), CS (50), CMA (51), CFA (52), Bar Council (53), Medical Council (54), Professional Cert (55). INFORMAL — Online Course/MOOC (56), Bootcamp (57), Self-Taught (58), Apprenticeship (59). OTHER — No Formal Education (60). Fields: name, abbreviation (null if none), level_order, level_category, description, is_active=true, sort_order=level_order." defaultCount={60} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

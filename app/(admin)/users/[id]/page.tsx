@@ -11,7 +11,7 @@ import { api } from '@/lib/api';
 import { formatDate, initials, fromNow } from '@/lib/utils';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, Mail, Phone, Calendar, Shield, Monitor, Plus, X, Lock, Crown } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Calendar, Shield, Monitor, Plus, X, Lock, Crown, UserCircle } from 'lucide-react';
 
 export default function UserDetailPage() {
   const { id } = useParams();
@@ -154,6 +154,9 @@ export default function UserDetailPage() {
           </div>
 
           <div className="flex gap-2 flex-wrap justify-end">
+            <Link href={`/users/${id}/profile`}>
+              <Button variant="secondary"><UserCircle className="w-4 h-4" /> Profile</Button>
+            </Link>
             {statusActions}
           </div>
         </CardContent>

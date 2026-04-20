@@ -8,12 +8,13 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Target, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Target, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { LearningGoal } from '@/lib/types';
 
@@ -40,6 +41,7 @@ export default function LearningGoalsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
+  const [aiOpen, setAiOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
@@ -187,6 +189,7 @@ export default function LearningGoalsPage() {
         description="Manage learning objectives and goals"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add goal</Button>}
           </div>
         }
@@ -288,10 +291,10 @@ export default function LearningGoalsPage() {
                 {showTrash ? (
                   <>
                     <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>
-                      <RotateCcw className="w-4 h-4" /> Restore ({selectedIds.size})
+                      <RotateCcw className="w-4 h-4" /> Restore Selected
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                      <Trash2 className="w-4 h-4" /> Delete ({selectedIds.size})
+                      <Trash2 className="w-4 h-4" /> Delete Permanently
                     </Button>
                   </>
                 ) : (
@@ -363,7 +366,7 @@ export default function LearningGoalsPage() {
                           <button onClick={() => onRestore(g)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(g)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(g)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -444,6 +447,8 @@ export default function LearningGoalsPage() {
           </div>
         </form>
       </Dialog>
+
+      <AiMasterDialog module="learning_goals" moduleLabel="Learning Goals" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createLearningGoal(item)} updateFn={(id, item) => api.updateLearningGoal(id, item)} defaultPrompt="Generate exactly these 18 learning goals with display_order: 1) Career Switch — Switching to a completely new career or industry, 2) Upskilling — Learning new skills to grow in current career, 3) Job Preparation — Preparing for job interviews and placement, 4) Freelancing — Learning skills to work as a freelancer, 5) Start a Business — Learning entrepreneurship and startup skills, 6) Academic Requirement — Learning as part of college/university coursework, 7) Exam Preparation — Preparing for competitive exams (GATE, CAT, UPSC, JEE, NEET), 8) Certification — Earning a professional certification (AWS, Google, PMP), 9) Research — Academic or professional research work, 10) Teaching/Instruction — Learning to teach or create courses, 11) Personal Project — Building a personal project or portfolio, 12) Hobby/Interest — Learning for personal enjoyment and curiosity, 13) Company Training — Employer-sponsored learning, 14) School/College Student — Supplementing formal education, 15) Stay Updated — Keeping up with industry trends, 16) Open Source Contribution, 17) Community/Social Impact, 18) Just Exploring — No specific goal. Fields: name, description, display_order, is_active=true, sort_order=display_order." defaultCount={18} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

@@ -327,6 +327,136 @@ export const api = {
   restoreBranchDepartment: (id: number) => request(`/branch-departments/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteBranchDepartment: (id: number) => request(`/branch-departments/${id}/permanent`, { method: 'DELETE' }),
 
+  // User Profiles
+  listUserProfiles: (qs = '') => request(`/user-profiles${qs}`),
+  getUserProfile: (userId: number) => request(`/user-profiles/user/${userId}`),
+  upsertUserProfile: (userId: number, data: any, isFormData = false) => request(`/user-profiles/user/${userId}`, { method: 'PUT', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteUserProfile: (userId: number) => request(`/user-profiles/user/${userId}`, { method: 'DELETE' }),
+  restoreUserProfile: (userId: number) => request(`/user-profiles/user/${userId}/restore`, { method: 'PATCH' }),
+  permanentDeleteUserProfile: (userId: number) => request(`/user-profiles/user/${userId}/permanent`, { method: 'DELETE' }),
+  getMyProfile: () => request('/user-profiles/me'),
+  updateMyProfile: (data: any, isFormData = false) => request('/user-profiles/me', { method: 'PUT', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+
+  // User Education (admin)
+  listUserEducation: (qs = '') => request(`/user-education${qs}`),
+  getUserEducation: (id: number) => request(`/user-education/${id}`),
+  createUserEducation: (data: any, isFormData = false) => request('/user-education', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateUserEducation: (id: number, data: any, isFormData = false) => request(`/user-education/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteUserEducation: (id: number) => request(`/user-education/${id}`, { method: 'DELETE' }),
+  restoreUserEducation: (id: number) => request(`/user-education/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteUserEducation: (id: number) => request(`/user-education/${id}/permanent`, { method: 'DELETE' }),
+
+  // User Education (self-service)
+  listMyEducation: (qs = '') => request(`/user-education/me${qs}`),
+  getMyEducation: (id: number) => request(`/user-education/me/${id}`),
+  createMyEducation: (data: any, isFormData = false) => request('/user-education/me', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateMyEducation: (id: number, data: any, isFormData = false) => request(`/user-education/me/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteMyEducation: (id: number) => request(`/user-education/me/${id}`, { method: 'DELETE' }),
+  restoreMyEducation: (id: number) => request(`/user-education/me/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMyEducation: (id: number) => request(`/user-education/me/${id}/permanent`, { method: 'DELETE' }),
+
+  // User Experience (admin)
+  listUserExperience: (qs = '') => request(`/user-experience${qs}`),
+  getUserExperience: (id: number) => request(`/user-experience/${id}`),
+  createUserExperience: (data: any) => request('/user-experience', { method: 'POST', body: JSON.stringify(data) }),
+  updateUserExperience: (id: number, data: any) => request(`/user-experience/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUserExperience: (id: number) => request(`/user-experience/${id}`, { method: 'DELETE' }),
+  restoreUserExperience: (id: number) => request(`/user-experience/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteUserExperience: (id: number) => request(`/user-experience/${id}/permanent`, { method: 'DELETE' }),
+  // User Experience (self-service)
+  listMyExperience: (qs = '') => request(`/user-experience/me${qs}`),
+  getMyExperience: (id: number) => request(`/user-experience/me/${id}`),
+  createMyExperience: (data: any) => request('/user-experience/me', { method: 'POST', body: JSON.stringify(data) }),
+  updateMyExperience: (id: number, data: any) => request(`/user-experience/me/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteMyExperience: (id: number) => request(`/user-experience/me/${id}`, { method: 'DELETE' }),
+  restoreMyExperience: (id: number) => request(`/user-experience/me/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMyExperience: (id: number) => request(`/user-experience/me/${id}/permanent`, { method: 'DELETE' }),
+
+  // User Social Media (admin)
+  listUserSocialMedia: (qs = '') => request(`/user-social-medias${qs}`),
+  getUserSocialMedia: (id: number) => request(`/user-social-medias/${id}`),
+  createUserSocialMedia: (data: any) => request('/user-social-medias', { method: 'POST', body: JSON.stringify(data) }),
+  updateUserSocialMedia: (id: number, data: any) => request(`/user-social-medias/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUserSocialMedia: (id: number) => request(`/user-social-medias/${id}`, { method: 'DELETE' }),
+  restoreUserSocialMedia: (id: number) => request(`/user-social-medias/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteUserSocialMedia: (id: number) => request(`/user-social-medias/${id}/permanent`, { method: 'DELETE' }),
+  // User Social Media (self-service)
+  listMySocialMedia: (qs = '') => request(`/user-social-medias/me${qs}`),
+  getMySocialMedia: (id: number) => request(`/user-social-medias/me/${id}`),
+  createMySocialMedia: (data: any) => request('/user-social-medias/me', { method: 'POST', body: JSON.stringify(data) }),
+  updateMySocialMedia: (id: number, data: any) => request(`/user-social-medias/me/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteMySocialMedia: (id: number) => request(`/user-social-medias/me/${id}`, { method: 'DELETE' }),
+  restoreMySocialMedia: (id: number) => request(`/user-social-medias/me/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMySocialMedia: (id: number) => request(`/user-social-medias/me/${id}/permanent`, { method: 'DELETE' }),
+
+  // User Skills (admin)
+  listUserSkills: (qs = '') => request(`/user-skills${qs}`),
+  getUserSkill: (id: number) => request(`/user-skills/${id}`),
+  createUserSkill: (data: any) => request('/user-skills', { method: 'POST', body: JSON.stringify(data) }),
+  updateUserSkill: (id: number, data: any) => request(`/user-skills/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUserSkill: (id: number) => request(`/user-skills/${id}`, { method: 'DELETE' }),
+  restoreUserSkill: (id: number) => request(`/user-skills/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteUserSkill: (id: number) => request(`/user-skills/${id}/permanent`, { method: 'DELETE' }),
+  // User Skills (self-service)
+  listMySkills: (qs = '') => request(`/user-skills/me${qs}`),
+  getMySkill: (id: number) => request(`/user-skills/me/${id}`),
+  createMySkill: (data: any) => request('/user-skills/me', { method: 'POST', body: JSON.stringify(data) }),
+  updateMySkill: (id: number, data: any) => request(`/user-skills/me/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteMySkill: (id: number) => request(`/user-skills/me/${id}`, { method: 'DELETE' }),
+  restoreMySkill: (id: number) => request(`/user-skills/me/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMySkill: (id: number) => request(`/user-skills/me/${id}/permanent`, { method: 'DELETE' }),
+
+  // User Languages (admin)
+  listUserLanguages: (qs = '') => request(`/user-languages${qs}`),
+  getUserLanguage: (id: number) => request(`/user-languages/${id}`),
+  createUserLanguage: (data: any) => request('/user-languages', { method: 'POST', body: JSON.stringify(data) }),
+  updateUserLanguage: (id: number, data: any) => request(`/user-languages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUserLanguage: (id: number) => request(`/user-languages/${id}`, { method: 'DELETE' }),
+  restoreUserLanguage: (id: number) => request(`/user-languages/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteUserLanguage: (id: number) => request(`/user-languages/${id}/permanent`, { method: 'DELETE' }),
+  // User Languages (self-service)
+  listMyLanguages: (qs = '') => request(`/user-languages/me${qs}`),
+  getMyLanguage: (id: number) => request(`/user-languages/me/${id}`),
+  createMyLanguage: (data: any) => request('/user-languages/me', { method: 'POST', body: JSON.stringify(data) }),
+  updateMyLanguage: (id: number, data: any) => request(`/user-languages/me/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteMyLanguage: (id: number) => request(`/user-languages/me/${id}`, { method: 'DELETE' }),
+  restoreMyLanguage: (id: number) => request(`/user-languages/me/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMyLanguage: (id: number) => request(`/user-languages/me/${id}/permanent`, { method: 'DELETE' }),
+
+  // User Documents (admin)
+  listUserDocuments: (qs = '') => request(`/user-documents${qs}`),
+  getUserDocument: (id: number) => request(`/user-documents/${id}`),
+  createUserDocument: (data: any, isFormData = false) => request('/user-documents', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateUserDocument: (id: number, data: any, isFormData = false) => request(`/user-documents/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteUserDocument: (id: number) => request(`/user-documents/${id}`, { method: 'DELETE' }),
+  restoreUserDocument: (id: number) => request(`/user-documents/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteUserDocument: (id: number) => request(`/user-documents/${id}/permanent`, { method: 'DELETE' }),
+  // User Documents (self-service)
+  listMyDocuments: (qs = '') => request(`/user-documents/me${qs}`),
+  getMyDocument: (id: number) => request(`/user-documents/me/${id}`),
+  createMyDocument: (data: any, isFormData = false) => request('/user-documents/me', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateMyDocument: (id: number, data: any, isFormData = false) => request(`/user-documents/me/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteMyDocument: (id: number) => request(`/user-documents/me/${id}`, { method: 'DELETE' }),
+  restoreMyDocument: (id: number) => request(`/user-documents/me/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMyDocument: (id: number) => request(`/user-documents/me/${id}/permanent`, { method: 'DELETE' }),
+
+  // User Projects (admin)
+  listUserProjects: (qs = '') => request(`/user-projects${qs}`),
+  getUserProject: (id: number) => request(`/user-projects/${id}`),
+  createUserProject: (data: any) => request('/user-projects', { method: 'POST', body: JSON.stringify(data) }),
+  updateUserProject: (id: number, data: any) => request(`/user-projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUserProject: (id: number) => request(`/user-projects/${id}`, { method: 'DELETE' }),
+  restoreUserProject: (id: number) => request(`/user-projects/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteUserProject: (id: number) => request(`/user-projects/${id}/permanent`, { method: 'DELETE' }),
+  // User Projects (self-service)
+  listMyProjects: (qs = '') => request(`/user-projects/me${qs}`),
+  getMyProject: (id: number) => request(`/user-projects/me/${id}`),
+  createMyProject: (data: any) => request('/user-projects/me', { method: 'POST', body: JSON.stringify(data) }),
+  updateMyProject: (id: number, data: any) => request(`/user-projects/me/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteMyProject: (id: number) => request(`/user-projects/me/${id}`, { method: 'DELETE' }),
+  restoreMyProject: (id: number) => request(`/user-projects/me/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMyProject: (id: number) => request(`/user-projects/me/${id}/permanent`, { method: 'DELETE' }),
+
   // Activity Logs
   authLogs: (qs = '') => request(`/activity-logs/auth${qs}`),
   adminLogs: (qs = '') => request(`/activity-logs/admin${qs}`),
@@ -350,4 +480,22 @@ export const api = {
   listTableSummaries: () => request('/table-summary', { auth: false }),
   syncTableSummary: (tableName: string) => request(`/table-summary/sync/${tableName}`, { method: 'POST' }),
   syncAllTableSummaries: () => request('/table-summary/sync', { method: 'POST' }),
+
+  // AI — Sample Data Generation
+  generateSampleData: (data: { module: string; provider: string; target_user_id: number; count?: number }) =>
+    request('/ai/generate-sample-data', { method: 'POST', body: JSON.stringify(data) }),
+
+  // AI — Master Data Generation
+  generateMasterData: (data: { module: string; provider: string; count?: number; prompt?: string }) =>
+    request('/ai/generate-master-data', { method: 'POST', body: JSON.stringify(data) }),
+
+  updateMasterData: (data: { module: string; provider: string; prompt: string; record_ids?: number[] }) =>
+    request('/ai/update-master-data', { method: 'POST', body: JSON.stringify(data) }),
+
+  // AI — Resume Content (headline + bio)
+  generateResumeContent: (data: { provider: string; prompt: string; target_user_id: number; mode?: string }) =>
+    request('/ai/generate-resume-content', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Resume (public)
+  getResume: (slug: string) => request(`/resume/${slug}`, { auth: false }),
 };

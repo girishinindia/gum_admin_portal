@@ -8,12 +8,13 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Award, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Award, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Designation } from '@/lib/types';
 
@@ -56,6 +57,7 @@ export default function DesignationsPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -210,6 +212,7 @@ export default function DesignationsPage() {
       <PageHeader title="Designations" description="Manage job titles and designation levels"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add designation</Button>}
           </div>
         }
@@ -316,10 +319,10 @@ export default function DesignationsPage() {
                 {showTrash ? (
                   <>
                     <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50">
-                      <RotateCcw className="w-3.5 h-3.5" /> Restore
+                      <RotateCcw className="w-3.5 h-3.5" /> Restore Selected
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 border-red-200 hover:bg-red-50">
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
                     </Button>
                   </>
                 ) : (
@@ -394,7 +397,7 @@ export default function DesignationsPage() {
                           <button onClick={() => onRestore(d)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -484,6 +487,7 @@ export default function DesignationsPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="designations" moduleLabel="Designations" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createDesignation(item)} updateFn={(id, item) => api.updateDesignation(id, item)} defaultPrompt="Generate designations covering full corporate hierarchy. INTERN (level 0): Intern (INT), Trainee (TRN). ENTRY (1-2): Junior Developer, Junior Designer, Junior Content Writer, Executive, HR Executive, Marketing Executive, Sales Executive, Support Executive, Accountant. MID (3-4): Software Developer, UI/UX Designer, Content Creator, QA Engineer, Data Analyst, System Administrator, Video Editor, HR Specialist, Marketing Specialist, Financial Analyst. SENIOR (5-6): Senior Developer, Senior Designer, Senior Content Writer, Senior QA, Senior Data Scientist, DevOps Engineer, Staff Engineer, Principal Engineer, Senior HR Manager. LEAD (7): Tech Lead, Design Lead, Content Lead, QA Lead, Project Manager, Product Manager. MANAGER (8): Engineering Manager, Design Manager, Content Manager, HR Manager, Finance Manager, Marketing Manager, Sales Manager, Operations Manager. DIRECTOR (9): Director of Engineering/Product/Content/HR/Marketing/Finance, VP. EXECUTIVE (10): CEO, CTO, CFO, COO, CMO, CPO, Co-Founder, Founder. Fields: name, code, level (0-10), level_band, description, is_active=true, sort_order." defaultCount={50} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

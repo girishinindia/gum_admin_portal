@@ -8,13 +8,14 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, FileImage, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, FileImage, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Document as Doc, DocumentType } from '@/lib/types';
 
@@ -48,6 +49,7 @@ export default function DocumentsPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -282,6 +284,7 @@ export default function DocumentsPage() {
         description="Manage documents and uploaded files"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add document</Button>}
           </div>
         }
@@ -397,7 +400,7 @@ export default function DocumentsPage() {
                       onClick={handleBulkRestore}
                       disabled={bulkActionLoading}
                     >
-                      <RotateCcw className="w-3.5 h-3.5" /> Restore
+                      <RotateCcw className="w-3.5 h-3.5" /> Restore Selected
                     </Button>
                     <Button
                       size="sm"
@@ -526,7 +529,7 @@ export default function DocumentsPage() {
                           <button onClick={() => onRestore(d)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -686,6 +689,8 @@ export default function DocumentsPage() {
           </div>
         </form>
       </Dialog>
+
+      <AiMasterDialog module="documents" moduleLabel="Documents" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createDocument(item)} updateFn={(id, item) => api.updateDocument(id, item)} defaultPrompt="Generate documents mapped to their document_type_id. Identity Proof: Aadhar Card, PAN Card, Passport, Driving License, Voter ID, Ration Card, Govt Employee ID. Residence Proof: Aadhar (Residence), Passport (Residence), DL (Residence), Voter ID (Residence), Ration Card (Residence), Electricity Bill, Gas Bill, Telephone Bill, Water Bill, Bank Statement (Residence), Rent Agreement, Property Tax Receipt. Academic: 10th Marksheet, 10th Certificate, 12th Marksheet, 12th Certificate, Diploma Certificate, Degree Certificate, Degree Marksheet, PG Certificate, PG Marksheet, PhD Certificate, Migration Certificate, Transfer Certificate, Character Certificate. Professional: Experience Letter, Offer Letter, Relieving Letter, Pay Slip, Resume/CV, Recommendation Letter. Financial: Cancelled Cheque, Bank Passbook, GST Certificate, Income Tax Return. Medical: Medical Fitness Certificate, Disability Certificate, Vaccination Record. Legal: Affidavit, NOC, Power of Attorney. Certification: AWS, Google Cloud, Azure, PMP, Scrum Master, Other. Profile Photo: Passport Size Photo. Signature: Digital Signature. Fields: document_type_id, name, description, is_active=true, sort_order." defaultCount={50} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

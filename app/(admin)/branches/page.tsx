@@ -13,7 +13,8 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, GitBranch, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, GitBranch, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { Branch, Country, State, City } from '@/lib/types';
 
@@ -34,6 +35,7 @@ export default function BranchesPage() {
   const [viewing, setViewing] = useState<Branch | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Pagination, search, sort, filters
   const [filterCountry, setFilterCountry] = useState('');
@@ -337,6 +339,7 @@ export default function BranchesPage() {
         description="Manage organization branches and offices"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add branch</Button>}
           </div>
         }
@@ -469,7 +472,7 @@ export default function BranchesPage() {
                       className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                     >
                       <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                      Restore
+                      Restore Selected
                     </Button>
                     <Button
                       size="sm"
@@ -573,7 +576,7 @@ export default function BranchesPage() {
                           <button onClick={() => onRestore(branch)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(branch)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(branch)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -748,6 +751,7 @@ export default function BranchesPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="branches" moduleLabel="Branches" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createBranch(item)} updateFn={(id, item) => api.updateBranch(id, item)} defaultPrompt="Generate branch/office records for GrowUpMore across different Indian cities. Include head office, regional offices, and branch offices with realistic Indian addresses, PIN codes, phone numbers, and email addresses. Fields: name, code, branch_type (head_office/regional_office/branch_office/satellite_office/virtual_office/training_center), address_line_1, address_line_2, pincode, phone, email, country_id, state_id, city_id, is_active=true, sort_order." defaultCount={10} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

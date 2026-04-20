@@ -14,7 +14,8 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Globe2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Globe2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { Country } from '@/lib/types';
 
@@ -50,6 +51,7 @@ export default function CountriesPage() {
 
   // Table summary stats
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -263,6 +265,7 @@ export default function CountriesPage() {
         description="Manage countries, currencies, and flag images"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add country</Button>}
           </div>
         }
@@ -380,7 +383,7 @@ export default function CountriesPage() {
                       className="h-8 px-2.5 text-xs"
                     >
                       <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                      Restore
+                      Restore Selected
                     </Button>
                     <Button
                       size="sm"
@@ -390,7 +393,7 @@ export default function CountriesPage() {
                       className="h-8 px-2.5 text-xs"
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1" />
-                      Delete
+                      Delete Permanently
                     </Button>
                   </>
                 ) : (
@@ -536,7 +539,7 @@ export default function CountriesPage() {
                           <button onClick={() => onRestore(c)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -689,6 +692,8 @@ export default function CountriesPage() {
           </div>
         </form>
       </Dialog>
+
+      <AiMasterDialog module="countries" moduleLabel="Countries" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createCountry(item)} updateFn={(id, item) => api.updateCountry(id, item)} defaultPrompt="Generate countries with accurate data. Include all major countries: India, United States, United Kingdom, Canada, Australia, Germany, France, Japan, China, Brazil, Russia, South Korea, Singapore, UAE, Saudi Arabia, South Africa, Mexico, Indonesia, Thailand, Vietnam, Netherlands, Sweden, Switzerland, Italy, Spain, Portugal, Israel, Turkey, Egypt, Nigeria, Kenya, New Zealand, Ireland, Belgium, Norway, Denmark, Finland, Poland, Argentina, Colombia, Chile, Malaysia, Philippines, Bangladesh, Pakistan, Sri Lanka, Nepal. Fields: name, nationality, iso2, iso3, phone_code, currency, currency_symbol, currency_name, tld, national_language, region, subregion, languages (JSON array), latitude, longitude, is_active=true, sort_order." defaultCount={50} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

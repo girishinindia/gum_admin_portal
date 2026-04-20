@@ -13,7 +13,8 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Building2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Building2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { City, State, Country } from '@/lib/types';
 
@@ -50,6 +51,7 @@ export default function CitiesPage() {
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Form-level state dropdown (filtered by selected country in dialog)
   const [formCountry, setFormCountry] = useState<number | ''>('');
@@ -299,6 +301,7 @@ export default function CitiesPage() {
         description="Manage cities within states"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add city</Button>}
           </div>
         }
@@ -427,7 +430,7 @@ export default function CitiesPage() {
                       disabled={bulkActionLoading}
                     >
                       <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                      Restore
+                      Restore Selected
                     </Button>
                     <Button
                       variant="danger"
@@ -553,7 +556,7 @@ export default function CitiesPage() {
                           <button onClick={() => onRestore(c)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -702,6 +705,8 @@ export default function CitiesPage() {
           </div>
         </form>
       </Dialog>
+
+      <AiMasterDialog module="cities" moduleLabel="Cities" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createCity(item)} updateFn={(id, item) => api.updateCity(id, item)} defaultPrompt="Generate major Indian cities mapped to their correct state_id. Include: Mumbai, Pune, Nagpur (Maharashtra), Ahmedabad, Surat, Vadodara, Rajkot, Gandhinagar (Gujarat), Bangalore, Mysore, Mangalore (Karnataka), Chennai, Coimbatore, Madurai (Tamil Nadu), Hyderabad, Warangal (Telangana), Delhi, New Delhi (Delhi), Kolkata, Howrah (West Bengal), Lucknow, Kanpur, Varanasi, Agra, Noida (UP), Jaipur, Jodhpur, Udaipur (Rajasthan), Bhopal, Indore (MP), Patna (Bihar), Chandigarh, Thiruvananthapuram, Kochi (Kerala), Guwahati (Assam), Bhubaneswar (Odisha), Ranchi (Jharkhand), Raipur (Chhattisgarh), Dehradun (Uttarakhand), Shimla (HP), Panaji (Goa), Gangtok (Sikkim), Imphal (Manipur), Shillong (Meghalaya), Aizawl (Mizoram), Kohima (Nagaland), Itanagar (Arunachal Pradesh), Agartala (Tripura). Use accurate phone codes and Asia/Kolkata timezone. Fields: state_id, name, phonecode, timezone, latitude, longitude, is_active=true, sort_order." defaultCount={50} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

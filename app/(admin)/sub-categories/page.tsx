@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
@@ -74,10 +75,11 @@ export default function SubCategoriesPage() {
 
   // Coverage + Bulk Generate
   const [coverage, setCoverage] = useState<Record<number, CoverageItem>>({});
+  const [aiOpen, setAiOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkSubCategory, setBulkSubCategory] = useState<SubCategory | null>(null);
   const [bulkPrompt, setBulkPrompt] = useState(DEFAULT_BULK_PROMPT);
-  const [bulkProvider, setBulkProvider] = useState<AIProvider>('anthropic');
+  const [bulkProvider, setBulkProvider] = useState<AIProvider>('gemini');
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
@@ -145,7 +147,7 @@ export default function SubCategoriesPage() {
   function openBulkGenerate(sc: SubCategory) {
     setBulkSubCategory(sc);
     setBulkPrompt(DEFAULT_BULK_PROMPT);
-    setBulkProvider('anthropic');
+    setBulkProvider('gemini');
     setBulkResults([]);
     setBulkDone(false);
     setBulkLoading(false);
@@ -308,6 +310,7 @@ export default function SubCategoriesPage() {
         description="Manage sub-categories within categories"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-category</Button>}
           </div>
         }
@@ -540,7 +543,7 @@ export default function SubCategoriesPage() {
                           <button onClick={() => onRestore(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -812,6 +815,7 @@ export default function SubCategoriesPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="sub_categories" moduleLabel="Sub-Categories" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createSubCategory(item)} updateFn={(id, item) => api.updateSubCategory(id, item)} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

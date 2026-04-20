@@ -13,7 +13,8 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Network, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Network, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { Department } from '@/lib/types';
 
@@ -27,6 +28,7 @@ export default function DepartmentsPage() {
   const [editing, setEditing] = useState<Department | null>(null);
   const [viewing, setViewing] = useState<Department | null>(null);
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Pagination, search, sort, filters
   const [filterParent, setFilterParent] = useState('');
@@ -278,6 +280,7 @@ export default function DepartmentsPage() {
         description="Manage organizational departments and hierarchies"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add department</Button>}
           </div>
         }
@@ -395,7 +398,7 @@ export default function DepartmentsPage() {
                       className="text-emerald-600 hover:text-emerald-700 border-emerald-200 hover:bg-emerald-50"
                     >
                       <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                      Restore
+                      Restore Selected
                     </Button>
                     <Button
                       size="sm"
@@ -502,7 +505,7 @@ export default function DepartmentsPage() {
                           <button onClick={() => onRestore(d)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -638,6 +641,7 @@ export default function DepartmentsPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="departments" moduleLabel="Departments" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createDepartment(item)} updateFn={(id, item) => api.updateDepartment(id, item)} defaultPrompt="Generate department records for an educational technology company. Include: Engineering (ENG), Product (PRD), Design (DES), Marketing (MKT), Sales (SAL), Human Resources (HR), Finance (FIN), Operations (OPS), Legal (LEG), Customer Support (CS), Content (CNT), Quality Assurance (QA), Data Science (DS), DevOps (DVO), Research (RES), Administration (ADM), Business Development (BD), Partnerships (PRT). Fields: name, code, description, is_active=true, sort_order." defaultCount={15} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

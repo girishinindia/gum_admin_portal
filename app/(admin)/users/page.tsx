@@ -21,7 +21,7 @@ import { api } from '@/lib/api';
 import { formatDate, initials } from '@/lib/utils';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Users as UsersIcon, Mail, Phone, Lock, User as UserIcon, Eye, Edit2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, Trash2, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Users as UsersIcon, Mail, Phone, Lock, User as UserIcon, Eye, Edit2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, Trash2, RotateCcw, AlertTriangle, X, UserCircle } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { User, Role } from '@/lib/types';
 
@@ -405,7 +405,7 @@ export default function UsersPage() {
                           <button onClick={() => onRestore(u)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(u)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(u)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -414,6 +414,11 @@ export default function UsersPage() {
                           <button onClick={() => openView(u)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
+                          <Link href={`/users/${u.id}/profile`}>
+                            <button className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Profile">
+                              <UserCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </Link>
                           <Link href={`/users/${u.id}`}>
                             <button className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                               <Edit2 className="w-3.5 h-3.5" />

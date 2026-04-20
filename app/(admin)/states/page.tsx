@@ -13,7 +13,8 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, MapPin, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, MapPin, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { State, Country } from '@/lib/types';
 
@@ -44,6 +45,7 @@ export default function StatesPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -243,6 +245,7 @@ export default function StatesPage() {
         description="Manage states and provinces within countries"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add state</Button>}
           </div>
         }
@@ -357,7 +360,7 @@ export default function StatesPage() {
                       className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                     >
                       <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                      Restore
+                      Restore Selected
                     </Button>
                     <Button
                       variant="outline"
@@ -474,7 +477,7 @@ export default function StatesPage() {
                           <button onClick={() => onRestore(s)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -598,6 +601,8 @@ export default function StatesPage() {
           </div>
         </form>
       </Dialog>
+
+      <AiMasterDialog module="states" moduleLabel="States" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createState(item)} updateFn={(id, item) => api.updateState(id, item)} defaultPrompt="Generate all Indian states and union territories with accurate state codes: Andhra Pradesh (AP), Arunachal Pradesh (AR), Assam (AS), Bihar (BR), Chhattisgarh (CG), Goa (GA), Gujarat (GJ), Haryana (HR), Himachal Pradesh (HP), Jharkhand (JH), Karnataka (KA), Kerala (KL), Madhya Pradesh (MP), Maharashtra (MH), Manipur (MN), Meghalaya (ML), Mizoram (MZ), Nagaland (NL), Odisha (OD), Punjab (PB), Rajasthan (RJ), Sikkim (SK), Tamil Nadu (TN), Telangana (TG), Tripura (TR), Uttar Pradesh (UP), Uttarakhand (UK), West Bengal (WB), Delhi (DL), Jammu and Kashmir (JK), Ladakh (LA), Chandigarh (CH), Puducherry (PY), Andaman and Nicobar (AN), Dadra and Nagar Haveli and Daman and Diu (DD), Lakshadweep (LD). Assign correct country_id for India. Fields: country_id, name, state_code, is_active=true, sort_order." defaultCount={36} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

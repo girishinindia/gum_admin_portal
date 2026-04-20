@@ -8,13 +8,14 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Share2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Share2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { SocialMedia } from '@/lib/types';
 
@@ -62,6 +63,7 @@ export default function SocialMediasPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
+  const [aiOpen, setAiOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
@@ -232,6 +234,7 @@ export default function SocialMediasPage() {
         description="Manage social media and professional platforms"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add platform</Button>}
           </div>
         }
@@ -340,8 +343,8 @@ export default function SocialMediasPage() {
               <div className="flex items-center gap-2">
                 {showTrash ? (
                   <>
-                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}><RotateCcw className="w-3.5 h-3.5" /> Restore</Button>
-                    <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700">Delete Permanently</Button>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}><RotateCcw className="w-3.5 h-3.5" /> Restore Selected</Button>
+                    <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700"><Trash2 className="w-3.5 h-3.5" /> Delete Permanently</Button>
                   </>
                 ) : (
                   <Button size="sm" variant="outline" onClick={handleBulkSoftDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700"><Trash2 className="w-3.5 h-3.5" /> Move to Trash</Button>
@@ -423,7 +426,7 @@ export default function SocialMediasPage() {
                           <button onClick={() => onRestore(s)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -520,6 +523,7 @@ export default function SocialMediasPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="social_medias" moduleLabel="Social Media" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createSocialMedia(item)} updateFn={(id, item) => api.updateSocialMedia(id, item)} defaultPrompt="Generate social media platforms by type. PROFESSIONAL: LinkedIn (linkedin, https://linkedin.com/), AngelList (angellist, https://angel.co/). CODE: GitHub (github, https://github.com/), GitLab (gitlab, https://gitlab.com/), Bitbucket (bitbucket, https://bitbucket.org/), Stack Overflow (stackoverflow, https://stackoverflow.com/), LeetCode (leetcode, https://leetcode.com/), HackerRank (hackerrank, https://hackerrank.com/), CodePen (codepen, https://codepen.io/). SOCIAL: Twitter/X (twitter, https://x.com/), Facebook (facebook, https://facebook.com/), Instagram (instagram, https://instagram.com/), Reddit (reddit, https://reddit.com/), Threads (threads, https://threads.net/). VIDEO: YouTube (youtube, https://youtube.com/), Vimeo (vimeo, https://vimeo.com/), Twitch (twitch, https://twitch.tv/). BLOG: Medium (medium, https://medium.com/), Dev.to (devto, https://dev.to/), Hashnode (hashnode, https://hashnode.com/). PORTFOLIO: Behance (behance, https://behance.net/), Dribbble (dribbble, https://dribbble.com/), Kaggle (kaggle, https://kaggle.com/). MESSAGING: Telegram (telegram, https://t.me/), Discord (discord, https://discord.com/), Slack (slack, https://slack.com/). WEBSITE: Personal Website (website, null base_url), Portfolio Website (portfolio, null base_url). Fields: name, code, base_url, placeholder (example profile URL), platform_type, display_order, is_active=true, sort_order." defaultCount={28} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

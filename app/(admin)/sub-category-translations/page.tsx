@@ -81,7 +81,7 @@ export default function SubCategoryTranslationsPage() {
   const [aiPrompt, setAiPrompt] = useState('Translate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const [aiProvider, setAiProvider] = useState<AIProvider>('anthropic');
+  const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
 
   const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
 
@@ -492,7 +492,7 @@ export default function SubCategoryTranslationsPage() {
                         {showTrash ? (
                           <>
                             <button onClick={() => onRestore(item)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => onPermanentDelete(item)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => onPermanentDelete(item)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
                           </>
                         ) : (
                           <>

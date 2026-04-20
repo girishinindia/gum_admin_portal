@@ -8,12 +8,13 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Compass, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Compass, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Specialization } from '@/lib/types';
 
@@ -62,6 +63,7 @@ export default function SpecializationsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
+  const [aiOpen, setAiOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
@@ -220,6 +222,7 @@ export default function SpecializationsPage() {
       <PageHeader title="Specializations" description="Manage subject areas and specialization domains"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add specialization</Button>}
           </div>
         } />
@@ -323,10 +326,10 @@ export default function SpecializationsPage() {
                 {showTrash ? (
                   <>
                     <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>
-                      <RotateCcw className="w-3.5 h-3.5" /> Restore
+                      <RotateCcw className="w-3.5 h-3.5" /> Restore Selected
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
                     </Button>
                   </>
                 ) : (
@@ -420,7 +423,7 @@ export default function SpecializationsPage() {
                           <button onClick={() => onRestore(s)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Permanent Delete">
+                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -507,6 +510,7 @@ export default function SpecializationsPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="specializations" moduleLabel="Specializations" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createSpecialization(item)} updateFn={(id, item) => api.updateSpecialization(id, item)} defaultPrompt="Generate specializations by category. TECHNOLOGY: Full-Stack Web Dev, Frontend Dev, Backend Dev, Mobile App Dev, Cloud Architecture, DevOps and CI/CD, Cybersecurity, Blockchain and Web3, Database Engineering, Embedded Systems and IoT, Game Development, API Design. DATA: Data Science, Machine Learning, Deep Learning and AI, NLP, Computer Vision, Business Intelligence, Big Data Engineering, Data Analytics. DESIGN: UI/UX Design, Graphic Design, Motion Graphics, Product Design, Web Design. BUSINESS: Digital Marketing, Project Management, Product Management, Financial Management, Entrepreneurship, HR Management, Supply Chain, Sales and Negotiation. LANGUAGE: English, Hindi, Japanese, French, German, Spanish Teaching. SCIENCE: Physics, Chemistry, Biology, Environmental Science. MATHEMATICS: Mathematics, Statistics and Probability, Applied Mathematics. ARTS: Music, Photography, Video Production, Creative Writing, Public Speaking. HEALTH: Yoga and Meditation, Fitness and Nutrition, Mental Health. EXAM_PREP: GATE, CAT/MBA, UPSC, JEE, NEET, GRE/GMAT, IELTS/TOEFL, Bank PO/SSC, NET/SET. PROFESSIONAL: CA, CS, CFA, Law/Legal Studies. Fields: name, category, description, is_active=true, sort_order." defaultCount={50} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }
