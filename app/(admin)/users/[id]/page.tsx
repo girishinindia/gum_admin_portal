@@ -116,9 +116,9 @@ export default function UserDetailPage() {
         <CardContent className="flex items-start justify-between gap-6">
           <div className="flex items-start gap-5">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center text-2xl font-bold overflow-hidden">
-              {user.avatar_url ? (
+              {(user.profile_image_url || user.avatar_url) ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                <img src={(user.profile_image_url || user.avatar_url)!} alt="" className="w-full h-full object-cover" />
               ) : (
                 initials(user.full_name)
               )}

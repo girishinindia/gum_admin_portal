@@ -14,6 +14,7 @@ export function UserMenu() {
   const topRole = user.roles && user.roles.length > 0
     ? [...user.roles].sort((a, b) => b.level - a.level)[0]
     : null;
+  const avatarSrc = user.profile_image_url || user.avatar_url;
 
   return (
     <Dropdown
@@ -21,9 +22,9 @@ export function UserMenu() {
       trigger={
         <div className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center text-xs font-semibold overflow-hidden flex-shrink-0">
-            {user.avatar_url ? (
+            {avatarSrc ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
+              <img src={avatarSrc} alt={user.full_name} className="w-full h-full object-cover" />
             ) : (
               <span>{user.first_name[0]}{user.last_name[0]}</span>
             )}
@@ -41,9 +42,9 @@ export function UserMenu() {
       <div className="px-4 py-4 bg-gradient-to-br from-brand-50 to-sky-50 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center font-bold overflow-hidden flex-shrink-0 shadow-brand">
-            {user.avatar_url ? (
+            {avatarSrc ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
+              <img src={avatarSrc} alt={user.full_name} className="w-full h-full object-cover" />
             ) : (
               <span>{user.first_name[0]}{user.last_name[0]}</span>
             )}
