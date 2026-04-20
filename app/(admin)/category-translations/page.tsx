@@ -13,7 +13,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
-import { MultiLangField, initMLIFields, setMLILanguage } from '@/components/ui/MultiLangField';
+import { MultiLangField, initMLIFields, setMLILanguage, useMLIScript } from '@/components/ui/MultiLangField';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, BookOpen, Trash2, Edit2, Globe, Wand2, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Mic, Eye, Sparkles, Loader2, ChevronDown, ChevronUp, X } from 'lucide-react';
@@ -71,7 +71,7 @@ export default function CategoryTranslationsPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
-  const [mliReady, setMliReady] = useState(false);
+  const mliReady = useMLIScript();
   const [formLoading, setFormLoading] = useState(false);
   const [formMode, setFormMode] = useState<'new' | 'existing'>('new');
   const [viewOpen, setViewOpen] = useState(false);
@@ -474,7 +474,7 @@ export default function CategoryTranslationsPage() {
   return (
     <div className="animate-fade-in">
       {/* Multi-Language Input: transliteration + speech-to-text */}
-      <Script src="/js/multi-lang-input.js" strategy="afterInteractive" onLoad={() => setMliReady(true)} />
+      <Script src="/js/multi-lang-input.js" strategy="afterInteractive" onLoad={() => (window as any).__mliMarkReady?.()} />
       {/* eslint-disable-next-line @next/next/no-css-tags */}
       <link rel="stylesheet" href="/css/multi-lang-input.css" />
 

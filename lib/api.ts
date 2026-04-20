@@ -288,6 +288,63 @@ export const api = {
   // Sub-Category Translation Coverage
   getSubCategoryTranslationCoverage: () => request('/sub-category-translations/coverage', { auth: false }),
 
+  // Subjects
+  listSubjects: (qs = '') => request(`/subjects${qs}`, { auth: false }),
+  getSubject: (id: number) => request(`/subjects/${id}`, { auth: false }),
+  createSubject: (data: any) => request('/subjects', { method: 'POST', body: JSON.stringify(data) }),
+  updateSubject: (id: number, data: any) => request(`/subjects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteSubject: (id: number) => request(`/subjects/${id}`, { method: 'DELETE' }),
+  restoreSubject: (id: number) => request(`/subjects/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSubject: (id: number) => request(`/subjects/${id}/permanent`, { method: 'DELETE' }),
+
+  // Chapters
+  listChapters: (qs = '') => request(`/chapters${qs}`, { auth: false }),
+  getChapter: (id: number) => request(`/chapters/${id}`, { auth: false }),
+  createChapter: (data: any) => request('/chapters', { method: 'POST', body: JSON.stringify(data) }),
+  updateChapter: (id: number, data: any) => request(`/chapters/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteChapter: (id: number) => request(`/chapters/${id}`, { method: 'DELETE' }),
+  restoreChapter: (id: number) => request(`/chapters/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteChapter: (id: number) => request(`/chapters/${id}/permanent`, { method: 'DELETE' }),
+
+  // Topics
+  listTopics: (qs = '') => request(`/topics${qs}`, { auth: false }),
+  getTopic: (id: number) => request(`/topics/${id}`, { auth: false }),
+  createTopic: (data: any) => request('/topics', { method: 'POST', body: JSON.stringify(data) }),
+  updateTopic: (id: number, data: any) => request(`/topics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteTopic: (id: number) => request(`/topics/${id}`, { method: 'DELETE' }),
+  restoreTopic: (id: number) => request(`/topics/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteTopic: (id: number) => request(`/topics/${id}/permanent`, { method: 'DELETE' }),
+
+  // Subject Translations
+  listSubjectTranslations: (qs = '') => request(`/subject-translations${qs}`, { auth: false }),
+  getSubjectTranslation: (id: number) => request(`/subject-translations/${id}`, { auth: false }),
+  createSubjectTranslation: (data: any, isFormData = false) => request('/subject-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateSubjectTranslation: (id: number, data: any, isFormData = false) => request(`/subject-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteSubjectTranslation: (id: number) => request(`/subject-translations/${id}`, { method: 'DELETE' }),
+  restoreSubjectTranslation: (id: number) => request(`/subject-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSubjectTranslation: (id: number) => request(`/subject-translations/${id}/permanent`, { method: 'DELETE' }),
+  getSubjectTranslationCoverage: () => request('/subject-translations/coverage', { auth: false }),
+
+  // Chapter Translations
+  listChapterTranslations: (qs = '') => request(`/chapter-translations${qs}`, { auth: false }),
+  getChapterTranslation: (id: number) => request(`/chapter-translations/${id}`, { auth: false }),
+  createChapterTranslation: (data: any, isFormData = false) => request('/chapter-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateChapterTranslation: (id: number, data: any, isFormData = false) => request(`/chapter-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteChapterTranslation: (id: number) => request(`/chapter-translations/${id}`, { method: 'DELETE' }),
+  restoreChapterTranslation: (id: number) => request(`/chapter-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteChapterTranslation: (id: number) => request(`/chapter-translations/${id}/permanent`, { method: 'DELETE' }),
+  getChapterTranslationCoverage: () => request('/chapter-translations/coverage', { auth: false }),
+
+  // Topic Translations
+  listTopicTranslations: (qs = '') => request(`/topic-translations${qs}`, { auth: false }),
+  getTopicTranslation: (id: number) => request(`/topic-translations/${id}`, { auth: false }),
+  createTopicTranslation: (data: any, isFormData = false) => request('/topic-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateTopicTranslation: (id: number, data: any, isFormData = false) => request(`/topic-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteTopicTranslation: (id: number) => request(`/topic-translations/${id}`, { method: 'DELETE' }),
+  restoreTopicTranslation: (id: number) => request(`/topic-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteTopicTranslation: (id: number) => request(`/topic-translations/${id}/permanent`, { method: 'DELETE' }),
+  getTopicTranslationCoverage: () => request('/topic-translations/coverage', { auth: false }),
+
   // AI — Category Translations
   generateTranslation: (data: { category_id: number; target_language_code: string; target_language_name: string; prompt?: string; provider?: string }) =>
     request('/ai/generate-translation', { method: 'POST', body: JSON.stringify(data) }),

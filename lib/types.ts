@@ -231,6 +231,7 @@ export interface SocialMedia {
 
 export interface Category {
   id: number;
+  name: string;
   code: string;
   slug: string;
   display_order: number;
@@ -254,6 +255,7 @@ export interface Category {
 export interface SubCategory {
   id: number;
   category_id: number;
+  name: string;
   code: string;
   slug: string;
   display_order: number;
@@ -272,7 +274,7 @@ export interface SubCategory {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
-  categories?: { code: string; slug: string };
+  categories?: { name: string; code: string; slug: string };
 }
 
 export interface CategoryTranslation {
@@ -303,7 +305,7 @@ export interface CategoryTranslation {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
-  categories?: { code: string; slug: string };
+  categories?: { name: string; code: string; slug: string };
   languages?: { name: string; native_name?: string; iso_code?: string };
 }
 
@@ -437,6 +439,114 @@ export interface Session {
   last_active_at: string;
   created_at: string;
   expires_at: string;
+}
+
+export interface Subject {
+  id: number;
+  code: string;
+  slug: string;
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced' | 'expert' | 'all_levels';
+  estimated_hours?: number | null;
+  display_order: number;
+  sort_order: number;
+  view_count: number;
+  is_active: boolean;
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+}
+
+export interface Chapter {
+  id: number;
+  subject_id: number;
+  slug: string;
+  display_order: number;
+  sort_order: number;
+  is_active: boolean;
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  subjects?: { code: string; slug: string };
+}
+
+export interface Topic {
+  id: number;
+  chapter_id?: number | null;
+  slug: string;
+  display_order: number;
+  sort_order: number;
+  is_active: boolean;
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  chapters?: { slug: string; subject_id: number };
+}
+
+export interface SubjectTranslation {
+  id: number;
+  subject_id: number;
+  language_id: number;
+  name: string;
+  short_intro?: string | null;
+  long_intro?: string | null;
+  image?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  subjects?: { code: string; slug: string };
+  languages?: { name: string; native_name?: string; iso_code?: string };
+}
+
+export interface ChapterTranslation {
+  id: number;
+  chapter_id: number;
+  language_id: number;
+  name: string;
+  short_intro?: string | null;
+  long_intro?: string | null;
+  prerequisites?: string | null;
+  learning_objectives?: string | null;
+  image?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  chapters?: { slug: string; subject_id: number; subjects?: { code: string; slug: string } };
+  languages?: { name: string; native_name?: string; iso_code?: string };
+}
+
+export interface TopicTranslation {
+  id: number;
+  topic_id: number;
+  language_id: number;
+  name: string;
+  short_intro?: string | null;
+  long_intro?: string | null;
+  prerequisites?: string | null;
+  learning_objectives?: string | null;
+  image?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  topics?: { slug: string; chapter_id?: number | null; chapters?: { slug: string; subject_id: number; subjects?: { code: string; slug: string } } };
+  languages?: { name: string; native_name?: string; iso_code?: string };
 }
 
 export interface AuthTokens {

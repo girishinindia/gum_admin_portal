@@ -1,5 +1,5 @@
 'use client';
-import { forwardRef } from 'react';
+import { forwardRef, useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 
 /* ------------------------------------------------------------------ */
@@ -47,6 +47,46 @@ export function setMLILanguage(fieldIds: string[], isoCode: string) {
   fieldIds.forEach(id => {
     window.MultiLangInput!.setLanguage(id, lang);
   });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hook: useMLIScript                                                 */
+/*  Reliably tracks whether multi-lang-input.js is loaded.             */
+/*  Works across SPA navigations where <Script onLoad> won't re-fire.  */
+/* ------------------------------------------------------------------ */
+export function useMLIScript(): boolean {
+  const [ready, setReady] = useState(() => typeof window !== 'undefined' && !!window.MultiLangInput);
+
+  useEffect(() => {
+    // Already available (cached from previous page or hard refresh)
+    if (window.MultiLangInput) {
+      setReady(true);
+      return;
+    }
+    // Poll briefly in case the script is loading right now
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (window.MultiLangInput) {
+        setReady(true);
+        clearInterval(interval);
+      } else if (attempts > 40) {
+        // Give up after ~4 seconds
+        clearInterval(interval);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Also expose a manual trigger the onLoad callback can call
+  const markReady = useCallback(() => setReady(true), []);
+  // Attach to window so <Script onLoad> can call it as a fallback
+  useEffect(() => {
+    (window as any).__mliMarkReady = markReady;
+    return () => { delete (window as any).__mliMarkReady; };
+  }, [markReady]);
+
+  return ready;
 }
 
 /* ------------------------------------------------------------------ */

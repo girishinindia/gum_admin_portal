@@ -207,7 +207,7 @@ export default function SubCategoriesPage() {
     setImageFile(null);
     setImagePreview(null);
     setDialogKey(k => k + 1);
-    reset({ category_id: categories[0]?.id || '', code: '', slug: '', display_order: 0, is_new: false, new_until: '', og_site_name: '', og_type: '', twitter_site: '', twitter_card: '', robots_directive: '' });
+    reset({ category_id: categories[0]?.id || '', name: '', code: '', slug: '', display_order: 0, is_new: false, new_until: '', og_site_name: '', og_type: '', twitter_site: '', twitter_card: '', robots_directive: '' });
     setDialogOpen(true);
   }
 
@@ -216,7 +216,7 @@ export default function SubCategoriesPage() {
     setImageFile(null);
     setImagePreview(null);
     setDialogKey(k => k + 1);
-    reset({ category_id: sc.category_id, code: sc.code, slug: sc.slug, display_order: sc.display_order, is_new: sc.is_new, new_until: sc.new_until || '', og_site_name: sc.og_site_name || '', og_type: sc.og_type || '', twitter_site: sc.twitter_site || '', twitter_card: sc.twitter_card || '', robots_directive: sc.robots_directive || '' });
+    reset({ category_id: sc.category_id, name: sc.name, code: sc.code, slug: sc.slug, display_order: sc.display_order, is_new: sc.is_new, new_until: sc.new_until || '', og_site_name: sc.og_site_name || '', og_type: sc.og_type || '', twitter_site: sc.twitter_site || '', twitter_card: sc.twitter_card || '', robots_directive: sc.robots_directive || '' });
     setDialogOpen(true);
   }
 
@@ -403,7 +403,7 @@ export default function SubCategoriesPage() {
               onChange={e => setFilterCategory(e.target.value)}
             >
               <option value="">All categories</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name || c.code}</option>)}
             </select>
             <select
               value={filterStatus}
@@ -467,6 +467,7 @@ export default function SubCategoriesPage() {
                     Code <SortIcon field="code" />
                   </button>
                 </TH>
+                <TH>Name</TH>
                 <TH>Category</TH>
                 <TH>
                   <button onClick={() => handleSort('display_order')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -504,7 +505,10 @@ export default function SubCategoriesPage() {
                     <span className={cn('font-mono text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{sc.code}</span>
                   </TD>
                   <TD className="py-2.5">
-                    <span className="text-slate-600">{sc.categories?.code || '—'}</span>
+                    <span className="text-sm text-slate-700">{sc.name}</span>
+                  </TD>
+                  <TD className="py-2.5">
+                    <span className="text-slate-600">{sc.categories?.name || sc.categories?.code || '—'}</span>
                   </TD>
                   <TD className="py-2.5">
                     <span className="text-slate-600">{sc.display_order}</span>
@@ -797,9 +801,10 @@ export default function SubCategoriesPage() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
             <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               {...register('category_id', { required: true })}>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name || c.code}</option>)}
             </select>
           </div>
+          <Input label="Name" placeholder="React" {...register('name', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Code" placeholder="react" {...register('code', { required: true })} />
             <Input label="Slug" placeholder="react" {...register('slug', { required: true })} />

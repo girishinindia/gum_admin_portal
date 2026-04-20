@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import Script from 'next/script';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { MultiLangField, initMLIFields, setMLILanguage, useMLIScript } from '@/components/ui/MultiLangField';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -14,7 +16,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookMarked, Trash2, Edit2, Globe, Wand2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Eye, Sparkles, Loader2, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Plus, BookMarked, Trash2, Edit2, Globe, Wand2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Eye, Sparkles, Loader2, ChevronDown, ChevronUp, X, Mic } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { SubCategoryTranslation, SubCategory, Language } from '@/lib/types';
 
@@ -270,7 +272,37 @@ export default function SubCategoryTranslationsPage() {
     setViewOpen(true);
   }
 
+  const mliReady = useMLIScript();
   const watchedLangId = watch('language_id');
+
+  const selectedLangCode = useMemo(() => {
+    if (!watchedLangId || languages.length === 0) return 'en';
+    const lang = languages.find(l => String(l.id) === String(watchedLangId));
+    return lang?.iso_code || 'en';
+  }, [watchedLangId, languages]);
+
+  // Field IDs per tab for MultiLangInput initialisation
+  const MLI_FIELDS: Record<string, string[]> = {
+    'Content':    ['sct-name', 'sct-description', 'sct-is-new-title', 'sct-tags'],
+    'SEO Meta':   ['sct-meta-title', 'sct-meta-desc', 'sct-meta-kw', 'sct-focus-kw'],
+    'Open Graph': ['sct-og-title', 'sct-og-desc'],
+    'Twitter':    ['sct-tw-title', 'sct-tw-desc'],
+  };
+
+  // Initialise MultiLangInput on fields when: dialog opens, tab switches, or script loads
+  useEffect(() => {
+    if (!dialogOpen || !mliReady) return;
+    const fields = MLI_FIELDS[activeTab] || [];
+    const timer = setTimeout(() => initMLIFields(fields, selectedLangCode), 250);
+    return () => clearTimeout(timer);
+  }, [dialogOpen, activeTab, mliReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update language on ALL initialised fields when the language selector changes
+  useEffect(() => {
+    if (!dialogOpen || !mliReady) return;
+    const allFields = Object.values(MLI_FIELDS).flat();
+    setMLILanguage(allFields, selectedLangCode);
+  }, [selectedLangCode, dialogOpen, mliReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleAIGenerate() {
     const subCatId = getValues('sub_category_id');
@@ -529,6 +561,11 @@ export default function SubCategoryTranslationsPage() {
         </>
       )}
 
+      {/* Multi-Language Input: transliteration + speech-to-text */}
+      <Script src="/js/multi-lang-input.js" strategy="afterInteractive" onLoad={() => (window as any).__mliMarkReady?.()} />
+      {/* eslint-disable-next-line @next/next/no-css-tags */}
+      <link rel="stylesheet" href="/css/multi-lang-input.css" />
+
       {/* ─── View Dialog ─── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} title="View Sub-Category Translation" size="lg">
         {viewItem && (
@@ -685,36 +722,34 @@ export default function SubCategoryTranslationsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Language</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Language <Mic className="w-3 h-3 inline text-slate-400 ml-1" /></label>
                   <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     {...register('language_id', { required: true })}>
                     {languages.map(l => <option key={l.id} value={l.id}>{l.name}{l.native_name ? ` (${l.native_name})` : ''}</option>)}
                   </select>
                 </div>
               </div>
-              <Input label="Translated Name" placeholder="Sub-category name in target language" {...register('name', { required: true })} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
-                  placeholder="Translated description..." {...register('description')} />
-              </div>
-              <Input label="New Badge Title" placeholder="Custom 'New' label" {...register('is_new_title')} />
-              <Input label="Tags" placeholder="tag1, tag2, tag3 (comma-separated)" {...register('tags')} />
+              {selectedLangCode !== 'en' && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-700">
+                  <Mic className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>Transliteration &amp; speech-to-text active — type in English, press <strong>Space</strong> to auto-convert. Click <strong>SPEAK</strong> to dictate.</span>
+                </div>
+              )}
+              <MultiLangField id="sct-name" label="Translated Name" placeholder="Sub-category name in target language" {...register('name', { required: true })} />
+              <MultiLangField id="sct-description" label="Description" placeholder="Translated description..." multiline {...register('description')} />
+              <MultiLangField id="sct-is-new-title" label="New Badge Title" placeholder="Custom 'New' label" {...register('is_new_title')} />
+              <MultiLangField id="sct-tags" label="Tags" placeholder="tag1, tag2, tag3 (comma-separated)" {...register('tags')} />
             </div>
           )}
 
           {/* SEO Meta Tab */}
           {activeTab === 'SEO Meta' && (
             <div className="space-y-4">
-              <Input label="Meta Title" placeholder="SEO title" {...register('meta_title')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Meta Description</label>
-                <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
-                  placeholder="SEO description..." {...register('meta_description')} />
-              </div>
-              <Input label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
+              <MultiLangField id="sct-meta-title" label="Meta Title" placeholder="SEO title" {...register('meta_title')} />
+              <MultiLangField id="sct-meta-desc" label="Meta Description" placeholder="SEO description..." multiline {...register('meta_description')} />
+              <MultiLangField id="sct-meta-kw" label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
               <Input label="Canonical URL" placeholder="https://..." {...register('canonical_url')} />
-              <Input label="Focus Keyword" placeholder="Primary SEO keyword" {...register('focus_keyword')} />
+              <MultiLangField id="sct-focus-kw" label="Focus Keyword" placeholder="Primary SEO keyword" {...register('focus_keyword')} />
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-medium text-slate-700">Structured Data (JSON-LD)</label>
@@ -732,12 +767,8 @@ export default function SubCategoryTranslationsPage() {
           {/* Open Graph Tab */}
           {activeTab === 'Open Graph' && (
             <div className="space-y-4">
-              <Input label="OG Title" placeholder="Open Graph title" {...register('og_title')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">OG Description</label>
-                <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
-                  placeholder="Open Graph description..." {...register('og_description')} />
-              </div>
+              <MultiLangField id="sct-og-title" label="OG Title" placeholder="Open Graph title" {...register('og_title')} />
+              <MultiLangField id="sct-og-desc" label="OG Description" placeholder="Open Graph description..." multiline {...register('og_description')} />
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
               <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200x630px. Upload or enter URL below"
                 value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
@@ -749,12 +780,8 @@ export default function SubCategoryTranslationsPage() {
           {/* Twitter Tab */}
           {activeTab === 'Twitter' && (
             <div className="space-y-4">
-              <Input label="Twitter Title" placeholder="Twitter card title" {...register('twitter_title')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Twitter Description</label>
-                <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px]"
-                  placeholder="Twitter card description..." {...register('twitter_description')} />
-              </div>
+              <MultiLangField id="sct-tw-title" label="Twitter Title" placeholder="Twitter card title" {...register('twitter_title')} />
+              <MultiLangField id="sct-tw-desc" label="Twitter Description" placeholder="Twitter card description..." multiline {...register('twitter_description')} />
               <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200x600px. Upload or enter URL below"
                 value={editing?.twitter_image} aspectRatio={1200 / 600} maxWidth={1200} maxHeight={600} shape="rounded"
                 onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, Briefcase, UserCheck } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, Briefcase, UserCheck, BookOpen, BookMarked, FileQuestion } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -83,6 +83,30 @@ const navGroups: NavGroup[] = [
       { href: '/branches',            label: 'Branches',             icon: GitBranch },
       { href: '/departments',         label: 'Departments',          icon: Network },
       { href: '/branch-departments',  label: 'Branch & Departments', icon: Link2 },
+    ],
+  },
+  {
+    key: 'material',
+    title: 'Material Management',
+    items: [
+      {
+        href: '/subjects',
+        label: 'Subjects',
+        icon: BookOpen,
+        subLinks: [{ href: '/subject-translations', label: 'Translations' }],
+      },
+      {
+        href: '/chapters',
+        label: 'Chapters',
+        icon: BookMarked,
+        subLinks: [{ href: '/chapter-translations', label: 'Translations' }],
+      },
+      {
+        href: '/topics',
+        label: 'Topics',
+        icon: FileQuestion,
+        subLinks: [{ href: '/topic-translations', label: 'Translations' }],
+      },
     ],
   },
 ];
