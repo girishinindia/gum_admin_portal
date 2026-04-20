@@ -390,7 +390,7 @@ export default function UserProfilePage() {
     }
     // Load education levels for the dropdown
     if (eduLevels.length === 0) {
-      const lvl = await api.listEducationLevels('?limit=100&sort=display_order&order=asc');
+      const lvl = await api.listEducationLevels('?limit=100&sort=level_order&order=asc&is_active=true');
       if (lvl.success) setEduLevels(lvl.data || []);
     }
     setEduLoading(false);
