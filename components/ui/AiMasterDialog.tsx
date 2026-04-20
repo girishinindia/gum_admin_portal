@@ -1,10 +1,10 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
 import { api } from '@/lib/api';
 import { toast } from './Toast';
-import { Sparkles, Loader2, Check, RefreshCw, Pencil, Search, CheckSquare, Square, MinusSquare, HelpCircle, X } from 'lucide-react';
+import { Sparkles, Loader2, Check, RefreshCw, Pencil, Search, CheckSquare, Square, MinusSquare, HelpCircle, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type AIProvider = 'anthropic' | 'openai' | 'gemini';
@@ -17,6 +17,276 @@ const PROVIDERS: { id: AIProvider; name: string; sub: string }[] = [
 ];
 
 const BATCH_SIZE = 25;
+
+/* ─────────────────── Module-specific help tips ─────────────────── */
+
+interface ModuleHelp {
+  generate: string[];
+  update: { label: string; prompt: string }[];
+}
+
+const MODULE_HELP: Record<string, ModuleHelp> = {
+  countries: {
+    generate: [
+      '"Generate all Asian countries with ISO alpha-2 code, dial_code, and currency"',
+      '"Generate 10 European countries with name, code, capital in description"',
+    ],
+    update: [
+      { label: 'Add missing field', prompt: '"Add dial_code (e.g. +91, +1) to all selected countries that are missing it"' },
+      { label: 'Translate', prompt: '"Add Hindi translation of country name in the description field"' },
+      { label: 'Fix data', prompt: '"Fix any incorrect ISO codes and ensure all codes are uppercase"' },
+      { label: 'Enrich', prompt: '"Add currency_code and continent to each country record"' },
+    ],
+  },
+  states: {
+    generate: [
+      '"Generate all 28 Indian states with name, code as ISO 3166-2:IN code, and state_code"',
+      '"Generate US states with abbreviation in code field and capital city in description"',
+    ],
+    update: [
+      { label: 'Add field', prompt: '"Add state capital city in the description field for all selected states"' },
+      { label: 'Fix codes', prompt: '"Ensure all state codes follow ISO 3166-2 format (e.g. IN-MH, IN-KA)"' },
+      { label: 'Sort', prompt: '"Set sort_order alphabetically by name starting from 1"' },
+      { label: 'Translate', prompt: '"Add state name in local language in the description field"' },
+    ],
+  },
+  cities: {
+    generate: [
+      '"Generate top 50 cities in Maharashtra, India with name, code as city abbreviation"',
+      '"Generate 20 metro cities of India with population info in description"',
+    ],
+    update: [
+      { label: 'Add pin codes', prompt: '"Add the primary postal/PIN code to the description field for each selected city"' },
+      { label: 'Fix names', prompt: '"Fix spelling errors in city names and capitalize properly"' },
+      { label: 'Set state', prompt: '"Set state_id correctly based on the city name for all selected records"' },
+      { label: 'Translate', prompt: '"Add city name in Hindi/Devanagari script to the description field"' },
+    ],
+  },
+  categories: {
+    generate: [
+      '"Generate 10 course categories for an EdTech platform: Programming, Design, Business, etc. with code, slug"',
+      '"Generate 5 technology categories with SEO-friendly slugs and display_order"',
+    ],
+    update: [
+      { label: 'Add SEO', prompt: '"Add SEO meta_title and meta_description for each selected category"' },
+      { label: 'Reorder', prompt: '"Set display_order based on popularity: Programming=1, Data Science=2, etc."' },
+      { label: 'Add slugs', prompt: '"Generate URL-friendly slugs from the category code for all selected"' },
+      { label: 'Fix codes', prompt: '"Standardize all category codes to lowercase-hyphenated format"' },
+    ],
+  },
+  sub_categories: {
+    generate: [
+      '"Generate 10 sub-categories for Programming category: Web Dev, Mobile, DevOps, etc. with code, slug"',
+      '"Generate sub-categories for Design with category_id, proper display_order"',
+    ],
+    update: [
+      { label: 'Add descriptions', prompt: '"Add a one-line description for each selected sub-category"' },
+      { label: 'Reorder', prompt: '"Set display_order sequentially within each parent category starting from 1"' },
+      { label: 'Fix slugs', prompt: '"Regenerate slugs from name: lowercase, hyphen-separated, no special chars"' },
+      { label: 'Set active', prompt: '"Set is_active=true for all selected sub-categories"' },
+    ],
+  },
+  designations: {
+    generate: [
+      '"Generate 20 corporate designations with name, code, level (junior/mid/senior/lead)"',
+      '"Generate teaching designations for an educational institution in India"',
+    ],
+    update: [
+      { label: 'Add levels', prompt: '"Add a level field (L1-L10) based on seniority for each designation"' },
+      { label: 'Fix codes', prompt: '"Standardize designation codes to UPPER_SNAKE_CASE format"' },
+      { label: 'Add desc', prompt: '"Add a brief job responsibility description for each designation"' },
+      { label: 'Reorder', prompt: '"Set sort_order by seniority: Intern=1, Junior=2, Senior=5, Director=8"' },
+    ],
+  },
+  departments: {
+    generate: [
+      '"Generate 15 departments for an EdTech company: Engineering, Product, Marketing, etc."',
+      '"Generate academic departments for a university in India"',
+    ],
+    update: [
+      { label: 'Add codes', prompt: '"Add 3-letter department codes (e.g. ENG, MKT, FIN) for all selected"' },
+      { label: 'Add head', prompt: '"Add department head designation in the description field"' },
+      { label: 'Set parent', prompt: '"Set parent_id for sub-departments under their correct parent department"' },
+      { label: 'Reorder', prompt: '"Set sort_order: core departments first (1-5), support (6-10), admin (11+)"' },
+    ],
+  },
+  branches: {
+    generate: [
+      '"Generate 10 branch offices across major Indian cities with name, code, address"',
+      '"Generate 5 regional training centers with branch_type and city information"',
+    ],
+    update: [
+      { label: 'Add address', prompt: '"Add full street address with city and pin code for each branch"' },
+      { label: 'Set type', prompt: '"Set branch_type: head_office for main, regional for state-level, local for city-level"' },
+      { label: 'Add contact', prompt: '"Add a contact phone number and email in description for each branch"' },
+      { label: 'Fix codes', prompt: '"Standardize branch codes to format: BR-CITY-001"' },
+    ],
+  },
+  branch_departments: {
+    generate: [
+      '"Generate branch-department mappings for all active branches and departments"',
+      '"Link Engineering, Product, and Design departments to all technology branches"',
+    ],
+    update: [
+      { label: 'Activate', prompt: '"Set is_active=true for all selected branch-department links"' },
+      { label: 'Reorder', prompt: '"Set sort_order based on department importance within each branch"' },
+      { label: 'Fix links', prompt: '"Ensure every branch has at least the core departments (HR, Admin, Finance)"' },
+      { label: 'Deactivate', prompt: '"Set is_active=false for deprecated department links"' },
+    ],
+  },
+  skills: {
+    generate: [
+      '"Generate 25 web development skills: React, Node.js, TypeScript, etc. with proficiency levels"',
+      '"Generate soft skills for corporate training with name, code, and category"',
+    ],
+    update: [
+      { label: 'Categorize', prompt: '"Add a category field: frontend, backend, devops, database, soft_skill"' },
+      { label: 'Add levels', prompt: '"Add difficulty_level: beginner, intermediate, advanced for each skill"' },
+      { label: 'Add desc', prompt: '"Add a 1-2 sentence description explaining what this skill covers"' },
+      { label: 'Fix names', prompt: '"Capitalize skill names properly (e.g. javascript → JavaScript, aws → AWS)"' },
+    ],
+  },
+  specializations: {
+    generate: [
+      '"Generate 15 specializations for Computer Science: AI/ML, Cybersecurity, Cloud Computing, etc."',
+      '"Generate medical specializations with proper codes and descriptions"',
+    ],
+    update: [
+      { label: 'Add desc', prompt: '"Add a brief description of career opportunities for each specialization"' },
+      { label: 'Set field', prompt: '"Add parent_field: engineering, science, arts, commerce for each specialization"' },
+      { label: 'Reorder', prompt: '"Set sort_order by demand: AI/ML=1, Cloud=2, Cybersecurity=3, etc."' },
+      { label: 'Fix codes', prompt: '"Standardize codes to format: SPEC-FIELD-NAME (e.g. SPEC-CS-AIML)"' },
+    ],
+  },
+  languages: {
+    generate: [
+      '"Generate all 22 scheduled languages of India with ISO 639-1 code and native script name"',
+      '"Generate top 10 world languages with code, native_name, and script direction"',
+    ],
+    update: [
+      { label: 'Add native', prompt: '"Add native_name in the language\'s own script (e.g. हिन्दी for Hindi)"' },
+      { label: 'Set flags', prompt: '"Set for_material=true for languages used in course content"' },
+      { label: 'Fix codes', prompt: '"Ensure all ISO codes are correct lowercase 2-letter format"' },
+      { label: 'Reorder', prompt: '"Set sort_order: English=1, Hindi=2, then regional languages alphabetically"' },
+    ],
+  },
+  education_levels: {
+    generate: [
+      '"Generate Indian education levels: Pre-Primary to PhD with display_order and code"',
+      '"Generate 12 education levels from High School to Post-Doctoral with proper hierarchy"',
+    ],
+    update: [
+      { label: 'Add years', prompt: '"Add typical duration_years for each education level (e.g. Bachelors=3-4)"' },
+      { label: 'Reorder', prompt: '"Set display_order by academic progression: Pre-Primary=1 up to PhD=10"' },
+      { label: 'Add desc', prompt: '"Add description explaining what this level covers and age group"' },
+      { label: 'Fix codes', prompt: '"Set code to standard format: EDU-LEVEL (e.g. EDU-BACHELORS, EDU-MASTERS)"' },
+    ],
+  },
+  learning_goals: {
+    generate: [
+      '"Generate 10 learning goals for a career-focused EdTech platform: Upskilling, Career Switch, etc."',
+      '"Generate learning goals for school students: Exam Prep, Olympiad, Supplementary Learning"',
+    ],
+    update: [
+      { label: 'Add desc', prompt: '"Add a motivational 2-line description for each learning goal"' },
+      { label: 'Reorder', prompt: '"Set display_order by popularity: Career Switch=1, Upskilling=2, etc."' },
+      { label: 'Add icon', prompt: '"Suggest an appropriate emoji/icon name for each learning goal"' },
+      { label: 'Translate', prompt: '"Add Hindi translation of the goal name in the description field"' },
+    ],
+  },
+  document_types: {
+    generate: [
+      '"Generate document types for an EdTech: Certificate, ID Card, Transcript, Offer Letter, etc."',
+      '"Generate HR document types: PAN, Aadhaar, Passport, Bank Statement, Resume"',
+    ],
+    update: [
+      { label: 'Add format', prompt: '"Add accepted_formats (pdf, jpg, png) for each document type"' },
+      { label: 'Set required', prompt: '"Set is_required=true for mandatory documents: Aadhaar, PAN, Photo"' },
+      { label: 'Add desc', prompt: '"Add a description with file size limits and format requirements"' },
+      { label: 'Categorize', prompt: '"Add category: identity, academic, financial, employment for each type"' },
+    ],
+  },
+  documents: {
+    generate: [
+      '"Generate sample document records with proper document_type_id and descriptions"',
+      '"Generate 5 template documents with title, code, and document type"',
+    ],
+    update: [
+      { label: 'Fix titles', prompt: '"Standardize document titles to Title Case format"' },
+      { label: 'Add desc', prompt: '"Add a meaningful description for documents that are missing one"' },
+      { label: 'Set status', prompt: '"Set is_active=true for all valid documents, false for expired ones"' },
+      { label: 'Fix codes', prompt: '"Generate unique document codes in format: DOC-TYPE-001"' },
+    ],
+  },
+  social_medias: {
+    generate: [
+      '"Generate all major social media platforms: LinkedIn, Twitter/X, GitHub, Instagram, YouTube, etc."',
+      '"Generate professional networking and portfolio platforms with proper URLs"',
+    ],
+    update: [
+      { label: 'Add URLs', prompt: '"Add base_url for each platform (e.g. https://linkedin.com/in/ for LinkedIn)"' },
+      { label: 'Add icons', prompt: '"Add icon_name matching Lucide React icons for each platform"' },
+      { label: 'Reorder', prompt: '"Set sort_order: LinkedIn=1, GitHub=2, Twitter=3, Instagram=4, etc."' },
+      { label: 'Fix names', prompt: '"Update Twitter to X, Facebook to Meta where appropriate"' },
+    ],
+  },
+  employee_profiles: {
+    generate: [
+      '"Generate 5 sample employee profiles with realistic Indian names, designations, departments"',
+      '"Generate employee profiles for the Engineering department with proper pay grades"',
+    ],
+    update: [
+      { label: 'Set grades', prompt: '"Set pay_grade based on designation: Junior=L1, Senior=L3, Lead=L5"' },
+      { label: 'Fix salary', prompt: '"Set basic_salary_monthly as ctc_annual/12 * 0.4 for all selected"' },
+      { label: 'Set dates', prompt: '"Set joining_date to 2024-01-15 for employees missing a joining date"' },
+      { label: 'Set mode', prompt: '"Set work_mode to hybrid for all selected employees"' },
+    ],
+  },
+  student_profiles: {
+    generate: [
+      '"Generate 5 student profiles with Indian names, enrollment numbers, education levels"',
+      '"Generate student profiles for B.Tech Computer Science students"',
+    ],
+    update: [
+      { label: 'Set level', prompt: '"Set education_level_id based on the student enrollment year"' },
+      { label: 'Add goals', prompt: '"Add learning_goal description based on each student\'s program"' },
+      { label: 'Fix codes', prompt: '"Generate enrollment numbers in format: STU-2024-001"' },
+      { label: 'Set active', prompt: '"Set is_active=true for all current-year students"' },
+    ],
+  },
+  instructor_profiles: {
+    generate: [
+      '"Generate 5 instructor profiles with qualifications, specializations, Indian names"',
+      '"Generate instructor profiles for Computer Science with expertise in AI/ML"',
+    ],
+    update: [
+      { label: 'Add bio', prompt: '"Add a professional bio (3-4 lines) for each instructor"' },
+      { label: 'Set spec', prompt: '"Set specialization_id based on the instructor\'s primary teaching area"' },
+      { label: 'Add exp', prompt: '"Add years_of_experience based on the joining date"' },
+      { label: 'Fix codes', prompt: '"Generate instructor codes in format: INS-DEPT-001"' },
+    ],
+  },
+};
+
+// Fallback help for modules not explicitly listed
+const DEFAULT_HELP: ModuleHelp = {
+  generate: [
+    '"Generate records with meaningful names, codes, and descriptions"',
+    '"Generate 10 records specific to an Indian educational institution"',
+  ],
+  update: [
+    { label: 'Add descriptions', prompt: '"Add a meaningful description to all records that are missing one"' },
+    { label: 'Fix data', prompt: '"Fix spelling errors and standardize naming format across all records"' },
+    { label: 'Reorder', prompt: '"Set sort_order alphabetically by name, starting from 1"' },
+    { label: 'Set status', prompt: '"Set is_active=true for all valid records"' },
+  ],
+};
+
+function getModuleHelp(module: string): ModuleHelp {
+  return MODULE_HELP[module] || DEFAULT_HELP;
+}
+
+/* ─────────────────── Component ─────────────────── */
 
 interface AiMasterDialogProps {
   module: string;
@@ -60,6 +330,14 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
   const [loadingRecords, setLoadingRecords] = useState(false);
   const [recordSearch, setRecordSearch] = useState('');
   const [showHelp, setShowHelp] = useState(false);
+  // Server-side search & total count
+  const [totalRecordCount, setTotalRecordCount] = useState(0);
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [helpExpanded, setHelpExpanded] = useState(true);
+
+  const help = getModuleHelp(module);
 
   // Load existing records when switching to update mode
   useEffect(() => {
@@ -68,6 +346,36 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
     }
   }, [mode, open]);
 
+  // Debounced server-side search
+  const doServerSearch = useCallback(async (query: string) => {
+    if (!listFn || !query.trim()) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await listFn(`?limit=50&search=${encodeURIComponent(query.trim())}`);
+      if (res.success) {
+        const items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+        setSearchResults(items);
+      }
+    } catch { /* ignore */ }
+    setSearching(false);
+  }, [listFn]);
+
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!recordSearch.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    searchTimerRef.current = setTimeout(() => {
+      doServerSearch(recordSearch);
+    }, 400);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [recordSearch, doServerSearch]);
+
   async function loadExistingRecords() {
     if (!listFn) return;
     setLoadingRecords(true);
@@ -75,8 +383,12 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
       const res = await listFn('?limit=500');
       if (res.success) {
         const items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+        // Extract total count from pagination
+        const pagination = res.data?.pagination || res.pagination;
+        const total = pagination?.total || items.length;
+        setTotalRecordCount(total);
         setExistingRecords(items);
-        // Select all by default
+        // Select all loaded by default
         setSelectedRecordIds(new Set(items.map((r: any) => r.id)));
       }
     } catch { /* ignore */ }
@@ -91,7 +403,9 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
     setExistingRecords([]);
     setSelectedRecordIds(new Set());
     setRecordSearch('');
+    setSearchResults(null);
     setShowHelp(false);
+    setTotalRecordCount(0);
     onClose();
   }
 
@@ -101,6 +415,7 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
     setGenProgress({ current: 0, total: 0 });
     setSaveProgress({ saved: 0, failed: 0, total: 0 });
     setRecordSearch('');
+    setSearchResults(null);
   }
 
   function toggleRecord(id: number) {
@@ -112,32 +427,49 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
   }
 
   function toggleAll() {
-    const filtered = filteredRecords;
-    const allSelected = filtered.every(r => selectedRecordIds.has(r.id));
+    const displayed = displayedRecords;
+    const allSelected = displayed.length > 0 && displayed.every(r => selectedRecordIds.has(r.id));
     if (allSelected) {
-      // Deselect filtered
       setSelectedRecordIds(prev => {
         const next = new Set(prev);
-        filtered.forEach(r => next.delete(r.id));
+        displayed.forEach(r => next.delete(r.id));
         return next;
       });
     } else {
-      // Select all filtered
       setSelectedRecordIds(prev => {
         const next = new Set(prev);
-        filtered.forEach(r => next.add(r.id));
+        displayed.forEach(r => next.add(r.id));
         return next;
       });
     }
   }
 
-  const filteredRecords = existingRecords.filter(r => {
+  // Client-side filter of loaded records
+  const clientFiltered = existingRecords.filter(r => {
     if (!recordSearch.trim()) return true;
     const q = recordSearch.toLowerCase();
     const label = getRecordLabel(r).toLowerCase();
     const sub = getRecordSub(r).toLowerCase();
     return label.includes(q) || sub.includes(q) || String(r.id).includes(q);
   });
+
+  // Merge server search results with client-filtered, deduplicate by id
+  const displayedRecords = (() => {
+    if (!recordSearch.trim()) return existingRecords;
+    const seen = new Set<number>();
+    const merged: any[] = [];
+    // Client-filtered first (already loaded)
+    for (const r of clientFiltered) {
+      if (!seen.has(r.id)) { seen.add(r.id); merged.push(r); }
+    }
+    // Then server results (may contain records not in the initial 500 load)
+    if (searchResults) {
+      for (const r of searchResults) {
+        if (!seen.has(r.id)) { seen.add(r.id); merged.push(r); }
+      }
+    }
+    return merged;
+  })();
 
   async function generate() {
     if (mode === 'update' && !prompt.trim()) {
@@ -272,6 +604,14 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
 
   const totalGenerated = generated?.generated ? (Array.isArray(generated.generated) ? generated.generated.length : 1) : 0;
 
+  // Helper to insert a help example into the prompt textarea
+  function insertPrompt(text: string) {
+    // Strip surrounding quotes from the example
+    const clean = text.replace(/^"(.*)"$/, '$1');
+    setPrompt(clean);
+    setShowHelp(false);
+  }
+
   return (
     <Dialog open={open} onClose={handleClose} title={`AI ${mode === 'generate' ? 'Generate' : 'Update'} ${moduleLabel}`} size="lg">
       <div className="p-6 space-y-5">
@@ -369,7 +709,10 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
                 Select Records to Update
               </label>
               <span className="text-xs text-slate-500">
-                {selectedRecordIds.size} of {existingRecords.length} selected
+                {selectedRecordIds.size} of {totalRecordCount > existingRecords.length ? totalRecordCount.toLocaleString() : existingRecords.length} selected
+                {totalRecordCount > existingRecords.length && (
+                  <span className="text-amber-600 ml-1">(showing {existingRecords.length})</span>
+                )}
               </span>
             </div>
 
@@ -385,10 +728,10 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
               <div className="rounded-lg border border-slate-200 overflow-hidden">
                 {/* Search + Select All */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200">
-                  <button type="button" onClick={toggleAll} className="flex-shrink-0 text-slate-500 hover:text-brand-600 transition-colors" title={filteredRecords.every(r => selectedRecordIds.has(r.id)) ? 'Deselect all' : 'Select all'}>
-                    {filteredRecords.length > 0 && filteredRecords.every(r => selectedRecordIds.has(r.id))
+                  <button type="button" onClick={toggleAll} className="flex-shrink-0 text-slate-500 hover:text-brand-600 transition-colors" title={displayedRecords.every(r => selectedRecordIds.has(r.id)) ? 'Deselect all' : 'Select all'}>
+                    {displayedRecords.length > 0 && displayedRecords.every(r => selectedRecordIds.has(r.id))
                       ? <CheckSquare className="w-4.5 h-4.5 text-brand-600" />
-                      : filteredRecords.some(r => selectedRecordIds.has(r.id))
+                      : displayedRecords.some(r => selectedRecordIds.has(r.id))
                         ? <MinusSquare className="w-4.5 h-4.5 text-brand-400" />
                         : <Square className="w-4.5 h-4.5" />
                     }
@@ -399,14 +742,25 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
                       type="text"
                       value={recordSearch}
                       onChange={e => setRecordSearch(e.target.value)}
-                      placeholder="Search records..."
+                      placeholder={totalRecordCount > 500 ? `Search all ${totalRecordCount.toLocaleString()} records...` : 'Search records...'}
                       className="w-full pl-8 pr-3 py-1.5 text-xs rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500"
                     />
+                    {searching && (
+                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-brand-400 animate-spin" />
+                    )}
                   </div>
                 </div>
+
+                {/* Info banner when total exceeds loaded */}
+                {totalRecordCount > existingRecords.length && !recordSearch.trim() && (
+                  <div className="px-3 py-1.5 bg-amber-50 border-b border-amber-100 text-xs text-amber-700">
+                    Showing first {existingRecords.length} of {totalRecordCount.toLocaleString()} records. Use search to find specific records.
+                  </div>
+                )}
+
                 {/* Record List */}
                 <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
-                  {filteredRecords.map(r => {
+                  {displayedRecords.map(r => {
                     const isSelected = selectedRecordIds.has(r.id);
                     return (
                       <button
@@ -436,8 +790,13 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
                       </button>
                     );
                   })}
-                  {filteredRecords.length === 0 && (
+                  {displayedRecords.length === 0 && !searching && (
                     <div className="px-3 py-4 text-xs text-slate-400 text-center">No records match your search.</div>
+                  )}
+                  {searching && displayedRecords.length === 0 && (
+                    <div className="px-3 py-4 text-xs text-slate-400 text-center flex items-center justify-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Searching server...
+                    </div>
                   )}
                 </div>
               </div>
@@ -452,94 +811,87 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
               {mode === 'update' ? 'Update Instructions' : 'Custom Instructions'}{' '}
               <span className="text-slate-400 font-normal">{mode === 'update' ? '(required)' : '(optional)'}</span>
             </label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowHelp(!showHelp)}
-                className={cn(
-                  'p-0.5 rounded-full transition-colors',
-                  showHelp ? 'text-brand-600 bg-brand-50' : 'text-slate-400 hover:text-brand-500 hover:bg-slate-100'
-                )}
-                title="Prompt tips"
-              >
-                <HelpCircle className="w-4 h-4" />
-              </button>
+            <button
+              type="button"
+              onClick={() => setShowHelp(!showHelp)}
+              className={cn(
+                'p-0.5 rounded-full transition-colors',
+                showHelp ? 'text-brand-600 bg-brand-50' : 'text-slate-400 hover:text-brand-500 hover:bg-slate-100'
+              )}
+              title="Prompt tips"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </div>
 
-              {/* Help Popup */}
-              {showHelp && (
-                <div className="absolute left-0 top-7 z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-xl animate-in fade-in slide-in-from-top-1 duration-200">
-                  <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-slate-100">
-                    <span className="text-sm font-semibold text-slate-800">
-                      {mode === 'update' ? 'Update Prompt Tips' : 'Generate Prompt Tips'}
-                    </span>
-                    <button type="button" onClick={() => setShowHelp(false)} className="p-0.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100">
-                      <X className="w-3.5 h-3.5" />
+          {/* Help Panel — module-specific */}
+          {showHelp && (
+            <div className="mb-2 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+              <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-slate-100">
+                <span className="text-sm font-semibold text-slate-800">
+                  {mode === 'update' ? `Update Tips — ${moduleLabel}` : `Generate Tips — ${moduleLabel}`}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setHelpExpanded(!helpExpanded)} className="p-0.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                    {helpExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                  <button type="button" onClick={() => setShowHelp(false)} className="p-0.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {helpExpanded && mode === 'generate' && (
+                <div className="px-4 py-3 space-y-2.5 text-xs max-h-64 overflow-y-auto">
+                  <div className="text-slate-500 font-medium">Click an example to use it as your prompt:</div>
+                  {help.generate.map((ex, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => insertPrompt(ex)}
+                      className="w-full text-left bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg font-mono hover:bg-emerald-100 hover:ring-1 hover:ring-emerald-300 transition-all"
+                    >
+                      {ex}
                     </button>
+                  ))}
+                  <div className="bg-blue-50 rounded-lg px-3 py-2 text-blue-700 text-xs">
+                    <span className="font-semibold">Tip:</span> The slider controls how many records to generate. Leave instructions blank for AI defaults.
                   </div>
+                </div>
+              )}
 
-                  {mode === 'generate' ? (
-                    <div className="px-4 py-3 space-y-3 text-xs text-slate-600 max-h-72 overflow-y-auto">
-                      <div>
-                        <div className="font-semibold text-slate-700 mb-1">Be specific about the data you want</div>
-                        <div className="space-y-1.5 text-slate-500">
-                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Generate Indian state names with ISO codes and Hindi translations&quot;</div>
-                          <div className="bg-red-50 text-red-600 px-2.5 py-1.5 rounded-md font-mono">&quot;Generate some states&quot;</div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-700 mb-1">Mention a theme, region, or domain</div>
-                        <div className="space-y-1.5 text-slate-500">
-                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Create technology skills focused on web development and cloud computing&quot;</div>
-                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Generate departments for a K-12 school in India&quot;</div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-700 mb-1">Include field-level detail</div>
-                        <div className="space-y-1.5 text-slate-500">
-                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Generate categories with short_code as 3-letter uppercase and description under 100 chars&quot;</div>
-                        </div>
-                      </div>
-                      <div className="bg-blue-50 rounded-lg px-3 py-2 text-blue-700">
-                        <span className="font-semibold">Tip:</span> Leave blank to let AI use sensible defaults for {moduleLabel.toLowerCase()}.
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="px-4 py-3 space-y-3 text-xs text-slate-600 max-h-72 overflow-y-auto">
-                      <div>
-                        <div className="font-semibold text-slate-700 mb-1">Tell AI exactly what to change</div>
-                        <div className="space-y-1.5 text-slate-500">
-                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Add a Hindi description to each record in the description field&quot;</div>
-                          <div className="bg-red-50 text-red-600 px-2.5 py-1.5 rounded-md font-mono">&quot;Update the records&quot;</div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-700 mb-1">Refer to specific fields</div>
-                        <div className="space-y-1.5 text-slate-500">
-                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Set sort_order based on alphabetical order of name&quot;</div>
-                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Fix spelling errors in the name and description fields&quot;</div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-700 mb-1">Use conditions for selective changes</div>
-                        <div className="space-y-1.5 text-slate-500">
-                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;For records missing a description, add a meaningful 2-line description&quot;</div>
-                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Change status to active only for records that have a valid code&quot;</div>
-                        </div>
-                      </div>
-                      <div className="bg-amber-50 rounded-lg px-3 py-2 text-amber-700">
-                        <span className="font-semibold">Tip:</span> Select only the records you want to update above — unselected records won&apos;t be touched.
-                      </div>
-                    </div>
-                  )}
+              {helpExpanded && mode === 'update' && (
+                <div className="px-4 py-3 space-y-2.5 text-xs max-h-64 overflow-y-auto">
+                  <div className="text-slate-500 font-medium">Click an example to use it as your prompt:</div>
+                  {help.update.map((ex, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => insertPrompt(ex.prompt)}
+                      className="w-full text-left flex items-start gap-2.5 bg-slate-50 hover:bg-amber-50 px-3 py-2 rounded-lg hover:ring-1 hover:ring-amber-300 transition-all group"
+                    >
+                      <span className="flex-shrink-0 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider mt-0.5">
+                        {ex.label}
+                      </span>
+                      <span className="font-mono text-slate-600 group-hover:text-amber-700">{ex.prompt}</span>
+                    </button>
+                  ))}
+                  <div className="bg-amber-50 rounded-lg px-3 py-2 text-amber-700 text-xs space-y-1">
+                    <div><span className="font-semibold">Update all:</span> Select all records + write your instruction</div>
+                    <div><span className="font-semibold">Update selected:</span> Pick specific records from the list above, then write instruction</div>
+                    <div><span className="font-semibold">Update one:</span> Select just one record and describe the change</div>
+                    <div><span className="font-semibold">Conditional:</span> Select all, then use &quot;For records where X, do Y&quot; in your prompt</div>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
+          )}
+
           <textarea
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
             placeholder={mode === 'update'
-              ? `e.g. "Add descriptions to all records", "Fix spelling errors", "Translate names to Hindi in description field"...`
+              ? `e.g. ${help.update[0]?.prompt || '"Describe what to update..."'}`
               : defaultPrompt || `Describe what kind of ${moduleLabel.toLowerCase()} you want to generate...`
             }
             rows={3}
