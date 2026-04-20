@@ -558,8 +558,8 @@ export default function CategoryTranslationsPage() {
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
       ) : items.length === 0 ? (
-        <EmptyState icon={BookOpen} title="No translations yet" description="Add your first category translation"
-          action={<Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button>} />
+        <EmptyState icon={showTrash ? Trash2 : BookOpen} title={showTrash ? 'Trash is empty' : 'No translations yet'} description={showTrash ? 'Deleted translations will appear here' : 'Add your first category translation'}
+          action={!showTrash ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button> : undefined} />
       ) : (
         <>
           <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
