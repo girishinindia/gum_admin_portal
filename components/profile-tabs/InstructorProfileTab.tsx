@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Save, Loader2, UserCheck } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Save, Loader2, UserCheck, Building2, BookOpen, FileText, BarChart3, Clock, DollarSign, ShieldCheck } from 'lucide-react';
 
 interface InstructorProfileTabProps {
   userId: number;
@@ -156,261 +157,224 @@ export default function InstructorProfileTab({ userId, canEdit }: InstructorProf
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-      {/* ── Group 1: Identity ── */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
-          <UserCheck className="w-4 h-4 text-slate-400" /> Identity
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input label="Instructor Code" {...register('instructor_code', { required: true })} placeholder="e.g. INS-001" disabled={!canEdit} />
-          <Select
-            label="Instructor Type"
-            {...register('instructor_type')}
-            disabled={!canEdit}
-            options={[
-              { value: '', label: 'Select...' },
-              { value: 'internal', label: 'Internal' },
-              { value: 'external', label: 'External' },
-              { value: 'guest', label: 'Guest' },
-              { value: 'visiting', label: 'Visiting' },
-              { value: 'corporate', label: 'Corporate' },
-              { value: 'community', label: 'Community' },
-              { value: 'other', label: 'Other' },
-            ]}
-          />
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Card>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <UserCheck className="w-5 h-5 text-brand-500" /> Instructor Profile
+          </h2>
+          {canEdit && (
+            <Button type="submit" size="sm" disabled={saving}>
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          )}
         </div>
-      </div>
+        <CardContent className="p-5 space-y-5">
 
-      <div className="border-t border-slate-100" />
-
-      {/* ── Group 2: Organization ── */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">Organization</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Designation"
-            {...register('designation_id')}
-            disabled={!canEdit}
-            options={[{ value: '', label: 'Select...' }, ...designations.map(d => ({ value: d.id, label: d.name }))]}
-          />
-          <Select
-            label="Department"
-            {...register('department_id')}
-            disabled={!canEdit}
-            options={[{ value: '', label: 'Select...' }, ...departments.map(d => ({ value: d.id, label: d.name }))]}
-          />
-          <Select
-            label="Branch"
-            {...register('branch_id')}
-            disabled={!canEdit}
-            options={[{ value: '', label: 'Select...' }, ...branches.map(b => ({ value: b.id, label: b.name }))]}
-          />
-          <Input label="Joining Date" type="date" {...register('joining_date')} disabled={!canEdit} />
-        </div>
-      </div>
-
-      <div className="border-t border-slate-100" />
-
-      {/* ── Group 3: Teaching Info ── */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">Teaching Info</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Specialization"
-            {...register('specialization_id')}
-            disabled={!canEdit}
-            options={[{ value: '', label: 'Select...' }, ...specializations.map(s => ({ value: s.id, label: s.name }))]}
-          />
-          <Select
-            label="Secondary Specialization"
-            {...register('secondary_specialization_id')}
-            disabled={!canEdit}
-            options={[{ value: '', label: 'Select...' }, ...specializations.map(s => ({ value: s.id, label: s.name }))]}
-          />
-          <Input label="Teaching Experience (years)" type="number" {...register('teaching_experience_years')} disabled={!canEdit} />
-          <Input label="Industry Experience (years)" type="number" {...register('industry_experience_years')} disabled={!canEdit} />
-          <Input label="Total Experience (years)" type="number" {...register('total_experience_years')} disabled={!canEdit} />
-          <Select
-            label="Preferred Teaching Language"
-            {...register('preferred_teaching_language_id')}
-            disabled={!canEdit}
-            options={[{ value: '', label: 'Select...' }, ...languages.map(l => ({ value: l.id, label: l.name }))]}
-          />
-          <Select
-            label="Teaching Mode"
-            {...register('teaching_mode')}
-            disabled={!canEdit}
-            options={[
-              { value: '', label: 'Select...' },
-              { value: 'online', label: 'Online' },
-              { value: 'offline', label: 'Offline' },
-              { value: 'hybrid', label: 'Hybrid' },
-              { value: 'recorded_only', label: 'Recorded Only' },
-            ]}
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-slate-100" />
-
-      {/* ── Group 4: Bio & Presentation ── */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">Bio & Presentation</h3>
-        <div className="space-y-4">
+          {/* ── Identity ── */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Instructor Bio</label>
-            <textarea
-              {...register('instructor_bio')}
-              disabled={!canEdit}
-              rows={4}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Write a short bio..."
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Tagline" {...register('tagline')} disabled={!canEdit} placeholder="e.g. Expert in Machine Learning" />
-            <Input label="Demo Video URL" {...register('demo_video_url')} disabled={!canEdit} placeholder="https://..." />
-            <Input label="Highest Qualification" {...register('highest_qualification')} disabled={!canEdit} placeholder="e.g. Ph.D. in Computer Science" />
-            <Input label="Certifications Summary" {...register('certifications_summary')} disabled={!canEdit} placeholder="e.g. AWS Certified, PMP" />
-            <Input label="Awards & Recognition" {...register('awards_and_recognition')} disabled={!canEdit} placeholder="e.g. Best Faculty 2024" className="md:col-span-2" />
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-slate-100" />
-
-      {/* ── Group 5: Performance Metrics (read-only) ── */}
-      {profile && (
-        <>
-          <div>
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">Performance Metrics</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: 'Courses Created', value: profile.total_courses_created },
-                { label: 'Courses Published', value: profile.total_courses_published },
-                { label: 'Students Taught', value: profile.total_students_taught },
-                { label: 'Reviews Received', value: profile.total_reviews_received },
-                { label: 'Avg Rating', value: profile.average_rating != null ? Number(profile.average_rating).toFixed(1) : '—' },
-                { label: 'Teaching Hours', value: profile.total_teaching_hours },
-                { label: 'Content Minutes', value: profile.total_content_minutes },
-                { label: 'Completion Rate', value: profile.completion_rate != null ? `${profile.completion_rate}%` : '—' },
-                { label: 'Publications', value: profile.publications_count },
-                { label: 'Patents', value: profile.patents_count },
-              ].map(m => (
-                <div key={m.label} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
-                  <div className="text-lg font-semibold text-slate-800">{m.value ?? 0}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{m.label}</div>
-                </div>
-              ))}
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <UserCheck className="w-3.5 h-3.5" /> Identity
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              <Input label="Instructor Code" {...register('instructor_code', { required: true })} placeholder="e.g. INS-001" disabled={!canEdit} />
+              <Select label="Instructor Type" {...register('instructor_type')} disabled={!canEdit}
+                options={[
+                  { value: '', label: 'Select...' }, { value: 'internal', label: 'Internal' }, { value: 'external', label: 'External' },
+                  { value: 'guest', label: 'Guest' }, { value: 'visiting', label: 'Visiting' }, { value: 'corporate', label: 'Corporate' },
+                  { value: 'community', label: 'Community' }, { value: 'other', label: 'Other' },
+                ]}
+              />
             </div>
           </div>
 
           <div className="border-t border-slate-100" />
-        </>
-      )}
 
-      {/* ── Group 6: Availability ── */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">Availability</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label className="flex items-center gap-2 text-sm text-slate-700 md:col-span-2">
-            <input type="checkbox" {...register('is_available')} disabled={!canEdit} className="rounded border-slate-300" />
-            Currently Available
-          </label>
-          <Input label="Available Hours/Week" type="number" {...register('available_hours_per_week')} disabled={!canEdit} />
-          <Input label="Available From" type="date" {...register('available_from')} disabled={!canEdit} />
-          <Input label="Available Until" type="date" {...register('available_until')} disabled={!canEdit} />
-          <Input label="Preferred Time Slots" {...register('preferred_time_slots')} disabled={!canEdit} placeholder="e.g. Mon-Fri 9AM-5PM" />
-          <Input label="Max Concurrent Courses" type="number" {...register('max_concurrent_courses')} disabled={!canEdit} />
-        </div>
-      </div>
+          {/* ── Organization ── */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5" /> Organization
+            </h3>
+            <div className="grid grid-cols-4 gap-3">
+              <Select label="Designation" {...register('designation_id')} disabled={!canEdit}
+                options={[{ value: '', label: 'Select...' }, ...designations.map(d => ({ value: d.id, label: d.name }))]}
+              />
+              <Select label="Department" {...register('department_id')} disabled={!canEdit}
+                options={[{ value: '', label: 'Select...' }, ...departments.map(d => ({ value: d.id, label: d.name }))]}
+              />
+              <Select label="Branch" {...register('branch_id')} disabled={!canEdit}
+                options={[{ value: '', label: 'Select...' }, ...branches.map(b => ({ value: b.id, label: b.name }))]}
+              />
+              <Input label="Joining Date" type="date" {...register('joining_date')} disabled={!canEdit} />
+            </div>
+          </div>
 
-      <div className="border-t border-slate-100" />
+          <div className="border-t border-slate-100" />
 
-      {/* ── Group 7: Compensation ── */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">Compensation</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Payment Model"
-            {...register('payment_model')}
-            disabled={!canEdit}
-            options={[
-              { value: '', label: 'Select...' },
-              { value: 'revenue_share', label: 'Revenue Share' },
-              { value: 'fixed_per_course', label: 'Fixed per Course' },
-              { value: 'hourly', label: 'Hourly' },
-              { value: 'monthly_salary', label: 'Monthly Salary' },
-              { value: 'per_student', label: 'Per Student' },
-              { value: 'hybrid', label: 'Hybrid' },
-              { value: 'volunteer', label: 'Volunteer' },
-              { value: 'other', label: 'Other' },
-            ]}
-          />
-          <Input label="Revenue Share %" type="number" {...register('revenue_share_percentage')} disabled={!canEdit} placeholder="e.g. 30" />
-          <Input label="Fixed Rate/Course" type="number" {...register('fixed_rate_per_course')} disabled={!canEdit} />
-          <Input label="Hourly Rate" type="number" {...register('hourly_rate')} disabled={!canEdit} />
-          <Input label="Payment Currency" {...register('payment_currency')} disabled={!canEdit} placeholder="INR" />
-        </div>
-      </div>
+          {/* ── Teaching Info ── */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5" /> Teaching Info
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              <Select label="Specialization" {...register('specialization_id')} disabled={!canEdit}
+                options={[{ value: '', label: 'Select...' }, ...specializations.map(s => ({ value: s.id, label: s.name }))]}
+              />
+              <Select label="Secondary Specialization" {...register('secondary_specialization_id')} disabled={!canEdit}
+                options={[{ value: '', label: 'Select...' }, ...specializations.map(s => ({ value: s.id, label: s.name }))]}
+              />
+              <Select label="Teaching Mode" {...register('teaching_mode')} disabled={!canEdit}
+                options={[{ value: '', label: 'Select...' }, { value: 'online', label: 'Online' }, { value: 'offline', label: 'Offline' }, { value: 'hybrid', label: 'Hybrid' }, { value: 'recorded_only', label: 'Recorded Only' }]}
+              />
+              <Input label="Teaching Exp (yrs)" type="number" {...register('teaching_experience_years')} disabled={!canEdit} />
+              <Input label="Industry Exp (yrs)" type="number" {...register('industry_experience_years')} disabled={!canEdit} />
+              <Input label="Total Exp (yrs)" type="number" {...register('total_experience_years')} disabled={!canEdit} />
+              <Select label="Teaching Language" {...register('preferred_teaching_language_id')} disabled={!canEdit}
+                options={[{ value: '', label: 'Select...' }, ...languages.map(l => ({ value: l.id, label: l.name }))]}
+              />
+            </div>
+          </div>
 
-      <div className="border-t border-slate-100" />
+          <div className="border-t border-slate-100" />
 
-      {/* ── Group 8: Approval & Verification ── */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">Approval & Verification</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Approval Status"
-            {...register('approval_status')}
-            disabled={!canEdit}
-            options={[
-              { value: 'pending', label: 'Pending' },
-              { value: 'under_review', label: 'Under Review' },
-              { value: 'approved', label: 'Approved' },
-              { value: 'rejected', label: 'Rejected' },
-              { value: 'suspended', label: 'Suspended' },
-              { value: 'blacklisted', label: 'Blacklisted' },
-            ]}
-          />
-          <Select
-            label="Badge"
-            {...register('badge')}
-            disabled={!canEdit}
-            options={[
-              { value: '', label: 'None' },
-              { value: 'new', label: 'New' },
-              { value: 'rising', label: 'Rising' },
-              { value: 'popular', label: 'Popular' },
-              { value: 'top_rated', label: 'Top Rated' },
-              { value: 'expert', label: 'Expert' },
-              { value: 'elite', label: 'Elite' },
-            ]}
-          />
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" {...register('is_verified')} disabled={!canEdit} className="rounded border-slate-300" />
-            Verified
-          </label>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" {...register('is_featured')} disabled={!canEdit} className="rounded border-slate-300" />
-            Featured
-          </label>
-          {approvalStatus === 'rejected' && (
-            <Input label="Rejection Reason" {...register('rejection_reason')} disabled={!canEdit} placeholder="Reason for rejection" className="md:col-span-2" />
+          {/* ── Bio & Presentation ── */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5" /> Bio & Presentation
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Instructor Bio</label>
+                <textarea {...register('instructor_bio')} disabled={!canEdit} rows={3}
+                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Write a short bio..."
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <Input label="Tagline" {...register('tagline')} disabled={!canEdit} placeholder="e.g. Expert in ML" />
+                <Input label="Demo Video URL" {...register('demo_video_url')} disabled={!canEdit} placeholder="https://..." />
+                <Input label="Highest Qualification" {...register('highest_qualification')} disabled={!canEdit} placeholder="e.g. Ph.D." />
+                <Input label="Certifications" {...register('certifications_summary')} disabled={!canEdit} placeholder="e.g. AWS, PMP" />
+                <Input label="Awards & Recognition" {...register('awards_and_recognition')} disabled={!canEdit} placeholder="e.g. Best Faculty 2024" />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Performance Metrics (read-only) ── */}
+          {profile && (
+            <>
+              <div className="border-t border-slate-100" />
+              <div>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <BarChart3 className="w-3.5 h-3.5" /> Performance Metrics
+                </h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {[
+                    { label: 'Created', value: profile.total_courses_created },
+                    { label: 'Published', value: profile.total_courses_published },
+                    { label: 'Students', value: profile.total_students_taught },
+                    { label: 'Reviews', value: profile.total_reviews_received },
+                    { label: 'Avg Rating', value: profile.average_rating != null ? Number(profile.average_rating).toFixed(1) : '—' },
+                    { label: 'Teaching Hrs', value: profile.total_teaching_hours },
+                    { label: 'Content Mins', value: profile.total_content_minutes },
+                    { label: 'Completion %', value: profile.completion_rate != null ? `${profile.completion_rate}%` : '—' },
+                    { label: 'Publications', value: profile.publications_count },
+                    { label: 'Patents', value: profile.patents_count },
+                  ].map(m => (
+                    <div key={m.label} className="bg-slate-50 rounded-lg px-2.5 py-2 text-center">
+                      <p className="text-[10px] text-slate-500 mb-0.5 truncate">{m.label}</p>
+                      <p className="text-sm font-semibold text-slate-800">{m.value ?? 0}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
-        </div>
-      </div>
 
-      {/* ── Save Button ── */}
-      {canEdit && (
-        <div className="flex justify-end pt-2">
-          <Button type="submit" disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {saving ? 'Saving...' : 'Save Instructor Profile'}
-          </Button>
-        </div>
-      )}
+          <div className="border-t border-slate-100" />
+
+          {/* ── Availability ── */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" /> Availability
+            </h3>
+            <div className="flex items-center gap-2 mb-3">
+              <input type="checkbox" {...register('is_available')} disabled={!canEdit} className="rounded border-slate-300" />
+              <label className="text-sm text-slate-700">Currently Available</label>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Input label="Hours/Week" type="number" {...register('available_hours_per_week')} disabled={!canEdit} />
+              <Input label="Available From" type="date" {...register('available_from')} disabled={!canEdit} />
+              <Input label="Available Until" type="date" {...register('available_until')} disabled={!canEdit} />
+              <Input label="Preferred Time Slots" {...register('preferred_time_slots')} disabled={!canEdit} placeholder="e.g. Mon-Fri 9-5" />
+              <Input label="Max Concurrent Courses" type="number" {...register('max_concurrent_courses')} disabled={!canEdit} />
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* ── Compensation ── */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <DollarSign className="w-3.5 h-3.5" /> Compensation
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              <Select label="Payment Model" {...register('payment_model')} disabled={!canEdit}
+                options={[
+                  { value: '', label: 'Select...' }, { value: 'revenue_share', label: 'Revenue Share' },
+                  { value: 'fixed_per_course', label: 'Fixed per Course' }, { value: 'hourly', label: 'Hourly' },
+                  { value: 'monthly_salary', label: 'Monthly Salary' }, { value: 'per_student', label: 'Per Student' },
+                  { value: 'hybrid', label: 'Hybrid' }, { value: 'volunteer', label: 'Volunteer' }, { value: 'other', label: 'Other' },
+                ]}
+              />
+              <Input label="Revenue Share %" type="number" {...register('revenue_share_percentage')} disabled={!canEdit} placeholder="e.g. 30" />
+              <Input label="Currency" {...register('payment_currency')} disabled={!canEdit} placeholder="INR" />
+              <Input label="Fixed Rate/Course" type="number" {...register('fixed_rate_per_course')} disabled={!canEdit} />
+              <Input label="Hourly Rate" type="number" {...register('hourly_rate')} disabled={!canEdit} />
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* ── Approval & Verification ── */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" /> Approval & Verification
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              <Select label="Approval Status" {...register('approval_status')} disabled={!canEdit}
+                options={[
+                  { value: 'pending', label: 'Pending' }, { value: 'under_review', label: 'Under Review' },
+                  { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' },
+                  { value: 'suspended', label: 'Suspended' }, { value: 'blacklisted', label: 'Blacklisted' },
+                ]}
+              />
+              <Select label="Badge" {...register('badge')} disabled={!canEdit}
+                options={[
+                  { value: '', label: 'None' }, { value: 'new', label: 'New' }, { value: 'rising', label: 'Rising' },
+                  { value: 'popular', label: 'Popular' }, { value: 'top_rated', label: 'Top Rated' },
+                  { value: 'expert', label: 'Expert' }, { value: 'elite', label: 'Elite' },
+                ]}
+              />
+            </div>
+            <div className="flex items-center gap-6 mt-3">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" {...register('is_verified')} disabled={!canEdit} className="rounded border-slate-300" /> Verified
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" {...register('is_featured')} disabled={!canEdit} className="rounded border-slate-300" /> Featured
+              </label>
+            </div>
+            {approvalStatus === 'rejected' && (
+              <div className="mt-3">
+                <Input label="Rejection Reason" {...register('rejection_reason')} disabled={!canEdit} placeholder="Reason for rejection" />
+              </div>
+            )}
+          </div>
+
+        </CardContent>
+      </Card>
     </form>
   );
 }

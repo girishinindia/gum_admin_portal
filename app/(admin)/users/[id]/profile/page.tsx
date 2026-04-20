@@ -995,60 +995,60 @@ export default function UserProfilePage() {
       </Card>
 
       {/* ── Sidebar Tabs + Content ── */}
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="flex gap-6">
-          {/* Sidebar */}
-          <nav className="w-56 flex-shrink-0">
-            <Card className="sticky top-4">
-              <div className="py-2">
-                {TABS.filter(tab => {
-                  // Show only the profile tab matching the user's type
-                  const profileTabs = ['employee', 'student', 'instructor'];
-                  if (profileTabs.includes(tab.id)) return tab.id === userData?.type;
-                  return true;
-                }).map(tab => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveTab(tab.id)}
-                      className={cn(
-                        'w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all text-left',
-                        isActive
-                          ? 'bg-brand-50 text-brand-700 border-r-2 border-brand-600'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                      )}
-                    >
-                      <Icon className={cn('w-4 h-4 flex-shrink-0', isActive ? 'text-brand-600' : 'text-slate-400')} />
-                      {tab.label}
-                    </button>
-                  );
-                })}
+      <div className="flex gap-6">
+        {/* Sidebar */}
+        <nav className="w-56 flex-shrink-0">
+          <Card className="sticky top-4">
+            <div className="py-2">
+              {TABS.filter(tab => {
+                // Show only the profile tab matching the user's type
+                const profileTabs = ['employee', 'student', 'instructor'];
+                if (profileTabs.includes(tab.id)) return tab.id === userData?.type;
+                return true;
+              }).map(tab => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all text-left',
+                      isActive
+                        ? 'bg-brand-50 text-brand-700 border-r-2 border-brand-600'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    )}
+                  >
+                    <Icon className={cn('w-4 h-4 flex-shrink-0', isActive ? 'text-brand-600' : 'text-slate-400')} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Save button in sidebar — only for main form tabs (not profile tabs which have their own save) */}
+            {canEdit && !['employee', 'student', 'instructor'].includes(activeTab) && (
+              <div className="px-3 pb-3 border-t border-slate-100 pt-3">
+                <Button type="button" onClick={handleSubmit(onSubmit)} disabled={saving} className="w-full">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {saving ? 'Saving...' : 'Save Profile'}
+                </Button>
               </div>
-              {/* Save button in sidebar */}
-              {canEdit && (
-                <div className="px-3 pb-3 border-t border-slate-100 pt-3">
-                  <Button type="submit" disabled={saving} className="w-full">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {saving ? 'Saving...' : 'Save Profile'}
-                  </Button>
-                </div>
-              )}
-            </Card>
-          </nav>
+            )}
+          </Card>
+        </nav>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {/* 1:1 Profile Tabs — separate from main form */}
-            {activeTab === 'employee' && <EmployeeProfileTab userId={userId} canEdit={canEdit} />}
-            {activeTab === 'student' && <StudentProfileTab userId={userId} canEdit={canEdit} />}
-            {activeTab === 'instructor' && <InstructorProfileTab userId={userId} canEdit={canEdit} />}
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* 1:1 Profile Tabs — each has its own form + save button */}
+          {activeTab === 'employee' && <EmployeeProfileTab userId={userId} canEdit={canEdit} />}
+          {activeTab === 'student' && <StudentProfileTab userId={userId} canEdit={canEdit} />}
+          {activeTab === 'instructor' && <InstructorProfileTab userId={userId} canEdit={canEdit} />}
 
-            {/* Main form tabs */}
-            {!['employee', 'student', 'instructor'].includes(activeTab) && (
-            <Card>
+          {/* Main form tabs */}
+          {!['employee', 'student', 'instructor'].includes(activeTab) && (
+          <form onSubmit={handleSubmit(onSubmit)}>
+          <Card>
               <div className="px-6 py-5 border-b border-slate-100">
                 <h2 className="text-lg font-semibold text-slate-900">
                   {TABS.find(t => t.id === activeTab)?.label}
@@ -2540,10 +2540,10 @@ export default function UserProfilePage() {
                 )}
               </CardContent>
             </Card>
+          </form>
             )}
           </div>
         </div>
-      </form>
 
       {/* Education Dialogs — rendered outside the main form to avoid nested <form> error */}
       <Dialog open={eduDialogOpen} onClose={() => setEduDialogOpen(false)} title={eduEditing ? 'Edit Education' : 'Add Education'} size="lg">
