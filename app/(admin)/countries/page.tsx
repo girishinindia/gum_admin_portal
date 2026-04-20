@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Globe2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, Globe2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { Country } from '@/lib/types';
@@ -48,6 +48,8 @@ export default function CountriesPage() {
   // Bulk select and actions
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   // Table summary stats
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
@@ -167,20 +169,26 @@ export default function CountriesPage() {
 
   async function onSoftDelete(c: Country) {
     if (!confirm(`Move "${c.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(c.id);
     const res = await api.deleteCountry(c.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Country moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(c: Country) {
+    setActionLoadingId(c.id);
     const res = await api.restoreCountry(c.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${c.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(c: Country) {
     if (!confirm(`PERMANENTLY delete "${c.name}"? This cannot be undone and flag image will be removed.`)) return;
+    setActionLoadingId(c.id);
     const res = await api.permanentDeleteCountry(c.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Country permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -214,12 +222,16 @@ export default function CountriesPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Move ${selectedIds.size} countries to trash?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let success = 0;
-    for (const id of Array.from(selectedIds)) {
-      const res = await api.deleteCountry(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteCountry(ids[i]);
       if (res.success) success++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     toast.success(`${success}/${selectedIds.size} countries moved to trash`);
     setSelectedIds(new Set());
     load();
@@ -230,12 +242,16 @@ export default function CountriesPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Restore ${selectedIds.size} countries?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let success = 0;
-    for (const id of Array.from(selectedIds)) {
-      const res = await api.restoreCountry(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreCountry(ids[i]);
       if (res.success) success++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     toast.success(`${success}/${selectedIds.size} countries restored`);
     setSelectedIds(new Set());
     load();
@@ -246,12 +262,16 @@ export default function CountriesPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} countries? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let success = 0;
-    for (const id of Array.from(selectedIds)) {
-      const res = await api.permanentDeleteCountry(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteCountry(ids[i]);
       if (res.success) success++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     toast.success(`${success}/${selectedIds.size} countries permanently deleted`);
     setSelectedIds(new Set());
     load();
@@ -370,7 +390,7 @@ export default function CountriesPage() {
           {selectedIds.size > 0 && (
             <div className={cn('px-4 py-3 border-b flex items-center justify-between', showTrash ? 'bg-amber-50 border-amber-200' : 'bg-brand-50 border-slate-200')}>
               <div className={cn('text-sm font-medium', showTrash ? 'text-amber-900' : 'text-brand-900')}>
-                {selectedIds.size} selected
+                {bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}
               </div>
               <div className="flex items-center gap-2">
                 {showTrash ? (
@@ -382,7 +402,7 @@ export default function CountriesPage() {
                       disabled={bulkActionLoading}
                       className="h-8 px-2.5 text-xs"
                     >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5 mr-1" />}
                       Restore Selected
                     </Button>
                     <Button
@@ -392,7 +412,7 @@ export default function CountriesPage() {
                       disabled={bulkActionLoading}
                       className="h-8 px-2.5 text-xs"
                     >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
                       Delete Permanently
                     </Button>
                   </>
@@ -404,7 +424,7 @@ export default function CountriesPage() {
                     disabled={bulkActionLoading}
                     className="h-8 px-2.5 text-xs"
                   >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
                     Move to Trash
                   </Button>
                 )}
@@ -536,11 +556,11 @@ export default function CountriesPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(c)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(c)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(c)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -551,8 +571,8 @@ export default function CountriesPage() {
                           <button onClick={() => openEdit(c)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(c)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

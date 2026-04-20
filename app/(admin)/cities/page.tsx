@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Building2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, Building2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { City, State, Country } from '@/lib/types';
@@ -40,6 +40,8 @@ export default function CitiesPage() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   // Pagination, search, sort
   const [page, setPage] = useState(1);
@@ -183,20 +185,26 @@ export default function CitiesPage() {
 
   async function onSoftDelete(c: City) {
     if (!confirm(`Move "${c.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(c.id);
     const res = await api.deleteCity(c.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('City moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(c: City) {
+    setActionLoadingId(c.id);
     const res = await api.restoreCity(c.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${c.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(c: City) {
     if (!confirm(`PERMANENTLY delete "${c.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(c.id);
     const res = await api.permanentDeleteCity(c.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('City permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -232,12 +240,16 @@ export default function CitiesPage() {
     if (!confirm(`Move ${selectedIds.size} ${selectedIds.size === 1 ? 'city' : 'cities'} to trash?`)) return;
 
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let succeeded = 0;
-    for (const id of selectedIds) {
-      const res = await api.deleteCity(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteCity(ids[i]);
       if (res.success) succeeded++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
 
     if (succeeded > 0) {
       toast.success(`${succeeded} ${succeeded === 1 ? 'city' : 'cities'} moved to trash`);
@@ -253,12 +265,16 @@ export default function CitiesPage() {
     if (selectedIds.size === 0) return;
 
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let succeeded = 0;
-    for (const id of selectedIds) {
-      const res = await api.restoreCity(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreCity(ids[i]);
       if (res.success) succeeded++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
 
     if (succeeded > 0) {
       toast.success(`${succeeded} ${succeeded === 1 ? 'city' : 'cities'} restored`);
@@ -275,12 +291,16 @@ export default function CitiesPage() {
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} ${selectedIds.size === 1 ? 'city' : 'cities'}? This cannot be undone.`)) return;
 
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let succeeded = 0;
-    for (const id of selectedIds) {
-      const res = await api.permanentDeleteCity(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteCity(ids[i]);
       if (res.success) succeeded++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
 
     if (succeeded > 0) {
       toast.success(`${succeeded} ${succeeded === 1 ? 'city' : 'cities'} permanently deleted`);
@@ -410,7 +430,7 @@ export default function CitiesPage() {
             <div className={cn('px-4 py-3 border-b flex items-center justify-between', showTrash ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200')}>
               <div className="flex items-center gap-2">
                 <span className={cn('text-sm font-medium', showTrash ? 'text-amber-900' : 'text-slate-700')}>
-                  {selectedIds.size} selected
+                  {bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}
                 </span>
                 <button
                   onClick={() => setSelectedIds(new Set())}
@@ -429,7 +449,7 @@ export default function CitiesPage() {
                       onClick={handleBulkRestore}
                       disabled={bulkActionLoading}
                     >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5 mr-1" />}
                       Restore Selected
                     </Button>
                     <Button
@@ -438,7 +458,7 @@ export default function CitiesPage() {
                       onClick={handleBulkPermanentDelete}
                       disabled={bulkActionLoading}
                     >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
                       Delete Permanently
                     </Button>
                   </>
@@ -449,7 +469,7 @@ export default function CitiesPage() {
                     onClick={handleBulkSoftDelete}
                     disabled={bulkActionLoading}
                   >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
                     Move to Trash
                   </Button>
                 )}
@@ -553,11 +573,11 @@ export default function CitiesPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(c)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(c)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(c)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -568,8 +588,8 @@ export default function CitiesPage() {
                           <button onClick={() => openEdit(c)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(c)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(c)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

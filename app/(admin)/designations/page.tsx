@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Award, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, Award, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Designation } from '@/lib/types';
 
@@ -57,6 +57,8 @@ export default function DesignationsPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [aiOpen, setAiOpen] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
@@ -118,20 +120,26 @@ export default function DesignationsPage() {
 
   async function onSoftDelete(d: Designation) {
     if (!confirm(`Move "${d.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(d.id);
     const res = await api.deleteDesignation(d.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Designation moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(d: Designation) {
+    setActionLoadingId(d.id);
     const res = await api.restoreDesignation(d.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${d.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(d: Designation) {
     if (!confirm(`PERMANENTLY delete "${d.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(d.id);
     const res = await api.permanentDeleteDesignation(d.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Designation permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -162,12 +170,16 @@ export default function DesignationsPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Move ${selectedIds.size} designation(s) to trash?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let succeeded = 0;
-    for (const id of selectedIds) {
-      const res = await api.deleteDesignation(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteDesignation(ids[i]);
       if (res.success) succeeded++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     toast.success(`${succeeded} designation(s) moved to trash`);
     setSelectedIds(new Set());
     load();
@@ -177,12 +189,16 @@ export default function DesignationsPage() {
   async function handleBulkRestore() {
     if (selectedIds.size === 0) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let succeeded = 0;
-    for (const id of selectedIds) {
-      const res = await api.restoreDesignation(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreDesignation(ids[i]);
       if (res.success) succeeded++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     toast.success(`${succeeded} designation(s) restored`);
     setSelectedIds(new Set());
     load();
@@ -193,12 +209,16 @@ export default function DesignationsPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} designation(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let succeeded = 0;
-    for (const id of selectedIds) {
-      const res = await api.permanentDeleteDesignation(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteDesignation(ids[i]);
       if (res.success) succeeded++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     toast.success(`${succeeded} designation(s) permanently deleted`);
     setSelectedIds(new Set());
     load();
@@ -313,21 +333,21 @@ export default function DesignationsPage() {
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between gap-3 px-4 py-3 bg-brand-50 border-b border-brand-200">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+                <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
               </div>
               <div className="flex items-center gap-2">
                 {showTrash ? (
                   <>
                     <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50">
-                      <RotateCcw className="w-3.5 h-3.5" /> Restore Selected
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 border-red-200 hover:bg-red-50">
-                      <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently
                     </Button>
                   </>
                 ) : (
                   <Button size="sm" variant="outline" onClick={handleBulkSoftDelete} disabled={bulkActionLoading} className="text-red-600 border-red-200 hover:bg-red-50">
-                    <Trash2 className="w-3.5 h-3.5" /> Move to Trash
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Move to Trash
                   </Button>
                 )}
                 <button
@@ -394,18 +414,18 @@ export default function DesignationsPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(d)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(d)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === d.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(d)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === d.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
                         <>
                           <button onClick={() => openView(d)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
                           <button onClick={() => openEdit(d)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => onSoftDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => onSoftDelete(d)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">{actionLoadingId === d.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
                         </>
                       )}
                     </div>

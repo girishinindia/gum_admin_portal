@@ -72,6 +72,8 @@ export default function SubCategoriesPage() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   // Coverage + Bulk Generate
   const [coverage, setCoverage] = useState<Record<number, CoverageItem>>({});
@@ -245,20 +247,26 @@ export default function SubCategoriesPage() {
 
   async function onSoftDelete(sc: SubCategory) {
     if (!confirm(`Move "${sc.code}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(sc.id);
     const res = await api.deleteSubCategory(sc.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Sub-category moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(sc: SubCategory) {
+    setActionLoadingId(sc.id);
     const res = await api.restoreSubCategory(sc.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${sc.code}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(sc: SubCategory) {
     if (!confirm(`PERMANENTLY delete "${sc.code}"? This cannot be undone.`)) return;
+    setActionLoadingId(sc.id);
     const res = await api.permanentDeleteSubCategory(sc.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Sub-category permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -281,26 +289,35 @@ export default function SubCategoriesPage() {
   async function handleBulkSoftDelete() {
     if (!confirm(`Move ${selectedIds.size} item(s) to trash?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) { const res = await api.deleteSubCategory(id); if (res.success) ok++; }
+    for (let i = 0; i < ids.length; i++) { const res = await api.deleteSubCategory(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
     toast.success(`${ok} item(s) moved to trash`);
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
   async function handleBulkRestore() {
     if (!confirm(`Restore ${selectedIds.size} item(s)?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) { const res = await api.restoreSubCategory(id); if (res.success) ok++; }
+    for (let i = 0; i < ids.length; i++) { const res = await api.restoreSubCategory(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
     toast.success(`${ok} item(s) restored`);
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
   async function handleBulkPermanentDelete() {
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) { const res = await api.permanentDeleteSubCategory(id); if (res.success) ok++; }
+    for (let i = 0; i < ids.length; i++) { const res = await api.permanentDeleteSubCategory(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
     toast.success(`${ok} item(s) permanently deleted`);
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
 
   return (
@@ -425,15 +442,15 @@ export default function SubCategoriesPage() {
           {/* Bulk action toolbar */}
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
-              <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+              <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
               <div className="flex items-center gap-2">
                 {showTrash ? (
                   <>
-                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}><RotateCcw className="w-3.5 h-3.5" /> Restore Selected</Button>
-                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Permanently</Button>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
                   </>
                 ) : (
-                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Selected</Button>
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
               </div>
@@ -540,11 +557,11 @@ export default function SubCategoriesPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(sc)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === sc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(sc)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === sc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -555,8 +572,8 @@ export default function SubCategoriesPage() {
                           <button onClick={() => openEdit(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(sc)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(sc)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === sc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

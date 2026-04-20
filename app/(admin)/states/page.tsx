@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, MapPin, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, MapPin, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { State, Country } from '@/lib/types';
@@ -45,6 +45,8 @@ export default function StatesPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [aiOpen, setAiOpen] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
@@ -148,20 +150,26 @@ export default function StatesPage() {
 
   async function onSoftDelete(s: State) {
     if (!confirm(`Move "${s.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(s.id);
     const res = await api.deleteState(s.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('State moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(s: State) {
+    setActionLoadingId(s.id);
     const res = await api.restoreState(s.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${s.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(s: State) {
     if (!confirm(`PERMANENTLY delete "${s.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(s.id);
     const res = await api.permanentDeleteState(s.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('State permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -193,12 +201,16 @@ export default function StatesPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Move ${selectedIds.size} state(s) to trash?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let successCount = 0;
-    for (const id of selectedIds) {
-      const res = await api.deleteState(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteState(ids[i]);
       if (res.success) successCount++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     toast.success(`${successCount} state(s) moved to trash`);
     setSelectedIds(new Set());
     load();
@@ -208,12 +220,16 @@ export default function StatesPage() {
   async function handleBulkRestore() {
     if (selectedIds.size === 0) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let successCount = 0;
-    for (const id of selectedIds) {
-      const res = await api.restoreState(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreState(ids[i]);
       if (res.success) successCount++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     toast.success(`${successCount} state(s) restored`);
     setSelectedIds(new Set());
     load();
@@ -224,12 +240,16 @@ export default function StatesPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} state(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let successCount = 0;
-    for (const id of selectedIds) {
-      const res = await api.permanentDeleteState(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteState(ids[i]);
       if (res.success) successCount++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     toast.success(`${successCount} state(s) permanently deleted`);
     setSelectedIds(new Set());
     load();
@@ -348,7 +368,7 @@ export default function StatesPage() {
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           {selectedIds.size > 0 && (
             <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700">{selectedIds.size} selected</span>
+              <span className="text-sm font-medium text-slate-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
               <div className="flex items-center gap-2">
                 {showTrash ? (
                   <>
@@ -359,7 +379,7 @@ export default function StatesPage() {
                       disabled={bulkActionLoading}
                       className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                     >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5 mr-1.5" />}
                       Restore Selected
                     </Button>
                     <Button
@@ -369,7 +389,7 @@ export default function StatesPage() {
                       disabled={bulkActionLoading}
                       className="text-red-600 border-red-200 hover:bg-red-50"
                     >
-                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
                       Delete Permanently
                     </Button>
                   </>
@@ -381,7 +401,7 @@ export default function StatesPage() {
                     disabled={bulkActionLoading}
                     className="text-red-600 border-red-200 hover:bg-red-50"
                   >
-                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
                     Move to Trash
                   </Button>
                 )}
@@ -474,11 +494,11 @@ export default function StatesPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(s)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(s)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(s)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -489,8 +509,8 @@ export default function StatesPage() {
                           <button onClick={() => openEdit(s)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(s)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(s)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

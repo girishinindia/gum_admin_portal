@@ -16,6 +16,8 @@ const PROVIDERS: { id: AIProvider; name: string; sub: string }[] = [
   { id: 'gemini', name: 'Google', sub: 'Gemini 2.5 Flash' },
 ];
 
+const BATCH_SIZE = 25;
+
 interface AiMasterDialogProps {
   module: string;
   moduleLabel: string;
@@ -36,16 +38,23 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
   const [generated, setGenerated] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [prompt, setPrompt] = useState('');
+  // Progress tracking
+  const [genProgress, setGenProgress] = useState({ current: 0, total: 0 });
+  const [saveProgress, setSaveProgress] = useState({ saved: 0, failed: 0, total: 0 });
 
   function handleClose() {
     setGenerated(null);
     setPrompt('');
+    setGenProgress({ current: 0, total: 0 });
+    setSaveProgress({ saved: 0, failed: 0, total: 0 });
     onClose();
   }
 
   function switchMode(m: Mode) {
     setMode(m);
     setGenerated(null);
+    setGenProgress({ current: 0, total: 0 });
+    setSaveProgress({ saved: 0, failed: 0, total: 0 });
   }
 
   async function generate() {
@@ -55,15 +64,62 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
     }
     setGenerating(true);
     setGenerated(null);
+    setSaveProgress({ saved: 0, failed: 0, total: 0 });
+
     try {
-      let res;
       const effectivePrompt = prompt.trim() || defaultPrompt || '';
-      if (mode === 'generate') {
-        res = await api.generateMasterData({ module, provider, count, prompt: effectivePrompt || undefined });
+
+      if (mode === 'update') {
+        // Update mode — single call
+        setGenProgress({ current: 1, total: 1 });
+        const res = await api.updateMasterData({ module, provider, prompt: effectivePrompt });
+        if (res.success) { setGenerated(res.data); } else { toast.error(res.error || 'Failed'); }
       } else {
-        res = await api.updateMasterData({ module, provider, prompt: effectivePrompt });
+        // Generate mode — batch if count > BATCH_SIZE
+        if (count <= BATCH_SIZE) {
+          setGenProgress({ current: 1, total: 1 });
+          const res = await api.generateMasterData({ module, provider, count, prompt: effectivePrompt || undefined });
+          if (res.success) { setGenerated(res.data); } else { toast.error(res.error || 'Failed'); }
+        } else {
+          // Batch generation
+          const totalBatches = Math.ceil(count / BATCH_SIZE);
+          setGenProgress({ current: 0, total: totalBatches });
+          let allGenerated: any[] = [];
+          let totalTokens = 0;
+          let lastUsage = null;
+
+          for (let batch = 0; batch < totalBatches; batch++) {
+            const batchCount = Math.min(BATCH_SIZE, count - batch * BATCH_SIZE);
+            setGenProgress({ current: batch + 1, total: totalBatches });
+
+            const batchPrompt = effectivePrompt
+              ? `${effectivePrompt}\n\nIMPORTANT: This is batch ${batch + 1} of ${totalBatches}. ${allGenerated.length > 0 ? `You have already generated these in previous batches — do NOT duplicate any: ${allGenerated.map((r: any) => r.name || r.code || r.slug || JSON.stringify(r).slice(0, 50)).join(', ')}` : ''}`
+              : (allGenerated.length > 0
+                ? `IMPORTANT: This is batch ${batch + 1} of ${totalBatches}. Do NOT duplicate these already-generated items: ${allGenerated.map((r: any) => r.name || r.code || r.slug || JSON.stringify(r).slice(0, 50)).join(', ')}`
+                : undefined);
+
+            const res = await api.generateMasterData({ module, provider, count: batchCount, prompt: batchPrompt });
+            if (res.success && res.data?.generated) {
+              const items = Array.isArray(res.data.generated) ? res.data.generated : [res.data.generated];
+              allGenerated = [...allGenerated, ...items];
+              totalTokens += res.data.usage?.total_tokens || 0;
+              lastUsage = res.data.usage;
+            } else {
+              toast.error(`Batch ${batch + 1} failed: ${res.error || 'Unknown error'}`);
+              break;
+            }
+          }
+
+          if (allGenerated.length > 0) {
+            setGenerated({
+              generated: allGenerated,
+              provider,
+              module,
+              usage: { ...lastUsage, total_tokens: totalTokens },
+            });
+          }
+        }
       }
-      if (res.success) { setGenerated(res.data); } else { toast.error(res.error || 'Failed'); }
     } catch { toast.error('Failed'); }
     setGenerating(false);
   }
@@ -71,10 +127,15 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
   async function saveAll() {
     if (!generated?.generated) return;
     setSaving(true);
+    const items = Array.isArray(generated.generated) ? generated.generated : [generated.generated];
+    const total = items.length;
+    setSaveProgress({ saved: 0, failed: 0, total });
+
     try {
-      const items = Array.isArray(generated.generated) ? generated.generated : [generated.generated];
       let saved = 0;
-      for (const item of items) {
+      let failed = 0;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
         try {
           let res;
           if (mode === 'update' && item.id && updateFn) {
@@ -85,14 +146,18 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
             res = await createFn(mode === 'update' ? data : item);
           }
           if (res?.success) saved++;
-        } catch { /* skip failed */ }
+          else failed++;
+        } catch { failed++; }
+        setSaveProgress({ saved, failed, total });
       }
-      toast.success(`${mode === 'update' ? 'Updated' : 'Saved'} ${saved}/${items.length} ${moduleLabel.toLowerCase()}`);
+      toast.success(`${mode === 'update' ? 'Updated' : 'Saved'} ${saved}/${total} ${moduleLabel.toLowerCase()}${failed > 0 ? ` (${failed} failed)` : ''}`);
       handleClose();
       onSaved();
     } catch { toast.error('Failed to save records'); }
     setSaving(false);
   }
+
+  const totalGenerated = generated?.generated ? (Array.isArray(generated.generated) ? generated.generated.length : 1) : 0;
 
   return (
     <Dialog open={open} onClose={handleClose} title={`AI ${mode === 'generate' ? 'Generate' : 'Update'} ${moduleLabel}`} size="lg">
@@ -154,15 +219,32 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
         {mode === 'generate' && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Number of records</label>
-            <input
-              type="number"
-              min={1}
-              max={50}
-              value={count}
-              onChange={e => setCount(Math.min(50, Math.max(1, Number(e.target.value))))}
-              className="w-24 h-9 px-3 text-sm rounded-lg border border-slate-200 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
-            />
-            <span className="text-xs text-slate-400 ml-2">max 50</span>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={1}
+                max={100}
+                value={count}
+                onChange={e => setCount(Number(e.target.value))}
+                className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
+              />
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={count}
+                onChange={e => setCount(Math.min(100, Math.max(1, Number(e.target.value))))}
+                className="w-20 h-9 px-3 text-sm rounded-lg border border-slate-200 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none text-center"
+              />
+            </div>
+            <div className="flex justify-between mt-1">
+              <span className="text-xs text-slate-400">max 100</span>
+              {count > BATCH_SIZE && (
+                <span className="text-xs text-amber-600 font-medium">
+                  Will generate in {Math.ceil(count / BATCH_SIZE)} batches of {BATCH_SIZE}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -196,12 +278,32 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
           />
         </div>
 
-        {/* Generate / Update Button */}
+        {/* Generate / Update Button + Progress */}
         {!generated && (
-          <Button type="button" onClick={generate} disabled={generating} className="w-full">
-            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === 'update' ? <Pencil className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-            {generating ? (mode === 'update' ? 'Updating...' : 'Generating...') : (mode === 'update' ? 'Update Existing Data' : 'Generate Sample Data')}
-          </Button>
+          <div className="space-y-2">
+            <Button type="button" onClick={generate} disabled={generating} className="w-full">
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === 'update' ? <Pencil className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+              {generating
+                ? (genProgress.total > 1
+                  ? `Generating batch ${genProgress.current}/${genProgress.total}...`
+                  : (mode === 'update' ? 'Updating...' : 'Generating...'))
+                : (mode === 'update' ? 'Update Existing Data' : 'Generate Sample Data')}
+            </Button>
+            {/* Generation progress bar */}
+            {generating && genProgress.total > 1 && (
+              <div className="space-y-1">
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand-500 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${(genProgress.current / genProgress.total) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-slate-500 text-center">
+                  Batch {genProgress.current} of {genProgress.total} ({Math.min(genProgress.current * BATCH_SIZE, count)}/{count} records)
+                </p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Results Preview */}
@@ -209,7 +311,7 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className={cn('text-sm font-medium flex items-center gap-1.5', mode === 'update' ? 'text-amber-700' : 'text-emerald-700')}>
-                <Check className="w-4 h-4" /> {mode === 'update' ? 'Updated' : 'Generated'} {Array.isArray(generated.generated) ? generated.generated.length : 1} record(s)
+                <Check className="w-4 h-4" /> {mode === 'update' ? 'Updated' : 'Generated'} {totalGenerated} record(s)
               </span>
               <span className="text-xs text-slate-400">
                 {generated.usage?.total_tokens?.toLocaleString()} tokens
@@ -220,12 +322,36 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
                 {JSON.stringify(generated.generated, null, 2)}
               </pre>
             </div>
+
+            {/* Save progress */}
+            {saving && saveProgress.total > 0 && (
+              <div className="space-y-1.5">
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300 ease-out"
+                    style={{
+                      width: `${((saveProgress.saved + saveProgress.failed) / saveProgress.total) * 100}%`,
+                      background: saveProgress.failed > 0
+                        ? `linear-gradient(90deg, #22c55e ${(saveProgress.saved / (saveProgress.saved + saveProgress.failed)) * 100}%, #ef4444 ${(saveProgress.saved / (saveProgress.saved + saveProgress.failed)) * 100}%)`
+                        : '#22c55e',
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-slate-500 text-center">
+                  Saving {saveProgress.saved + saveProgress.failed}/{saveProgress.total}
+                  {saveProgress.failed > 0 && <span className="text-red-500 ml-1">({saveProgress.failed} failed)</span>}
+                </p>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button type="button" onClick={saveAll} disabled={saving} className="flex-1">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                {saving ? 'Saving...' : `${mode === 'update' ? 'Save Updates' : `Save All to ${moduleLabel}`}`}
+                {saving
+                  ? `Saving ${saveProgress.saved + saveProgress.failed}/${saveProgress.total}...`
+                  : `${mode === 'update' ? 'Save Updates' : `Save All ${totalGenerated} to ${moduleLabel}`}`}
               </Button>
-              <Button type="button" variant="outline" onClick={generate} disabled={generating}>
+              <Button type="button" variant="outline" onClick={generate} disabled={generating || saving}>
                 <RefreshCw className="w-4 h-4" /> {mode === 'update' ? 'Re-update' : 'Regenerate'}
               </Button>
             </div>

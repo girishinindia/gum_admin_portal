@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, GitBranch, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, GitBranch, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { Branch, Country, State, City } from '@/lib/types';
@@ -54,6 +54,8 @@ export default function BranchesPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const { register, handleSubmit, reset, watch, setValue } = useForm();
   const watchCountry = watch('country_id');
@@ -232,20 +234,26 @@ export default function BranchesPage() {
 
   async function onSoftDelete(branch: Branch) {
     if (!confirm(`Move "${branch.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(branch.id);
     const res = await api.deleteBranch(branch.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Branch moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(branch: Branch) {
+    setActionLoadingId(branch.id);
     const res = await api.restoreBranch(branch.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${branch.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(branch: Branch) {
     if (!confirm(`PERMANENTLY delete "${branch.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(branch.id);
     const res = await api.permanentDeleteBranch(branch.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Branch permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -280,9 +288,12 @@ export default function BranchesPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Move ${selectedIds.size} branch(es) to trash? You can restore them later.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     try {
-      for (const id of selectedIds) {
-        await api.deleteBranch(id);
+      for (let i = 0; i < ids.length; i++) {
+        await api.deleteBranch(ids[i]);
+        setBulkProgress({ done: i + 1, total: ids.length });
       }
       toast.success(`${selectedIds.size} branch(es) moved to trash`);
       setSelectedIds(new Set());
@@ -292,15 +303,19 @@ export default function BranchesPage() {
       toast.error('Some deletions failed');
     } finally {
       setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     }
   }
 
   async function handleBulkRestore() {
     if (selectedIds.size === 0) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     try {
-      for (const id of selectedIds) {
-        await api.restoreBranch(id);
+      for (let i = 0; i < ids.length; i++) {
+        await api.restoreBranch(ids[i]);
+        setBulkProgress({ done: i + 1, total: ids.length });
       }
       toast.success(`${selectedIds.size} branch(es) restored`);
       setSelectedIds(new Set());
@@ -310,6 +325,7 @@ export default function BranchesPage() {
       toast.error('Some restorations failed');
     } finally {
       setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     }
   }
 
@@ -317,9 +333,12 @@ export default function BranchesPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} branch(es)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     try {
-      for (const id of selectedIds) {
-        await api.permanentDeleteBranch(id);
+      for (let i = 0; i < ids.length; i++) {
+        await api.permanentDeleteBranch(ids[i]);
+        setBulkProgress({ done: i + 1, total: ids.length });
       }
       toast.success(`${selectedIds.size} branch(es) permanently deleted`);
       setSelectedIds(new Set());
@@ -329,6 +348,7 @@ export default function BranchesPage() {
       toast.error('Some permanent deletions failed');
     } finally {
       setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     }
   }
 
@@ -459,7 +479,7 @@ export default function BranchesPage() {
           {selectedIds.size > 0 && (
             <div className="px-4 py-3 bg-brand-50 border-b border-brand-200 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-brand-900">{selectedIds.size} selected</span>
+                <span className="text-sm font-medium text-brand-900">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
               </div>
               <div className="flex items-center gap-2">
                 {showTrash ? (
@@ -471,7 +491,7 @@ export default function BranchesPage() {
                       disabled={bulkActionLoading}
                       className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                     >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5 mr-1.5" />}
                       Restore Selected
                     </Button>
                     <Button
@@ -481,7 +501,7 @@ export default function BranchesPage() {
                       disabled={bulkActionLoading}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
-                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
                       Delete Permanently
                     </Button>
                   </>
@@ -493,7 +513,7 @@ export default function BranchesPage() {
                     disabled={bulkActionLoading}
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
-                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
                     Move to Trash
                   </Button>
                 )}
@@ -573,11 +593,11 @@ export default function BranchesPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(branch)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(branch)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === branch.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(branch)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(branch)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === branch.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -588,8 +608,8 @@ export default function BranchesPage() {
                           <button onClick={() => openEdit(branch)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(branch)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(branch)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === branch.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Languages as LanguagesIcon, Trash2, Edit2, Eye, BookOpen, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, Languages as LanguagesIcon, Trash2, Edit2, Eye, BookOpen, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Language } from '@/lib/types';
 
@@ -43,6 +43,8 @@ export default function LanguagesPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const [aiOpen, setAiOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
@@ -152,20 +154,26 @@ export default function LanguagesPage() {
 
   async function onSoftDelete(l: Language) {
     if (!confirm(`Move "${l.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(l.id);
     const res = await api.deleteLanguage(l.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Language moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(l: Language) {
+    setActionLoadingId(l.id);
     const res = await api.restoreLanguage(l.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${l.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(l: Language) {
     if (!confirm(`PERMANENTLY delete "${l.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(l.id);
     const res = await api.permanentDeleteLanguage(l.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Language permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -205,12 +213,16 @@ export default function LanguagesPage() {
     const count = selectedIds.size;
     if (!confirm(`Move ${count} language(s) to trash? You can restore them later.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let succeeded = 0;
-    for (const id of selectedIds) {
-      const res = await api.deleteLanguage(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteLanguage(ids[i]);
       if (res.success) succeeded++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     if (succeeded > 0) {
       toast.success(`${succeeded} language(s) moved to trash`);
       setSelectedIds(new Set());
@@ -225,12 +237,16 @@ export default function LanguagesPage() {
   async function handleBulkRestore() {
     const count = selectedIds.size;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let succeeded = 0;
-    for (const id of selectedIds) {
-      const res = await api.restoreLanguage(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreLanguage(ids[i]);
       if (res.success) succeeded++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     if (succeeded > 0) {
       toast.success(`${succeeded} language(s) restored`);
       setSelectedIds(new Set());
@@ -246,12 +262,16 @@ export default function LanguagesPage() {
     const count = selectedIds.size;
     if (!confirm(`PERMANENTLY delete ${count} language(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let succeeded = 0;
-    for (const id of selectedIds) {
-      const res = await api.permanentDeleteLanguage(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteLanguage(ids[i]);
       if (res.success) succeeded++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     if (succeeded > 0) {
       toast.success(`${succeeded} language(s) permanently deleted`);
       setSelectedIds(new Set());
@@ -369,7 +389,7 @@ export default function LanguagesPage() {
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
               <span className="text-sm font-medium text-slate-700">
-                {selectedIds.size} selected
+                {bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}
               </span>
               <div className="flex items-center gap-2">
                 {showTrash ? (
@@ -380,7 +400,7 @@ export default function LanguagesPage() {
                       onClick={handleBulkRestore}
                       disabled={bulkActionLoading}
                     >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5 mr-1.5" />}
                       Restore Selected
                     </Button>
                     <Button
@@ -390,7 +410,7 @@ export default function LanguagesPage() {
                       disabled={bulkActionLoading}
                       className="text-red-600 border-red-200 hover:bg-red-50"
                     >
-                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
                       Delete Permanently
                     </Button>
                   </>
@@ -402,7 +422,7 @@ export default function LanguagesPage() {
                     disabled={bulkActionLoading}
                     className="text-red-600 border-red-200 hover:bg-red-50"
                   >
-                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
                     Move to Trash
                   </Button>
                 )}
@@ -514,11 +534,11 @@ export default function LanguagesPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(l)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(l)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === l.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(l)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(l)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === l.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -529,8 +549,8 @@ export default function LanguagesPage() {
                           <button onClick={() => openEdit(l)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(l)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(l)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === l.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

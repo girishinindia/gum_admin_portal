@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, FolderOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { DocumentType } from '@/lib/types';
 
@@ -41,6 +41,8 @@ export default function DocumentTypesPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [aiOpen, setAiOpen] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
@@ -139,20 +141,26 @@ export default function DocumentTypesPage() {
 
   async function onSoftDelete(dt: DocumentType) {
     if (!confirm(`Move "${dt.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(dt.id);
     const res = await api.deleteDocumentType(dt.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Document type moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(dt: DocumentType) {
+    setActionLoadingId(dt.id);
     const res = await api.restoreDocumentType(dt.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${dt.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(dt: DocumentType) {
     if (!confirm(`PERMANENTLY delete "${dt.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(dt.id);
     const res = await api.permanentDeleteDocumentType(dt.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Document type permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -186,9 +194,12 @@ export default function DocumentTypesPage() {
   async function handleBulkSoftDelete() {
     if (!confirm(`Move ${selectedIds.size} item(s) to trash? You can restore them later.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     try {
-      for (const id of selectedIds) {
-        await api.deleteDocumentType(id);
+      for (let i = 0; i < ids.length; i++) {
+        await api.deleteDocumentType(ids[i]);
+        setBulkProgress({ done: i + 1, total: ids.length });
       }
       toast.success(`${selectedIds.size} item(s) moved to trash`);
       setSelectedIds(new Set());
@@ -198,14 +209,18 @@ export default function DocumentTypesPage() {
       toast.error('Failed to move items to trash');
     } finally {
       setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     }
   }
 
   async function handleBulkRestore() {
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     try {
-      for (const id of selectedIds) {
-        await api.restoreDocumentType(id);
+      for (let i = 0; i < ids.length; i++) {
+        await api.restoreDocumentType(ids[i]);
+        setBulkProgress({ done: i + 1, total: ids.length });
       }
       toast.success(`${selectedIds.size} item(s) restored`);
       setSelectedIds(new Set());
@@ -215,15 +230,19 @@ export default function DocumentTypesPage() {
       toast.error('Failed to restore items');
     } finally {
       setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     }
   }
 
   async function handleBulkPermanentDelete() {
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     try {
-      for (const id of selectedIds) {
-        await api.permanentDeleteDocumentType(id);
+      for (let i = 0; i < ids.length; i++) {
+        await api.permanentDeleteDocumentType(ids[i]);
+        setBulkProgress({ done: i + 1, total: ids.length });
       }
       toast.success(`${selectedIds.size} item(s) permanently deleted`);
       setSelectedIds(new Set());
@@ -233,6 +252,7 @@ export default function DocumentTypesPage() {
       toast.error('Failed to permanently delete items');
     } finally {
       setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     }
   }
 
@@ -342,15 +362,15 @@ export default function DocumentTypesPage() {
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
-              <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+              <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
               <div className="flex items-center gap-2">
                 {showTrash ? (
                   <>
-                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}><RotateCcw className="w-3.5 h-3.5" /> Restore Selected</Button>
-                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Permanently</Button>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
                   </>
                 ) : (
-                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Selected</Button>
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
               </div>
@@ -415,11 +435,11 @@ export default function DocumentTypesPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(dt)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(dt)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === dt.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(dt)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(dt)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === dt.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -430,8 +450,8 @@ export default function DocumentTypesPage() {
                           <button onClick={() => openEdit(dt)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(dt)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(dt)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === dt.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

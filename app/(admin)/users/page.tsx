@@ -21,7 +21,7 @@ import { api } from '@/lib/api';
 import { formatDate, initials } from '@/lib/utils';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Users as UsersIcon, Mail, Phone, Lock, User as UserIcon, Eye, Edit2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, Trash2, RotateCcw, AlertTriangle, X, UserCircle } from 'lucide-react';
+import { Plus, Users as UsersIcon, Mail, Phone, Lock, User as UserIcon, Eye, Edit2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, Trash2, RotateCcw, AlertTriangle, X, UserCircle, Loader2 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { User, Role } from '@/lib/types';
 
@@ -64,6 +64,8 @@ export default function UsersPage() {
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({ resolver: zodResolver(createSchema) });
 
@@ -149,20 +151,26 @@ export default function UsersPage() {
 
   async function onSoftDelete(u: User) {
     if (!confirm(`Move "${u.full_name}" to trash? Their sessions will be revoked.`)) return;
+    setActionLoadingId(u.id);
     const res = await api.deleteUser(u.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('User moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(u: User) {
+    setActionLoadingId(u.id);
     const res = await api.restoreUser(u.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${u.full_name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(u: User) {
     if (!confirm(`PERMANENTLY delete "${u.full_name}"? This cannot be undone.`)) return;
+    setActionLoadingId(u.id);
     const res = await api.permanentDeleteUser(u.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('User permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -191,43 +199,55 @@ export default function UsersPage() {
   async function handleBulkSoftDelete() {
     if (!confirm(`Move ${selectedIds.size} item(s) to trash?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) {
-      const res = await api.deleteUser(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteUser(ids[i]);
       if (res.success) ok++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     toast.success(`${ok} item(s) moved to trash`);
     setSelectedIds(new Set());
     load(); refreshSummary();
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
 
   async function handleBulkRestore() {
     if (!confirm(`Restore ${selectedIds.size} item(s)?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) {
-      const res = await api.restoreUser(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreUser(ids[i]);
       if (res.success) ok++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     toast.success(`${ok} item(s) restored`);
     setSelectedIds(new Set());
     load(); refreshSummary();
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
 
   async function handleBulkPermanentDelete() {
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) {
-      const res = await api.permanentDeleteUser(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteUser(ids[i]);
       if (res.success) ok++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     toast.success(`${ok} item(s) permanently deleted`);
     setSelectedIds(new Set());
     load(); refreshSummary();
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
@@ -328,20 +348,20 @@ export default function UsersPage() {
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
-              <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+              <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
               <div className="flex items-center gap-2">
                 {showTrash ? (
                   <>
                     <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>
-                      <RotateCcw className="w-3.5 h-3.5" /> Restore Selected
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected
                     </Button>
                     <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>
-                      <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently
                     </Button>
                   </>
                 ) : (
                   <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>
-                    <Trash2 className="w-3.5 h-3.5" /> Delete Selected
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected
                   </Button>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
@@ -402,11 +422,11 @@ export default function UsersPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(u)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(u)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === u.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(u)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(u)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === u.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -425,8 +445,8 @@ export default function UsersPage() {
                             </button>
                           </Link>
                           {isSuperAdmin && me?.id !== u.id && (
-                            <button onClick={() => onSoftDelete(u)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                              <Trash2 className="w-3.5 h-3.5" />
+                            <button onClick={() => onSoftDelete(u)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                              {actionLoadingId === u.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                             </button>
                           )}
                         </>

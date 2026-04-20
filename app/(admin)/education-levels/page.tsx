@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, GraduationCap, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, GraduationCap, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { EducationLevel } from '@/lib/types';
 
@@ -56,6 +56,8 @@ export default function EducationLevelsPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const [aiOpen, setAiOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
@@ -161,20 +163,26 @@ export default function EducationLevelsPage() {
 
   async function onSoftDelete(l: EducationLevel) {
     if (!confirm(`Move "${l.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(l.id);
     const res = await api.deleteEducationLevel(l.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Education level moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(l: EducationLevel) {
+    setActionLoadingId(l.id);
     const res = await api.restoreEducationLevel(l.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${l.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(l: EducationLevel) {
     if (!confirm(`PERMANENTLY delete "${l.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(l.id);
     const res = await api.permanentDeleteEducationLevel(l.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Education level permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -208,12 +216,16 @@ export default function EducationLevelsPage() {
     if (!confirm(`Move ${selectedIds.size} education level(s) to trash? You can restore them later.`)) return;
 
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let success = 0;
-    for (const id of selectedIds) {
-      const res = await api.deleteEducationLevel(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteEducationLevel(ids[i]);
       if (res.success) success++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
 
     if (success === selectedIds.size) {
       toast.success(`${success} education level(s) moved to trash`);
@@ -232,12 +244,16 @@ export default function EducationLevelsPage() {
     if (!confirm(`Restore ${selectedIds.size} education level(s)?`)) return;
 
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let success = 0;
-    for (const id of selectedIds) {
-      const res = await api.restoreEducationLevel(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreEducationLevel(ids[i]);
       if (res.success) success++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
 
     if (success === selectedIds.size) {
       toast.success(`${success} education level(s) restored`);
@@ -256,12 +272,16 @@ export default function EducationLevelsPage() {
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} education level(s)? This cannot be undone.`)) return;
 
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let success = 0;
-    for (const id of selectedIds) {
-      const res = await api.permanentDeleteEducationLevel(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteEducationLevel(ids[i]);
       if (res.success) success++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
 
     if (success === selectedIds.size) {
       toast.success(`${success} education level(s) permanently deleted`);
@@ -393,7 +413,7 @@ export default function EducationLevelsPage() {
             <div className={cn('border-b px-4 py-3 flex items-center justify-between', showTrash ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200')}>
               <div className="flex items-center gap-2">
                 <span className={cn('text-sm font-medium', showTrash ? 'text-amber-700' : 'text-blue-700')}>
-                  {selectedIds.size} selected
+                  {bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -405,7 +425,7 @@ export default function EducationLevelsPage() {
                       onClick={handleBulkRestore}
                       disabled={bulkActionLoading}
                     >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5 mr-1" />}
                       Restore Selected
                     </Button>
                     <Button
@@ -415,7 +435,7 @@ export default function EducationLevelsPage() {
                       disabled={bulkActionLoading}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                     >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
                       Delete Permanently
                     </Button>
                   </>
@@ -427,7 +447,7 @@ export default function EducationLevelsPage() {
                     disabled={bulkActionLoading}
                     className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                   >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
                     Move to Trash
                   </Button>
                 )}
@@ -542,11 +562,11 @@ export default function EducationLevelsPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(l)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(l)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === l.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(l)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(l)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === l.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -557,8 +577,8 @@ export default function EducationLevelsPage() {
                           <button onClick={() => openEdit(l)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(l)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(l)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === l.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

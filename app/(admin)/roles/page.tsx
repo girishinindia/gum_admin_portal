@@ -18,7 +18,7 @@ import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Shield, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Plus, Shield, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Loader2 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Role } from '@/lib/types';
 
@@ -51,6 +51,8 @@ export default function RolesPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm({ resolver: zodResolver(schema) });
@@ -150,20 +152,26 @@ export default function RolesPage() {
   async function onSoftDelete(role: Role) {
     if (role.is_system) return toast.error('Cannot delete system role');
     if (!confirm(`Move "${role.display_name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(role.id);
     const res = await api.deleteRole(role.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Role moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(role: Role) {
+    setActionLoadingId(role.id);
     const res = await api.restoreRole(role.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${role.display_name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(role: Role) {
     if (!confirm(`PERMANENTLY delete "${role.display_name}"? This cannot be undone.`)) return;
+    setActionLoadingId(role.id);
     const res = await api.permanentDeleteRole(role.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Role permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -189,43 +197,55 @@ export default function RolesPage() {
   async function handleBulkSoftDelete() {
     if (!confirm(`Move ${selectedIds.size} item(s) to trash?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) {
-      const res = await api.deleteRole(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteRole(ids[i]);
       if (res.success) ok++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     toast.success(`${ok} item(s) moved to trash`);
     setSelectedIds(new Set());
     load(); refreshSummary();
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
 
   async function handleBulkRestore() {
     if (!confirm(`Restore ${selectedIds.size} item(s)?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) {
-      const res = await api.restoreRole(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreRole(ids[i]);
       if (res.success) ok++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     toast.success(`${ok} item(s) restored`);
     setSelectedIds(new Set());
     load(); refreshSummary();
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
 
   async function handleBulkPermanentDelete() {
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) {
-      const res = await api.permanentDeleteRole(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteRole(ids[i]);
       if (res.success) ok++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     toast.success(`${ok} item(s) permanently deleted`);
     setSelectedIds(new Set());
     load(); refreshSummary();
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
 
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
@@ -331,15 +351,15 @@ export default function RolesPage() {
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
-              <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+              <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
               <div className="flex items-center gap-2">
                 {showTrash ? (
                   <>
-                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}><RotateCcw className="w-3.5 h-3.5" /> Restore Selected</Button>
-                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Permanently</Button>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
                   </>
                 ) : (
-                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Selected</Button>
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
               </div>
@@ -386,11 +406,11 @@ export default function RolesPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(r)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(r)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(r)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(r)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -404,8 +424,8 @@ export default function RolesPage() {
                             </button>
                           </Link>
                           {!r.is_system && (
-                            <button onClick={() => onSoftDelete(r)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                              <Trash2 className="w-3.5 h-3.5" />
+                            <button onClick={() => onSoftDelete(r)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                              {actionLoadingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                             </button>
                           )}
                         </>

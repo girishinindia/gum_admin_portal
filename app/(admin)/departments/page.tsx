@@ -13,7 +13,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Network, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, Network, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
 import type { Department } from '@/lib/types';
@@ -44,6 +44,8 @@ export default function DepartmentsPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -168,20 +170,26 @@ export default function DepartmentsPage() {
 
   async function onSoftDelete(d: Department) {
     if (!confirm(`Move "${d.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(d.id);
     const res = await api.deleteDepartment(d.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Department moved to trash'); load(); refreshDepartments(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(d: Department) {
+    setActionLoadingId(d.id);
     const res = await api.restoreDepartment(d.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${d.name}" restored`); load(); refreshDepartments(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(d: Department) {
     if (!confirm(`PERMANENTLY delete "${d.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(d.id);
     const res = await api.permanentDeleteDepartment(d.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Department permanently deleted'); load(); refreshDepartments(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -221,13 +229,17 @@ export default function DepartmentsPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Move ${selectedIds.size} department(s) to trash? You can restore them later.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let success = 0, failed = 0;
-    for (const id of selectedIds) {
-      const res = await api.deleteDepartment(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteDepartment(ids[i]);
       if (res.success) success++;
       else failed++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     if (success > 0) toast.success(`${success} department(s) moved to trash`);
     if (failed > 0) toast.error(`${failed} department(s) failed`);
     setSelectedIds(new Set());
@@ -239,13 +251,17 @@ export default function DepartmentsPage() {
   async function handleBulkRestore() {
     if (selectedIds.size === 0) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let success = 0, failed = 0;
-    for (const id of selectedIds) {
-      const res = await api.restoreDepartment(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreDepartment(ids[i]);
       if (res.success) success++;
       else failed++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     if (success > 0) toast.success(`${success} department(s) restored`);
     if (failed > 0) toast.error(`${failed} department(s) failed`);
     setSelectedIds(new Set());
@@ -258,13 +274,17 @@ export default function DepartmentsPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} department(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let success = 0, failed = 0;
-    for (const id of selectedIds) {
-      const res = await api.permanentDeleteDepartment(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteDepartment(ids[i]);
       if (res.success) success++;
       else failed++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     if (success > 0) toast.success(`${success} department(s) permanently deleted`);
     if (failed > 0) toast.error(`${failed} department(s) failed`);
     setSelectedIds(new Set());
@@ -386,7 +406,7 @@ export default function DepartmentsPage() {
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 border-b border-blue-200">
-              <span className="text-sm font-medium text-blue-900">{selectedIds.size} selected</span>
+              <span className="text-sm font-medium text-blue-900">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
               <div className="flex items-center gap-2">
                 {showTrash ? (
                   <>
@@ -397,7 +417,7 @@ export default function DepartmentsPage() {
                       disabled={bulkActionLoading}
                       className="text-emerald-600 hover:text-emerald-700 border-emerald-200 hover:bg-emerald-50"
                     >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5 mr-1.5" />}
                       Restore Selected
                     </Button>
                     <Button
@@ -407,7 +427,7 @@ export default function DepartmentsPage() {
                       disabled={bulkActionLoading}
                       className="text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
                     >
-                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
                       Delete Permanently
                     </Button>
                   </>
@@ -419,7 +439,7 @@ export default function DepartmentsPage() {
                     disabled={bulkActionLoading}
                     className="text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
                   >
-                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
                     Move to Trash
                   </Button>
                 )}
@@ -502,11 +522,11 @@ export default function DepartmentsPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(d)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(d)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === d.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(d)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === d.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -517,8 +537,8 @@ export default function DepartmentsPage() {
                           <button onClick={() => openEdit(d)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(d)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(d)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === d.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

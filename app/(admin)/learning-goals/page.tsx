@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Target, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { Plus, Target, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { LearningGoal } from '@/lib/types';
 
@@ -40,6 +40,8 @@ export default function LearningGoalsPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const [aiOpen, setAiOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
@@ -104,20 +106,26 @@ export default function LearningGoalsPage() {
 
   async function onSoftDelete(g: LearningGoal) {
     if (!confirm(`Move "${g.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(g.id);
     const res = await api.deleteLearningGoal(g.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Learning goal moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(g: LearningGoal) {
+    setActionLoadingId(g.id);
     const res = await api.restoreLearningGoal(g.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${g.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(g: LearningGoal) {
     if (!confirm(`PERMANENTLY delete "${g.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(g.id);
     const res = await api.permanentDeleteLearningGoal(g.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Learning goal permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -143,12 +151,16 @@ export default function LearningGoalsPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Move ${selectedIds.size} learning goal(s) to trash? You can restore them later.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let successCount = 0;
-    for (const id of selectedIds) {
-      const res = await api.deleteLearningGoal(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteLearningGoal(ids[i]);
       if (res.success) successCount++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     if (successCount > 0) { toast.success(`${successCount} learning goal(s) moved to trash`); setSelectedIds(new Set()); load(); refreshSummary(); }
     if (successCount < selectedIds.size) toast.error(`Failed to move ${selectedIds.size - successCount} item(s)`);
   }
@@ -156,12 +168,16 @@ export default function LearningGoalsPage() {
   async function handleBulkRestore() {
     if (selectedIds.size === 0) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let successCount = 0;
-    for (const id of selectedIds) {
-      const res = await api.restoreLearningGoal(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreLearningGoal(ids[i]);
       if (res.success) successCount++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     if (successCount > 0) { toast.success(`${successCount} learning goal(s) restored`); setSelectedIds(new Set()); load(); refreshSummary(); }
     if (successCount < selectedIds.size) toast.error(`Failed to restore ${selectedIds.size - successCount} item(s)`);
   }
@@ -170,12 +186,16 @@ export default function LearningGoalsPage() {
     if (selectedIds.size === 0) return;
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} learning goal(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let successCount = 0;
-    for (const id of selectedIds) {
-      const res = await api.permanentDeleteLearningGoal(id);
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.permanentDeleteLearningGoal(ids[i]);
       if (res.success) successCount++;
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
     if (successCount > 0) { toast.success(`${successCount} learning goal(s) permanently deleted`); setSelectedIds(new Set()); load(); refreshSummary(); }
     if (successCount < selectedIds.size) toast.error(`Failed to delete ${selectedIds.size - successCount} item(s)`);
   }
@@ -286,20 +306,20 @@ export default function LearningGoalsPage() {
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border-b border-blue-200">
-              <span className="text-sm font-medium text-blue-900">{selectedIds.size} selected</span>
+              <span className="text-sm font-medium text-blue-900">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
               <div className="flex items-center gap-2">
                 {showTrash ? (
                   <>
                     <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>
-                      <RotateCcw className="w-4 h-4" /> Restore Selected
+                      {bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} Restore Selected
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                      <Trash2 className="w-4 h-4" /> Delete Permanently
+                      {bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Delete Permanently
                     </Button>
                   </>
                 ) : (
                   <Button size="sm" variant="outline" onClick={handleBulkSoftDelete} disabled={bulkActionLoading} className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                    <Trash2 className="w-4 h-4" /> Move to Trash ({selectedIds.size})
+                    {bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Move to Trash ({selectedIds.size})
                   </Button>
                 )}
                 <button onClick={() => setSelectedIds(new Set())} className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
@@ -363,11 +383,11 @@ export default function LearningGoalsPage() {
                     <div className="flex items-center justify-end gap-1">
                       {showTrash ? (
                         <>
-                          <button onClick={() => onRestore(g)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore">
-                            <RotateCcw className="w-3.5 h-3.5" />
+                          <button onClick={() => onRestore(g)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === g.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                           </button>
-                          <button onClick={() => onPermanentDelete(g)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onPermanentDelete(g)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === g.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       ) : (
@@ -378,8 +398,8 @@ export default function LearningGoalsPage() {
                           <button onClick={() => openEdit(g)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => onSoftDelete(g)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash">
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <button onClick={() => onSoftDelete(g)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === g.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </>
                       )}

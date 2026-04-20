@@ -71,6 +71,8 @@ export default function SubCategoryTranslationsPage() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   // View dialog
   const [viewOpen, setViewOpen] = useState(false);
@@ -230,20 +232,26 @@ export default function SubCategoryTranslationsPage() {
 
   async function onSoftDelete(item: SubCategoryTranslation) {
     if (!confirm(`Move "${item.name}" to trash? You can restore it later.`)) return;
+    setActionLoadingId(item.id);
     const res = await api.deleteSubCategoryTranslation(item.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Translation moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(item: SubCategoryTranslation) {
+    setActionLoadingId(item.id);
     const res = await api.restoreSubCategoryTranslation(item.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success(`"${item.name}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(item: SubCategoryTranslation) {
     if (!confirm(`PERMANENTLY delete "${item.name}"? This cannot be undone.`)) return;
+    setActionLoadingId(item.id);
     const res = await api.permanentDeleteSubCategoryTranslation(item.id);
+    setActionLoadingId(null);
     if (res.success) { toast.success('Translation permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -320,26 +328,35 @@ export default function SubCategoryTranslationsPage() {
   async function handleBulkSoftDelete() {
     if (!confirm(`Move ${selectedIds.size} translation(s) to trash?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) { const res = await api.deleteSubCategoryTranslation(id); if (res.success) ok++; }
+    for (let i = 0; i < ids.length; i++) { const res = await api.deleteSubCategoryTranslation(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
     toast.success(`${ok} translation(s) moved to trash`);
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
   async function handleBulkRestore() {
     if (!confirm(`Restore ${selectedIds.size} translation(s)?`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) { const res = await api.restoreSubCategoryTranslation(id); if (res.success) ok++; }
+    for (let i = 0; i < ids.length; i++) { const res = await api.restoreSubCategoryTranslation(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
     toast.success(`${ok} translation(s) restored`);
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
   async function handleBulkPermanentDelete() {
     if (!confirm(`PERMANENTLY delete ${selectedIds.size} translation(s)? This cannot be undone.`)) return;
     setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (const id of selectedIds) { const res = await api.permanentDeleteSubCategoryTranslation(id); if (res.success) ok++; }
+    for (let i = 0; i < ids.length; i++) { const res = await api.permanentDeleteSubCategoryTranslation(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
     toast.success(`${ok} translation(s) permanently deleted`);
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
   }
 
   function handleSort(field: SortField) {
@@ -445,15 +462,15 @@ export default function SubCategoryTranslationsPage() {
             {/* Bulk action toolbar */}
             {selectedIds.size > 0 && (
               <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
-                <span className="text-sm font-medium text-brand-700">{selectedIds.size} selected</span>
+                <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
                 <div className="flex items-center gap-2">
                   {showTrash ? (
                     <>
-                      <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}><RotateCcw className="w-3.5 h-3.5" /> Restore Selected</Button>
-                      <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Permanently</Button>
+                      <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected</Button>
+                      <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
                     </>
                   ) : (
-                    <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
                   )}
                   <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
                 </div>
@@ -491,14 +508,14 @@ export default function SubCategoryTranslationsPage() {
                       <div className="flex items-center justify-end gap-1">
                         {showTrash ? (
                           <>
-                            <button onClick={() => onRestore(item)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => onPermanentDelete(item)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => onRestore(item)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">{actionLoadingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}</button>
+                            <button onClick={() => onPermanentDelete(item)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">{actionLoadingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
                           </>
                         ) : (
                           <>
                             <button onClick={() => openView(item)} className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
                             <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => onSoftDelete(item)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Move to Trash"><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => onSoftDelete(item)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">{actionLoadingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
                           </>
                         )}
                       </div>
