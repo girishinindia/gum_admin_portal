@@ -1,10 +1,10 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
 import { api } from '@/lib/api';
 import { toast } from './Toast';
-import { Sparkles, Loader2, Check, RefreshCw, Pencil } from 'lucide-react';
+import { Sparkles, Loader2, Check, RefreshCw, Pencil, Search, CheckSquare, Square, MinusSquare, HelpCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type AIProvider = 'anthropic' | 'openai' | 'gemini';
@@ -25,12 +25,25 @@ interface AiMasterDialogProps {
   onClose: () => void;
   createFn: (item: any) => Promise<any>;
   updateFn?: (id: number, item: any) => Promise<any>;
+  listFn?: (qs?: string) => Promise<any>;
   onSaved: () => void;
   defaultCount?: number;
   defaultPrompt?: string;
 }
 
-export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, updateFn, onSaved, defaultCount = 10, defaultPrompt = '' }: AiMasterDialogProps) {
+function getRecordLabel(r: any): string {
+  return r.full_name || r.name || r.display_name || r.code || r.employee_code || r.instructor_code || r.enrollment_number || r.slug || `#${r.id}`;
+}
+
+function getRecordSub(r: any): string {
+  const parts: string[] = [];
+  if (r.code && r.name) parts.push(r.code);
+  if (r.email) parts.push(r.email);
+  if (r.description) parts.push(r.description.slice(0, 60) + (r.description.length > 60 ? '...' : ''));
+  return parts.join(' · ');
+}
+
+export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, updateFn, listFn, onSaved, defaultCount = 10, defaultPrompt = '' }: AiMasterDialogProps) {
   const [mode, setMode] = useState<Mode>('generate');
   const [provider, setProvider] = useState<AIProvider>('gemini');
   const [count, setCount] = useState(defaultCount);
@@ -41,12 +54,44 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
   // Progress tracking
   const [genProgress, setGenProgress] = useState({ current: 0, total: 0 });
   const [saveProgress, setSaveProgress] = useState({ saved: 0, failed: 0, total: 0 });
+  // Record selection for update mode
+  const [existingRecords, setExistingRecords] = useState<any[]>([]);
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<number>>(new Set());
+  const [loadingRecords, setLoadingRecords] = useState(false);
+  const [recordSearch, setRecordSearch] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
+
+  // Load existing records when switching to update mode
+  useEffect(() => {
+    if (mode === 'update' && open && listFn) {
+      loadExistingRecords();
+    }
+  }, [mode, open]);
+
+  async function loadExistingRecords() {
+    if (!listFn) return;
+    setLoadingRecords(true);
+    try {
+      const res = await listFn('?limit=500');
+      if (res.success) {
+        const items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+        setExistingRecords(items);
+        // Select all by default
+        setSelectedRecordIds(new Set(items.map((r: any) => r.id)));
+      }
+    } catch { /* ignore */ }
+    setLoadingRecords(false);
+  }
 
   function handleClose() {
     setGenerated(null);
     setPrompt('');
     setGenProgress({ current: 0, total: 0 });
     setSaveProgress({ saved: 0, failed: 0, total: 0 });
+    setExistingRecords([]);
+    setSelectedRecordIds(new Set());
+    setRecordSearch('');
+    setShowHelp(false);
     onClose();
   }
 
@@ -55,11 +100,52 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
     setGenerated(null);
     setGenProgress({ current: 0, total: 0 });
     setSaveProgress({ saved: 0, failed: 0, total: 0 });
+    setRecordSearch('');
   }
+
+  function toggleRecord(id: number) {
+    setSelectedRecordIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    const filtered = filteredRecords;
+    const allSelected = filtered.every(r => selectedRecordIds.has(r.id));
+    if (allSelected) {
+      // Deselect filtered
+      setSelectedRecordIds(prev => {
+        const next = new Set(prev);
+        filtered.forEach(r => next.delete(r.id));
+        return next;
+      });
+    } else {
+      // Select all filtered
+      setSelectedRecordIds(prev => {
+        const next = new Set(prev);
+        filtered.forEach(r => next.add(r.id));
+        return next;
+      });
+    }
+  }
+
+  const filteredRecords = existingRecords.filter(r => {
+    if (!recordSearch.trim()) return true;
+    const q = recordSearch.toLowerCase();
+    const label = getRecordLabel(r).toLowerCase();
+    const sub = getRecordSub(r).toLowerCase();
+    return label.includes(q) || sub.includes(q) || String(r.id).includes(q);
+  });
 
   async function generate() {
     if (mode === 'update' && !prompt.trim()) {
       toast.error('Prompt is required for updating existing data');
+      return;
+    }
+    if (mode === 'update' && listFn && selectedRecordIds.size === 0) {
+      toast.error('Select at least one record to update');
       return;
     }
     setGenerating(true);
@@ -70,15 +156,24 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
       const effectivePrompt = prompt.trim() || defaultPrompt || '';
 
       if (mode === 'update') {
-        // Update mode — single call
+        // Update mode — pass selected record_ids
         setGenProgress({ current: 1, total: 1 });
-        const res = await api.updateMasterData({ module, provider, prompt: effectivePrompt });
+        const payload: any = { module, provider, prompt: effectivePrompt };
+        if (listFn && selectedRecordIds.size < existingRecords.length) {
+          payload.record_ids = Array.from(selectedRecordIds);
+        }
+        const res = await api.updateMasterData(payload);
         if (res.success) { setGenerated(res.data); } else { toast.error(res.error || 'Failed'); }
       } else {
-        // Generate mode — batch if count > BATCH_SIZE
+        // Generate mode — enforce count by prepending instruction so AI doesn't follow hardcoded numbers in prompt
+        const countEnforcedPrompt = effectivePrompt
+          ? `IMPORTANT: Generate exactly ${count} record(s), no more and no less. Ignore any other count mentioned below.\n\n${effectivePrompt}`
+          : undefined;
+
+        // Batch if count > BATCH_SIZE
         if (count <= BATCH_SIZE) {
           setGenProgress({ current: 1, total: 1 });
-          const res = await api.generateMasterData({ module, provider, count, prompt: effectivePrompt || undefined });
+          const res = await api.generateMasterData({ module, provider, count, prompt: countEnforcedPrompt });
           if (res.success) { setGenerated(res.data); } else { toast.error(res.error || 'Failed'); }
         } else {
           // Batch generation
@@ -93,9 +188,9 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
             setGenProgress({ current: batch + 1, total: totalBatches });
 
             const batchPrompt = effectivePrompt
-              ? `${effectivePrompt}\n\nIMPORTANT: This is batch ${batch + 1} of ${totalBatches}. ${allGenerated.length > 0 ? `You have already generated these in previous batches — do NOT duplicate any: ${allGenerated.map((r: any) => r.name || r.code || r.slug || JSON.stringify(r).slice(0, 50)).join(', ')}` : ''}`
+              ? `IMPORTANT: Generate exactly ${batchCount} record(s) in this batch, no more and no less. Ignore any other count mentioned below.\n\n${effectivePrompt}\n\nThis is batch ${batch + 1} of ${totalBatches}. ${allGenerated.length > 0 ? `You have already generated these in previous batches — do NOT duplicate any: ${allGenerated.map((r: any) => r.name || r.code || r.slug || JSON.stringify(r).slice(0, 50)).join(', ')}` : ''}`
               : (allGenerated.length > 0
-                ? `IMPORTANT: This is batch ${batch + 1} of ${totalBatches}. Do NOT duplicate these already-generated items: ${allGenerated.map((r: any) => r.name || r.code || r.slug || JSON.stringify(r).slice(0, 50)).join(', ')}`
+                ? `IMPORTANT: Generate exactly ${batchCount} record(s). This is batch ${batch + 1} of ${totalBatches}. Do NOT duplicate these already-generated items: ${allGenerated.map((r: any) => r.name || r.code || r.slug || JSON.stringify(r).slice(0, 50)).join(', ')}`
                 : undefined);
 
             const res = await api.generateMasterData({ module, provider, count: batchCount, prompt: batchPrompt });
@@ -134,23 +229,41 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
     try {
       let saved = 0;
       let failed = 0;
+      let firstError = '';
+      const AUTO_FIELDS = ['id', 'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by'];
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         try {
           let res;
+          // Strip auto-generated fields the AI may have included
+          const cleaned: any = {};
+          for (const [k, v] of Object.entries(item)) {
+            if (!AUTO_FIELDS.includes(k)) cleaned[k] = v;
+          }
           if (mode === 'update' && item.id && updateFn) {
-            const { id, ...data } = item;
-            res = await updateFn(id, data);
+            res = await updateFn(item.id, cleaned);
           } else {
-            const { id, ...data } = item;
-            res = await createFn(mode === 'update' ? data : item);
+            res = await createFn(cleaned);
           }
           if (res?.success) saved++;
-          else failed++;
-        } catch { failed++; }
+          else {
+            const errMsg = res?.error || res?.message || 'Unknown error';
+            if (!firstError) firstError = errMsg;
+            console.error(`[AI Save] Record ${i + 1} failed:`, errMsg, 'Data:', cleaned);
+            failed++;
+          }
+        } catch (e: any) {
+          const errMsg = e?.message || String(e);
+          if (!firstError) firstError = errMsg;
+          console.error(`[AI Save] Record ${i + 1} exception:`, e, 'Item:', item);
+          failed++;
+        }
         setSaveProgress({ saved, failed, total });
       }
-      toast.success(`${mode === 'update' ? 'Updated' : 'Saved'} ${saved}/${total} ${moduleLabel.toLowerCase()}${failed > 0 ? ` (${failed} failed)` : ''}`);
+      const msg = `${mode === 'update' ? 'Updated' : 'Saved'} ${saved}/${total} ${moduleLabel.toLowerCase()}${failed > 0 ? ` (${failed} failed)` : ''}`;
+      if (saved === 0) toast.error(firstError ? `${msg} — ${firstError}` : msg);
+      else if (failed > 0) toast.success(msg);
+      else toast.success(msg);
       handleClose();
       onSaved();
     } catch { toast.error('Failed to save records'); }
@@ -248,19 +361,180 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
           </div>
         )}
 
-        {/* Update info */}
-        {mode === 'update' && (
-          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-            AI will fetch all active {moduleLabel.toLowerCase()} records, update them based on your instructions, and return the modified data for review before saving.
+        {/* Record Selection — only in update mode */}
+        {mode === 'update' && !generated && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-slate-700">
+                Select Records to Update
+              </label>
+              <span className="text-xs text-slate-500">
+                {selectedRecordIds.size} of {existingRecords.length} selected
+              </span>
+            </div>
+
+            {loadingRecords ? (
+              <div className="flex items-center justify-center py-6 text-slate-400">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading records...
+              </div>
+            ) : existingRecords.length === 0 ? (
+              <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-6 text-sm text-slate-500 text-center">
+                No active records found to update.
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-200 overflow-hidden">
+                {/* Search + Select All */}
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200">
+                  <button type="button" onClick={toggleAll} className="flex-shrink-0 text-slate-500 hover:text-brand-600 transition-colors" title={filteredRecords.every(r => selectedRecordIds.has(r.id)) ? 'Deselect all' : 'Select all'}>
+                    {filteredRecords.length > 0 && filteredRecords.every(r => selectedRecordIds.has(r.id))
+                      ? <CheckSquare className="w-4.5 h-4.5 text-brand-600" />
+                      : filteredRecords.some(r => selectedRecordIds.has(r.id))
+                        ? <MinusSquare className="w-4.5 h-4.5 text-brand-400" />
+                        : <Square className="w-4.5 h-4.5" />
+                    }
+                  </button>
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={recordSearch}
+                      onChange={e => setRecordSearch(e.target.value)}
+                      placeholder="Search records..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500"
+                    />
+                  </div>
+                </div>
+                {/* Record List */}
+                <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
+                  {filteredRecords.map(r => {
+                    const isSelected = selectedRecordIds.has(r.id);
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => toggleRecord(r.id)}
+                        className={cn(
+                          'w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors',
+                          isSelected ? 'bg-brand-50/50 hover:bg-brand-50' : 'hover:bg-slate-50'
+                        )}
+                      >
+                        {isSelected
+                          ? <CheckSquare className="w-4 h-4 text-brand-600 flex-shrink-0" />
+                          : <Square className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                        }
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-slate-400">#{r.id}</span>
+                            <span className={cn('text-sm font-medium truncate', isSelected ? 'text-slate-900' : 'text-slate-600')}>
+                              {getRecordLabel(r)}
+                            </span>
+                          </div>
+                          {getRecordSub(r) && (
+                            <div className="text-xs text-slate-400 truncate mt-0.5">{getRecordSub(r)}</div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {filteredRecords.length === 0 && (
+                    <div className="px-3 py-4 text-xs text-slate-400 text-center">No records match your search.</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* Prompt / Instructions */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            {mode === 'update' ? 'Update Instructions' : 'Custom Instructions'}{' '}
-            <span className="text-slate-400 font-normal">{mode === 'update' ? '(required)' : '(optional)'}</span>
-          </label>
+          <div className="flex items-center gap-1.5 mb-1">
+            <label className="block text-sm font-medium text-slate-700">
+              {mode === 'update' ? 'Update Instructions' : 'Custom Instructions'}{' '}
+              <span className="text-slate-400 font-normal">{mode === 'update' ? '(required)' : '(optional)'}</span>
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowHelp(!showHelp)}
+                className={cn(
+                  'p-0.5 rounded-full transition-colors',
+                  showHelp ? 'text-brand-600 bg-brand-50' : 'text-slate-400 hover:text-brand-500 hover:bg-slate-100'
+                )}
+                title="Prompt tips"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+
+              {/* Help Popup */}
+              {showHelp && (
+                <div className="absolute left-0 top-7 z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-xl animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-slate-100">
+                    <span className="text-sm font-semibold text-slate-800">
+                      {mode === 'update' ? 'Update Prompt Tips' : 'Generate Prompt Tips'}
+                    </span>
+                    <button type="button" onClick={() => setShowHelp(false)} className="p-0.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {mode === 'generate' ? (
+                    <div className="px-4 py-3 space-y-3 text-xs text-slate-600 max-h-72 overflow-y-auto">
+                      <div>
+                        <div className="font-semibold text-slate-700 mb-1">Be specific about the data you want</div>
+                        <div className="space-y-1.5 text-slate-500">
+                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Generate Indian state names with ISO codes and Hindi translations&quot;</div>
+                          <div className="bg-red-50 text-red-600 px-2.5 py-1.5 rounded-md font-mono">&quot;Generate some states&quot;</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-700 mb-1">Mention a theme, region, or domain</div>
+                        <div className="space-y-1.5 text-slate-500">
+                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Create technology skills focused on web development and cloud computing&quot;</div>
+                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Generate departments for a K-12 school in India&quot;</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-700 mb-1">Include field-level detail</div>
+                        <div className="space-y-1.5 text-slate-500">
+                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Generate categories with short_code as 3-letter uppercase and description under 100 chars&quot;</div>
+                        </div>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg px-3 py-2 text-blue-700">
+                        <span className="font-semibold">Tip:</span> Leave blank to let AI use sensible defaults for {moduleLabel.toLowerCase()}.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3 space-y-3 text-xs text-slate-600 max-h-72 overflow-y-auto">
+                      <div>
+                        <div className="font-semibold text-slate-700 mb-1">Tell AI exactly what to change</div>
+                        <div className="space-y-1.5 text-slate-500">
+                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Add a Hindi description to each record in the description field&quot;</div>
+                          <div className="bg-red-50 text-red-600 px-2.5 py-1.5 rounded-md font-mono">&quot;Update the records&quot;</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-700 mb-1">Refer to specific fields</div>
+                        <div className="space-y-1.5 text-slate-500">
+                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Set sort_order based on alphabetical order of name&quot;</div>
+                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Fix spelling errors in the name and description fields&quot;</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-700 mb-1">Use conditions for selective changes</div>
+                        <div className="space-y-1.5 text-slate-500">
+                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;For records missing a description, add a meaningful 2-line description&quot;</div>
+                          <div className="bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md font-mono">&quot;Change status to active only for records that have a valid code&quot;</div>
+                        </div>
+                      </div>
+                      <div className="bg-amber-50 rounded-lg px-3 py-2 text-amber-700">
+                        <span className="font-semibold">Tip:</span> Select only the records you want to update above — unselected records won&apos;t be touched.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
           <textarea
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
@@ -281,13 +555,15 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
         {/* Generate / Update Button + Progress */}
         {!generated && (
           <div className="space-y-2">
-            <Button type="button" onClick={generate} disabled={generating} className="w-full">
+            <Button type="button" onClick={generate} disabled={generating || (mode === 'update' && loadingRecords)} className="w-full">
               {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === 'update' ? <Pencil className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
               {generating
                 ? (genProgress.total > 1
                   ? `Generating batch ${genProgress.current}/${genProgress.total}...`
                   : (mode === 'update' ? 'Updating...' : 'Generating...'))
-                : (mode === 'update' ? 'Update Existing Data' : 'Generate Sample Data')}
+                : (mode === 'update'
+                  ? `Update ${selectedRecordIds.size} Record${selectedRecordIds.size !== 1 ? 's' : ''}`
+                  : 'Generate Sample Data')}
             </Button>
             {/* Generation progress bar */}
             {generating && genProgress.total > 1 && (

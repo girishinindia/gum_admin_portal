@@ -696,7 +696,7 @@ export default function LanguagesPage() {
           </div>
         </form>
       </Dialog>
-      <AiMasterDialog module="languages" moduleLabel="Languages" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createLanguage(item)} updateFn={(id, item) => api.updateLanguage(id, item)} onSaved={() => { load(); refreshSummary(); }} />
+      <AiMasterDialog module="languages" moduleLabel="Languages" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createLanguage(item)} updateFn={(id, item) => api.updateLanguage(id, item)} listFn={(qs) => api.listLanguages(qs)} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

@@ -17,6 +17,7 @@ export interface User {
   mobile: string;
   avatar_url?: string | null;
   status: 'active' | 'inactive' | 'suspended';
+  type: 'employee' | 'instructor' | 'student';
   locale: 'en' | 'hi' | 'gu';
   preferences?: any;
   last_login_at?: string;

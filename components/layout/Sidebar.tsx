@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, Briefcase, UserCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -65,6 +65,15 @@ const navGroups: NavGroup[] = [
         icon: Layers,
         subLinks: [{ href: '/sub-category-translations', label: 'Translations' }],
       },
+    ],
+  },
+  {
+    key: 'profiles',
+    title: 'Profiles',
+    items: [
+      { href: '/employee-profiles',   label: 'Employee Profiles',   icon: Briefcase },
+      { href: '/student-profiles',    label: 'Student Profiles',    icon: GraduationCap },
+      { href: '/instructor-profiles', label: 'Instructor Profiles', icon: UserCheck },
     ],
   },
   {

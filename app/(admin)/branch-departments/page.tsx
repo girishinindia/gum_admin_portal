@@ -13,8 +13,9 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Link2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { Plus, Link2, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Loader2, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
+import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import type { BranchDepartment, Branch, Department } from '@/lib/types';
 
 type SortField = 'id' | 'sort_order' | 'is_active';
@@ -46,6 +47,7 @@ export default function BranchDepartmentsPage() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  const [aiOpen, setAiOpen] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -308,7 +310,12 @@ export default function BranchDepartmentsPage() {
         description="Manage department assignments to branches"
         actions={
           <div className="flex items-center gap-2">
-            {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add assignment</Button>}
+            {!showTrash && (
+              <>
+                <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>
+                <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add assignment</Button>
+              </>
+            )}
           </div>
         }
       />
@@ -729,6 +736,7 @@ export default function BranchDepartmentsPage() {
           </div>
         </form>
       </Dialog>
+      <AiMasterDialog module="branch_departments" moduleLabel="Branch Departments" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createBranchDepartment(item)} updateFn={(id, item) => api.updateBranchDepartment(id, item)} defaultPrompt="Generate branch-department assignments. Assign core departments (HR, Finance, Admin, Operations) to every branch, and specialized departments (Engineering, Product, Design, QA, Data Science) to larger branches or head office." defaultCount={10} listFn={(qs) => api.listBranchDepartments(qs)} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

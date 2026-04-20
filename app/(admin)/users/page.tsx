@@ -58,6 +58,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [searchDebounce, setSearchDebounce] = useState(searchParams.get('search') || '');
   const [status, setStatus] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showTrash, setShowTrash] = useState(false);
@@ -75,7 +76,7 @@ export default function UsersPage() {
   }, [searchParams]);
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, status, pageSize, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, status, typeFilter, pageSize, showTrash]);
 
   useEffect(() => {
     api.getTableSummary('users').then(res => {
@@ -83,7 +84,7 @@ export default function UsersPage() {
     });
   }, []);
 
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, status, sortField, sortOrder, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, status, typeFilter, sortField, sortOrder, showTrash]);
   useEffect(() => { if (isSuperAdmin) loadRoles(); }, [isSuperAdmin]);
 
   async function load() {
@@ -97,6 +98,7 @@ export default function UsersPage() {
     } else {
       if (status) qs.set('status', status);
     }
+    if (typeFilter) qs.set('type', typeFilter);
     const res = await api.listUsers(`?${qs}`);
     if (res.success && Array.isArray(res.data)) {
       setUsers(res.data);
@@ -319,12 +321,20 @@ export default function UsersPage() {
 
       <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search by name, email, or mobile...'}>
         {!showTrash && (
-          <select className={selectClass} value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="suspended">Suspended</option>
-          </select>
+          <>
+            <select className={selectClass} value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="suspended">Suspended</option>
+            </select>
+            <select className={selectClass} value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1); }}>
+              <option value="">All Types</option>
+              <option value="student">Student</option>
+              <option value="employee">Employee</option>
+              <option value="instructor">Instructor</option>
+            </select>
+          </>
         )}
       </DataToolbar>
 
@@ -378,6 +388,7 @@ export default function UsersPage() {
                 <TH><button onClick={() => handleSort('full_name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">User <SortIcon field="full_name" /></button></TH>
                 <TH><button onClick={() => handleSort('email')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Contact <SortIcon field="email" /></button></TH>
                 {showTrash && <TH>Deleted</TH>}
+                {!showTrash && <TH>Type</TH>}
                 <TH><button onClick={() => handleSort('status')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="status" /></button></TH>
                 {!showTrash && <TH>Last Login</TH>}
                 {!showTrash && <TH><button onClick={() => handleSort('created_at')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Joined <SortIcon field="created_at" /></button></TH>}
@@ -407,6 +418,13 @@ export default function UsersPage() {
                   {showTrash && (
                     <TD className="py-2.5">
                       <span className="text-xs text-amber-600">{u.deleted_at ? fromNow(u.deleted_at) : '—'}</span>
+                    </TD>
+                  )}
+                  {!showTrash && (
+                    <TD className="py-2.5">
+                      <Badge variant={u.type === 'employee' ? 'info' : u.type === 'instructor' ? 'success' : 'default'}>
+                        {u.type ? u.type.charAt(0).toUpperCase() + u.type.slice(1) : 'Student'}
+                      </Badge>
                     </TD>
                   )}
                   <TD className="py-2.5">

@@ -327,6 +327,39 @@ export const api = {
   restoreBranchDepartment: (id: number) => request(`/branch-departments/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteBranchDepartment: (id: number) => request(`/branch-departments/${id}/permanent`, { method: 'DELETE' }),
 
+  // Employee Profiles
+  listEmployeeProfiles: (qs = '') => request(`/employee-profiles${qs}`),
+  getEmployeeProfile: (id: number) => request(`/employee-profiles/${id}`),
+  getEmployeeProfileByUserId: (userId: number) => request(`/employee-profiles/user/${userId}`),
+  upsertEmployeeProfile: (userId: number, data: any) => request(`/employee-profiles/user/${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  createEmployeeProfile: (data: any) => request('/employee-profiles', { method: 'POST', body: JSON.stringify(data) }),
+  updateEmployeeProfile: (id: number, data: any) => request(`/employee-profiles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteEmployeeProfile: (id: number) => request(`/employee-profiles/${id}`, { method: 'DELETE' }),
+  restoreEmployeeProfile: (id: number) => request(`/employee-profiles/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteEmployeeProfile: (id: number) => request(`/employee-profiles/${id}/permanent`, { method: 'DELETE' }),
+
+  // Student Profiles
+  listStudentProfiles: (qs = '') => request(`/student-profiles${qs}`),
+  getStudentProfile: (id: number) => request(`/student-profiles/${id}`),
+  getStudentProfileByUserId: (userId: number) => request(`/student-profiles/user/${userId}`),
+  upsertStudentProfile: (userId: number, data: any) => request(`/student-profiles/user/${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  createStudentProfile: (data: any) => request('/student-profiles', { method: 'POST', body: JSON.stringify(data) }),
+  updateStudentProfile: (id: number, data: any) => request(`/student-profiles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteStudentProfile: (id: number) => request(`/student-profiles/${id}`, { method: 'DELETE' }),
+  restoreStudentProfile: (id: number) => request(`/student-profiles/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteStudentProfile: (id: number) => request(`/student-profiles/${id}/permanent`, { method: 'DELETE' }),
+
+  // Instructor Profiles
+  listInstructorProfiles: (qs = '') => request(`/instructor-profiles${qs}`),
+  getInstructorProfile: (id: number) => request(`/instructor-profiles/${id}`),
+  getInstructorProfileByUserId: (userId: number) => request(`/instructor-profiles/user/${userId}`),
+  upsertInstructorProfile: (userId: number, data: any) => request(`/instructor-profiles/user/${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  createInstructorProfile: (data: any) => request('/instructor-profiles', { method: 'POST', body: JSON.stringify(data) }),
+  updateInstructorProfile: (id: number, data: any) => request(`/instructor-profiles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteInstructorProfile: (id: number) => request(`/instructor-profiles/${id}`, { method: 'DELETE' }),
+  restoreInstructorProfile: (id: number) => request(`/instructor-profiles/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteInstructorProfile: (id: number) => request(`/instructor-profiles/${id}/permanent`, { method: 'DELETE' }),
+
   // User Profiles
   listUserProfiles: (qs = '') => request(`/user-profiles${qs}`),
   getUserProfile: (userId: number) => request(`/user-profiles/user/${userId}`),

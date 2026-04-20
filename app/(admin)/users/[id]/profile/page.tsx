@@ -22,8 +22,11 @@ import {
   Shield, Bell, CheckCircle2, AlertCircle, Camera, Image, GraduationCap,
   Plus, Edit2, Trash2, RotateCcw, Eye, X, Award, BookOpen,
   Briefcase, Share2, Wrench, Languages, FileText, FolderKanban, Globe2, Sparkles,
-  Pencil, RefreshCw, Check,
+  Pencil, RefreshCw, Check, UserCheck,
 } from 'lucide-react';
+import EmployeeProfileTab from '@/components/profile-tabs/EmployeeProfileTab';
+import StudentProfileTab from '@/components/profile-tabs/StudentProfileTab';
+import InstructorProfileTab from '@/components/profile-tabs/InstructorProfileTab';
 
 // ── Tab definitions ──
 const TABS = [
@@ -40,6 +43,9 @@ const TABS = [
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'resume', label: 'Resume', icon: Globe2 },
   { id: 'preferences', label: 'Preferences', icon: Bell },
+  { id: 'employee', label: 'Employee Profile', icon: Briefcase },
+  { id: 'student', label: 'Student Profile', icon: GraduationCap },
+  { id: 'instructor', label: 'Instructor Profile', icon: UserCheck },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -995,7 +1001,12 @@ export default function UserProfilePage() {
           <nav className="w-56 flex-shrink-0">
             <Card className="sticky top-4">
               <div className="py-2">
-                {TABS.map(tab => {
+                {TABS.filter(tab => {
+                  // Show only the profile tab matching the user's type
+                  const profileTabs = ['employee', 'student', 'instructor'];
+                  if (profileTabs.includes(tab.id)) return tab.id === userData?.type;
+                  return true;
+                }).map(tab => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
                   return (
@@ -1030,6 +1041,13 @@ export default function UserProfilePage() {
 
           {/* Content */}
           <div className="flex-1 min-w-0">
+            {/* 1:1 Profile Tabs — separate from main form */}
+            {activeTab === 'employee' && <EmployeeProfileTab userId={userId} canEdit={canEdit} />}
+            {activeTab === 'student' && <StudentProfileTab userId={userId} canEdit={canEdit} />}
+            {activeTab === 'instructor' && <InstructorProfileTab userId={userId} canEdit={canEdit} />}
+
+            {/* Main form tabs */}
+            {!['employee', 'student', 'instructor'].includes(activeTab) && (
             <Card>
               <div className="px-6 py-5 border-b border-slate-100">
                 <h2 className="text-lg font-semibold text-slate-900">
@@ -1047,6 +1065,35 @@ export default function UserProfilePage() {
                         </Button>
                       </div>
                     )}
+                    {/* User Type */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg bg-slate-50 border border-slate-200">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">User Type</label>
+                        <select
+                          value={userData?.type || 'student'}
+                          onChange={async (e) => {
+                            const newType = e.target.value;
+                            const res = await api.updateUser(userId, { type: newType });
+                            if (res.success) {
+                              setUserData({ ...userData, type: newType });
+                              toast.success(`User type changed to ${newType}`);
+                            } else {
+                              toast.error(res.error || 'Failed to update type');
+                            }
+                          }}
+                          disabled={!canEdit}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 capitalize"
+                        >
+                          <option value="student">Student</option>
+                          <option value="employee">Employee</option>
+                          <option value="instructor">Instructor</option>
+                        </select>
+                      </div>
+                      <div className="col-span-2 flex items-end">
+                        <p className="text-xs text-slate-500">Determines which profile tab is available for this user. Changing the type will show the corresponding profile section in the sidebar.</p>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Input label="Date of Birth" type="date" {...register('date_of_birth')} />
                       <Select
@@ -2493,6 +2540,7 @@ export default function UserProfilePage() {
                 )}
               </CardContent>
             </Card>
+            )}
           </div>
         </div>
       </form>

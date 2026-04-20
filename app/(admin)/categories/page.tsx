@@ -846,7 +846,7 @@ export default function CategoriesPage() {
           </div>
         </form>
       </Dialog>
-      <AiMasterDialog module="categories" moduleLabel="Categories" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createCategory(item)} updateFn={(id, item) => api.updateCategory(id, item)} onSaved={() => { load(); refreshSummary(); }} />
+      <AiMasterDialog module="categories" moduleLabel="Categories" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createCategory(item)} updateFn={(id, item) => api.updateCategory(id, item)} listFn={(qs) => api.listCategories(qs)} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

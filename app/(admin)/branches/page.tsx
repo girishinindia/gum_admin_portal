@@ -771,7 +771,7 @@ export default function BranchesPage() {
           </div>
         </form>
       </Dialog>
-      <AiMasterDialog module="branches" moduleLabel="Branches" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createBranch(item)} updateFn={(id, item) => api.updateBranch(id, item)} defaultPrompt="Generate branch/office records for GrowUpMore across different Indian cities. Include head office, regional offices, and branch offices with realistic Indian addresses, PIN codes, phone numbers, and email addresses. Fields: name, code, branch_type (head_office/regional_office/branch_office/satellite_office/virtual_office/training_center), address_line_1, address_line_2, pincode, phone, email, country_id, state_id, city_id, is_active=true, sort_order." defaultCount={10} onSaved={() => { load(); refreshSummary(); }} />
+      <AiMasterDialog module="branches" moduleLabel="Branches" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createBranch(item)} updateFn={(id, item) => api.updateBranch(id, item)} defaultPrompt="Generate branch/office records for GrowUpMore across different Indian cities. Include head office, regional offices, and branch offices with realistic Indian addresses, PIN codes, phone numbers, and email addresses. Fields: name, code, branch_type (head_office/regional_office/branch_office/satellite_office/virtual_office/training_center), address_line_1, address_line_2, pincode, phone, email, country_id, state_id, city_id, is_active=true, sort_order." defaultCount={10} listFn={(qs) => api.listBranches(qs)} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

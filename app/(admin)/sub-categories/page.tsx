@@ -832,7 +832,7 @@ export default function SubCategoriesPage() {
           </div>
         </form>
       </Dialog>
-      <AiMasterDialog module="sub_categories" moduleLabel="Sub-Categories" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createSubCategory(item)} updateFn={(id, item) => api.updateSubCategory(id, item)} onSaved={() => { load(); refreshSummary(); }} />
+      <AiMasterDialog module="sub_categories" moduleLabel="Sub-Categories" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createSubCategory(item)} updateFn={(id, item) => api.updateSubCategory(id, item)} listFn={(qs) => api.listSubCategories(qs)} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }

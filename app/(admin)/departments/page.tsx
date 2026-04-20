@@ -661,7 +661,7 @@ export default function DepartmentsPage() {
           </div>
         </form>
       </Dialog>
-      <AiMasterDialog module="departments" moduleLabel="Departments" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createDepartment(item)} updateFn={(id, item) => api.updateDepartment(id, item)} defaultPrompt="Generate department records for an educational technology company. Include: Engineering (ENG), Product (PRD), Design (DES), Marketing (MKT), Sales (SAL), Human Resources (HR), Finance (FIN), Operations (OPS), Legal (LEG), Customer Support (CS), Content (CNT), Quality Assurance (QA), Data Science (DS), DevOps (DVO), Research (RES), Administration (ADM), Business Development (BD), Partnerships (PRT). Fields: name, code, description, is_active=true, sort_order." defaultCount={15} onSaved={() => { load(); refreshSummary(); }} />
+      <AiMasterDialog module="departments" moduleLabel="Departments" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createDepartment(item)} updateFn={(id, item) => api.updateDepartment(id, item)} defaultPrompt="Generate department records for an educational technology company. Include: Engineering (ENG), Product (PRD), Design (DES), Marketing (MKT), Sales (SAL), Human Resources (HR), Finance (FIN), Operations (OPS), Legal (LEG), Customer Support (CS), Content (CNT), Quality Assurance (QA), Data Science (DS), DevOps (DVO), Research (RES), Administration (ADM), Business Development (BD), Partnerships (PRT). Fields: name, code, description, is_active=true, sort_order." defaultCount={15} listFn={(qs) => api.listDepartments(qs)} onSaved={() => { load(); refreshSummary(); }} />
     </div>
   );
 }
