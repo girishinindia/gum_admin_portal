@@ -406,7 +406,7 @@ export default function UsersPage() {
                   <TD className="py-2.5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold overflow-hidden flex-shrink-0">
-                        {(u.user_profiles?.[0]?.profile_image_url || u.avatar_url) ? <img src={(u.user_profiles?.[0]?.profile_image_url || u.avatar_url)!} alt="" className="w-full h-full object-cover" /> : initials(u.full_name)}
+                        {(u.profile_image_url || u.avatar_url) ? <img src={(u.profile_image_url || u.avatar_url)!} alt="" className="w-full h-full object-cover" /> : initials(u.full_name)}
                       </div>
                       <div className="min-w-0">
                         <div className={cn('font-medium text-sm truncate', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{u.full_name}</div>
@@ -488,7 +488,7 @@ export default function UsersPage() {
           <div className="p-6">
             <div className="flex items-center gap-4 mb-6">
               <div className="w-14 h-14 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-lg font-semibold overflow-hidden flex-shrink-0">
-                {(viewing.user_profiles?.[0]?.profile_image_url || viewing.avatar_url) ? <img src={viewing.user_profiles?.[0]?.profile_image_url || viewing.avatar_url!} alt="" className="w-full h-full object-cover" /> : initials(viewing.full_name)}
+                {(viewing.profile_image_url || viewing.avatar_url) ? <img src={(viewing.profile_image_url || viewing.avatar_url)!} alt="" className="w-full h-full object-cover" /> : initials(viewing.full_name)}
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">{viewing.full_name}</h3>

@@ -27,7 +27,7 @@ export interface User {
   deleted_at?: string | null;
   roles?: Array<{ role: string; display_name: string; level: number }>;
   max_role_level?: number;
-  user_profiles?: Array<{ profile_image_url?: string | null }> | null;
+  profile_image_url?: string | null;
 }
 
 export interface Role {
