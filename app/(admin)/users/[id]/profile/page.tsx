@@ -701,7 +701,7 @@ export default function UserProfilePage() {
   }, [userId, prjPage, prjPageSize, prjSearch, prjShowTrash, useSelfPrj]);
   useEffect(() => { if (activeTab === 'projects') loadProjects(); }, [activeTab, loadProjects]);
 
-  function openPrjCreate() { setPrjEditing(null); prjReset({ user_id: userId, project_title: '', project_type: 'personal', project_status: 'completed', description: '', role_in_project: '', technologies_used: '', start_date: '', end_date: '', is_ongoing: false, project_url: '', repository_url: '', organization_name: '' }); setPrjDialogOpen(true); }
+  function openPrjCreate() { setPrjEditing(null); prjReset({ user_id: userId, project_title: '', project_code: '', project_type: 'personal', project_status: 'completed', description: '', objectives: '', role_in_project: '', responsibilities: '', team_size: '', is_solo_project: false, organization_name: '', client_name: '', industry: '', technologies_used: '', tools_used: '', programming_languages: '', frameworks: '', databases_used: '', platform: '', start_date: '', end_date: '', is_ongoing: false, duration_months: '', key_achievements: '', challenges_faced: '', lessons_learned: '', impact_summary: '', users_served: '', project_url: '', repository_url: '', demo_url: '', documentation_url: '', thumbnail_url: '', case_study_url: '', is_featured: false, is_published: false, awards: '', certifications: '', reference_name: '', reference_email: '', reference_phone: '', display_order: '' }); setPrjDialogOpen(true); }
   function openPrjEdit(item: any) { setPrjEditing(item); prjReset({ project_title: item.project_title||'', project_type: item.project_type||'personal', project_status: item.project_status||'completed', description: item.description||'', role_in_project: item.role_in_project||'', technologies_used: item.technologies_used||'', start_date: item.start_date||'', end_date: item.end_date||'', is_ongoing: item.is_ongoing||false, project_url: item.project_url||'', repository_url: item.repository_url||'', organization_name: item.organization_name||'', is_featured: item.is_featured||false }); setPrjDialogOpen(true); }
   async function onPrjSubmit(data: any) {
     setPrjSaving(true);
@@ -2262,8 +2262,8 @@ export default function UserProfilePage() {
                                   <input type="checkbox" checked={prjSelectedIds.has(rec.id)} onChange={() => prjToggleSelect(rec.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" />
                                 </TD>
                                 <TD>
-                                  <div className="font-medium text-slate-900 text-sm">{rec.title}</div>
-                                  {rec.organization && <div className="text-xs text-slate-500">{rec.organization}</div>}
+                                  <div className="font-medium text-slate-900 text-sm">{rec.project_title}</div>
+                                  {rec.organization_name && <div className="text-xs text-slate-500">{rec.organization_name}</div>}
                                   <div className="flex gap-1 mt-0.5">
                                     {rec.is_featured && <Badge variant="default" className="text-[10px] px-1 py-0">Featured</Badge>}
                                   </div>
@@ -2276,14 +2276,14 @@ export default function UserProfilePage() {
                                   )}
                                 </TD>
                                 <TD>
-                                  {rec.status && (
+                                  {rec.project_status && (
                                     <Badge variant="muted" className="text-[10px] px-1.5 py-0.5">
-                                      {rec.status}
+                                      {rec.project_status}
                                     </Badge>
                                   )}
                                 </TD>
                                 <TD>
-                                  <div className="text-sm text-slate-700">{rec.technologies || '—'}</div>
+                                  <div className="text-sm text-slate-700">{rec.technologies_used || '—'}</div>
                                 </TD>
                                 <TD>
                                   <div className="text-sm text-slate-700">
@@ -2817,7 +2817,10 @@ export default function UserProfilePage() {
             <Input label="Project URL" {...prjRegister('project_url')} placeholder="https://..." />
             <Input label="Repository URL" {...prjRegister('repository_url')} placeholder="https://github.com/..." />
           </div>
-          <Input label="Description" {...prjRegister('description')} placeholder="What the project is about..." />
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Description</label>
+            <textarea {...prjRegister('description')} placeholder="What the project is about..." rows={3} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 resize-none" />
+          </div>
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" {...prjRegister('is_ongoing')} className="w-4 h-4 rounded border-slate-300 text-brand-600" /><span className="text-sm text-slate-700">Ongoing</span></label>
             <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" {...prjRegister('is_featured')} className="w-4 h-4 rounded border-slate-300 text-brand-600" /><span className="text-sm text-slate-700">Featured</span></label>
