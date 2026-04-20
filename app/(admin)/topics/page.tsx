@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, X, Sparkles } from 'lucide-react';
+import { Plus, BookOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Topic, Chapter } from '@/lib/types';
 
@@ -27,6 +27,17 @@ interface CoverageItem {
   translated_languages: { id: number; name: string; iso_code: string }[];
   missing_languages: { id: number; name: string; iso_code: string }[];
 }
+
+interface BulkResult { iso_code: string; language: string; status: 'success' | 'error'; error?: string; id?: number }
+
+type AIProvider = 'anthropic' | 'openai' | 'gemini';
+const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
+  { value: 'anthropic', label: 'Anthropic', model: 'Claude Haiku 4.5' },
+  { value: 'openai', label: 'OpenAI', model: 'GPT-4o Mini' },
+  { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
+];
+
+const DEFAULT_BULK_PROMPT = `Create content in English language for selected topic with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.`;
 
 type SortField = 'id' | 'slug' | 'display_order' | 'sort_order' | 'is_active';
 
@@ -61,9 +72,16 @@ export default function TopicsPage() {
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
-  // Coverage
+  // Coverage + Bulk Generate
   const [coverage, setCoverage] = useState<Record<number, CoverageItem>>({});
   const [aiOpen, setAiOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkTopic, setBulkTopic] = useState<Topic | null>(null);
+  const [bulkPrompt, setBulkPrompt] = useState(DEFAULT_BULK_PROMPT);
+  const [bulkProvider, setBulkProvider] = useState<AIProvider>('gemini');
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
+  const [bulkDone, setBulkDone] = useState(false);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -123,6 +141,41 @@ export default function TopicsPage() {
       res.data.forEach((c: CoverageItem) => { map[c.topic_id] = c; });
       setCoverage(map);
     }
+  }
+
+  function openBulkGenerate(topic: Topic) {
+    setBulkTopic(topic);
+    setBulkPrompt(DEFAULT_BULK_PROMPT);
+    setBulkProvider('gemini');
+    setBulkResults([]);
+    setBulkDone(false);
+    setBulkLoading(false);
+    setBulkOpen(true);
+  }
+
+  async function handleBulkGenerate() {
+    if (!bulkTopic) return;
+    setBulkLoading(true);
+    setBulkResults([]);
+    setBulkDone(false);
+    try {
+      const res = await api.bulkGenerateTopicTranslations({
+        topic_id: bulkTopic.id,
+        prompt: bulkPrompt,
+        provider: bulkProvider,
+      });
+      if (res.success && res.data) {
+        setBulkResults(res.data.results || []);
+        toast.success(`Generated translations using ${AI_PROVIDERS.find(p => p.value === bulkProvider)?.label}`);
+        loadCoverage();
+      } else {
+        toast.error(res.error || 'Bulk generation failed');
+      }
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkLoading(false);
+    setBulkDone(true);
   }
 
   function handleSort(field: SortField) {
@@ -461,7 +514,15 @@ export default function TopicsPage() {
                             <Badge variant={complete ? 'success' : 'warning'}>
                               {cov.translated_count}/{cov.total_languages}
                             </Badge>
-                            {!complete && <span title="AI translation available"><Sparkles className="w-3.5 h-3.5 text-indigo-400" /></span>}
+                            {!complete && (
+                              <button
+                                onClick={() => openBulkGenerate(t)}
+                                className="p-1 rounded-md text-violet-500 hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                                title="Generate missing translations"
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         );
                       })()}
@@ -611,6 +672,113 @@ export default function TopicsPage() {
         </form>
       </Dialog>
       <AiMasterDialog module="topics" moduleLabel="Topics" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createTopic(item)} updateFn={(id, item) => api.updateTopic(id, item)} listFn={(qs) => api.listTopics(qs)} onSaved={() => { load(); refreshSummary(); }} />
+
+      {/* Bulk AI Generate Translations Dialog */}
+      <Dialog open={bulkOpen} onClose={() => !bulkLoading && setBulkOpen(false)} title="AI Generate Translations" size="lg">
+        {bulkTopic && (
+          <div className="p-6 space-y-5">
+            {/* Topic info */}
+            <div className="flex items-center gap-3 bg-slate-50 rounded-lg px-4 py-3">
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white flex items-center justify-center border border-slate-200 flex-shrink-0">
+                <BookOpen className="w-5 h-5 text-slate-300" />
+              </div>
+              <div>
+                <div className="font-semibold text-slate-900 font-mono text-sm">#{bulkTopic.id}</div>
+                <div className="text-xs text-slate-500">/{bulkTopic.slug}</div>
+              </div>
+            </div>
+
+            {/* Missing languages */}
+            {coverage[bulkTopic.id] && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Missing Translations ({coverage[bulkTopic.id].missing_count} of {coverage[bulkTopic.id].total_languages} languages)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {coverage[bulkTopic.id].missing_languages.map(lang => (
+                    <span key={lang.id} className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-md font-medium">
+                      {lang.name} ({lang.iso_code})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* AI Provider selector */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">AI Provider</label>
+              <div className="grid grid-cols-3 gap-2">
+                {AI_PROVIDERS.map(p => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    disabled={bulkLoading}
+                    onClick={() => setBulkProvider(p.value)}
+                    className={cn(
+                      'px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-left',
+                      bulkProvider === p.value
+                        ? 'border-violet-500 bg-violet-50 text-violet-700 ring-1 ring-violet-500/20'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <div className="font-semibold">{p.label}</div>
+                    <div className="text-xs opacity-70 mt-0.5">{p.model}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Prompt */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Prompt</label>
+              <textarea
+                value={bulkPrompt}
+                onChange={e => setBulkPrompt(e.target.value)}
+                disabled={bulkLoading}
+                rows={4}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 disabled:opacity-50 resize-none"
+              />
+            </div>
+
+            {/* Results */}
+            {bulkResults.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Results</label>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {bulkResults.map((r, i) => (
+                    <div key={i} className={cn(
+                      'flex items-center justify-between px-3 py-2 rounded-lg text-sm',
+                      r.status === 'success' ? 'bg-emerald-50' : 'bg-red-50'
+                    )}>
+                      <span className="font-medium text-slate-700">{r.language} ({r.iso_code})</span>
+                      <span className={cn('flex items-center gap-1 text-xs font-medium', r.status === 'success' ? 'text-emerald-600' : 'text-red-600')}>
+                        {r.status === 'success' ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                        {r.status === 'success' ? 'Saved' : r.error || 'Error'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkLoading}>
+                {bulkDone ? 'Close' : 'Cancel'}
+              </Button>
+              {!bulkDone && (
+                <Button onClick={handleBulkGenerate} disabled={bulkLoading || !bulkPrompt.trim()}>
+                  {bulkLoading ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+                  ) : (
+                    <><Zap className="w-4 h-4" /> Generate All</>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }
