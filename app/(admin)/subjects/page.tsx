@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
+import { AiProgressOverlay, useAiProgress } from '@/components/ui/AiProgressOverlay';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
@@ -108,7 +109,11 @@ export default function SubjectsPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, setValue } = useForm();
+
+  // AI Progress
+  const bulkAiProgress = useAiProgress();
+  const importAiProgress = useAiProgress();
 
   // Search debounce
   useEffect(() => {
@@ -178,21 +183,31 @@ export default function SubjectsPage() {
     setBulkLoading(true);
     setBulkResults([]);
     setBulkDone(false);
+    bulkAiProgress.start([
+      'Analyzing subject content',
+      'Generating translations with AI',
+      'Saving translations to database',
+    ]);
     try {
+      bulkAiProgress.nextStep();
       const res = await api.bulkGenerateSubjectTranslations({
         subject_id: bulkSubject.id,
         prompt: bulkPrompt,
         provider: bulkProvider,
       });
+      bulkAiProgress.nextStep();
       if (res.success && res.data) {
         setBulkResults(res.data.results || []);
         toast.success(`Generated translations using ${AI_PROVIDERS.find(p => p.value === bulkProvider)?.label}`);
         loadCoverage();
+        bulkAiProgress.finish();
       } else {
         toast.error(res.error || 'Bulk generation failed');
+        bulkAiProgress.setStepError();
       }
     } catch {
       toast.error('Bulk generation failed');
+      bulkAiProgress.setStepError();
     }
     setBulkLoading(false);
     setBulkDone(true);
@@ -296,24 +311,36 @@ Web Development
     if (!importFile) return;
     setImportLoading(true);
     setImportResult(null);
+    importAiProgress.start([
+      'Parsing file structure',
+      'Creating records in database',
+      'Generating AI translations',
+      'Finalizing import',
+    ]);
     try {
+      importAiProgress.nextStep();
       const fd = new FormData();
       fd.append('file', importFile);
       fd.append('provider', importProvider);
       fd.append('generate_translations', 'true');
       const res = await api.importMaterialTree(fd);
+      importAiProgress.nextStep();
+      importAiProgress.nextStep();
       if (res.success) {
         setImportResult(res.data);
         toast.success('Import completed successfully!');
         load();
         loadCoverage();
+        importAiProgress.finish();
       } else {
         toast.error(res.message || 'Import failed');
         setImportResult({ error: res.message });
+        importAiProgress.setStepError();
       }
     } catch (e: any) {
       toast.error(e.message || 'Import failed');
       setImportResult({ error: e.message });
+      importAiProgress.setStepError();
     } finally {
       setImportLoading(false);
     }
@@ -382,7 +409,7 @@ Web Development
   }
 
   async function onToggleActive(s: Subject) {
-    const res = await api.updateSubject(s.id, JSON.stringify({ is_active: !s.is_active }));
+    const res = await api.updateSubject(s.id, { is_active: !s.is_active });
     if (res.success) { toast.success(`${!s.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
@@ -823,7 +850,10 @@ Web Development
                 onClick={async () => {
                   await onToggleActive(editing);
                   const refreshed = await api.getSubject(editing.id);
-                  if (refreshed.success && refreshed.data) setEditing(refreshed.data);
+                  if (refreshed.success && refreshed.data) {
+                    setEditing(refreshed.data);
+                    setValue('is_active', refreshed.data.is_active);
+                  }
                 }}
                 className={cn(
                   'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-1 cursor-pointer',
@@ -933,6 +963,14 @@ Web Development
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 disabled:opacity-50 resize-none"
               />
             </div>
+
+            {/* AI Progress */}
+            <AiProgressOverlay
+              active={bulkAiProgress.active}
+              steps={bulkAiProgress.steps}
+              title="Generating Translations"
+              subtitle={`Using ${AI_PROVIDERS.find(p => p.value === bulkProvider)?.label || 'AI'} — ${bulkSubject?.slug || ''}`}
+            />
 
             {/* Results */}
             {bulkResults.length > 0 && (
@@ -1053,6 +1091,14 @@ Web Development
               </select>
             </div>
           )}
+
+          {/* AI Import Progress */}
+          <AiProgressOverlay
+            active={importAiProgress.active}
+            steps={importAiProgress.steps}
+            title="Importing Material Tree"
+            subtitle={`Using ${AI_PROVIDERS.find(p => p.value === importProvider)?.label || 'AI'} for translations`}
+          />
 
           {/* Import Result */}
           {importResult && !importResult.error && (

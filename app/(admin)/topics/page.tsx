@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { AiProgressOverlay, useAiProgress } from '@/components/ui/AiProgressOverlay';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
@@ -104,6 +105,10 @@ export default function TopicsPage() {
 
   const { register, handleSubmit, reset, watch, setValue } = useForm();
 
+  // AI Progress
+  const bulkAiProgress = useAiProgress();
+  const importAiProgress = useAiProgress();
+
   useEffect(() => {
     api.listSubjects('?limit=500&is_active=true').then(res => { if (res.success) setSubjects(res.data || []); });
     api.listChapters('?limit=500&is_active=true').then(res => { if (res.success) setChapters(res.data || []); });
@@ -184,21 +189,31 @@ export default function TopicsPage() {
     setBulkLoading(true);
     setBulkResults([]);
     setBulkDone(false);
+    bulkAiProgress.start([
+      'Analyzing topic content',
+      'Generating translations with AI',
+      'Saving translations to database',
+    ]);
     try {
+      bulkAiProgress.nextStep();
       const res = await api.bulkGenerateTopicTranslations({
         topic_id: bulkTopic.id,
         prompt: bulkPrompt,
         provider: bulkProvider,
       });
+      bulkAiProgress.nextStep();
       if (res.success && res.data) {
         setBulkResults(res.data.results || []);
         toast.success(`Generated translations using ${AI_PROVIDERS.find(p => p.value === bulkProvider)?.label}`);
         loadCoverage();
+        bulkAiProgress.finish();
       } else {
         toast.error(res.error || 'Bulk generation failed');
+        bulkAiProgress.setStepError();
       }
     } catch {
       toast.error('Bulk generation failed');
+      bulkAiProgress.setStepError();
     }
     setBulkLoading(false);
     setBulkDone(true);
@@ -275,11 +290,17 @@ Model Evaluation Metrics`;
     if (!importFile || !importChapterId || !importSubjectId) return;
     setImportLoading(true);
     setImportResult(null);
+    importAiProgress.start([
+      'Parsing file structure',
+      'Creating records in database',
+      'Generating AI translations',
+      'Finalizing import',
+    ]);
     try {
       const subject = importSubjects.find(s => String(s.id) === importSubjectId);
       const chapter = chapters.find(c => String(c.id) === importChapterId);
-      if (!subject) { toast.error('Please select a subject'); setImportLoading(false); return; }
-      if (!chapter) { toast.error('Please select a chapter'); setImportLoading(false); return; }
+      if (!subject) { toast.error('Please select a subject'); setImportLoading(false); importAiProgress.reset(); return; }
+      if (!chapter) { toast.error('Please select a chapter'); setImportLoading(false); importAiProgress.reset(); return; }
 
       const subjectCode = subject.code;
 
@@ -290,22 +311,28 @@ Model Evaluation Metrics`;
       const blob = new Blob([wrappedContent], { type: 'text/plain' });
       const wrappedFile = new File([blob], importFile.name, { type: 'text/plain' });
 
+      importAiProgress.nextStep();
       const fd = new FormData();
       fd.append('file', wrappedFile);
       fd.append('provider', importProvider);
       fd.append('generate_translations', 'true');
       const res = await api.importMaterialTree(fd);
+      importAiProgress.nextStep();
+      importAiProgress.nextStep();
       if (res.success) {
         setImportResult(res.data);
         toast.success('Import completed successfully!');
         load(); loadCoverage();
+        importAiProgress.finish();
       } else {
         toast.error(res.message || 'Import failed');
         setImportResult({ error: res.message });
+        importAiProgress.setStepError();
       }
     } catch (e: any) {
       toast.error(e.message || 'Import failed');
       setImportResult({ error: e.message });
+      importAiProgress.setStepError();
     } finally {
       setImportLoading(false);
     }
@@ -767,7 +794,10 @@ Model Evaluation Metrics`;
                 onClick={async () => {
                   await onToggleActive(editing);
                   const refreshed = await api.getTopic(editing.id);
-                  if (refreshed.success && refreshed.data) setEditing(refreshed.data);
+                  if (refreshed.success && refreshed.data) {
+                    setEditing(refreshed.data);
+                    setValue('is_active', refreshed.data.is_active);
+                  }
                 }}
                 className={cn(
                   'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-1 cursor-pointer',
@@ -892,6 +922,14 @@ Model Evaluation Metrics`;
               />
             </div>
 
+            {/* AI Progress */}
+            <AiProgressOverlay
+              active={bulkAiProgress.active}
+              steps={bulkAiProgress.steps}
+              title="Generating Translations"
+              subtitle={`Using ${AI_PROVIDERS.find(p => p.value === bulkProvider)?.label || 'AI'} — ${bulkTopic?.slug || ''}`}
+            />
+
             {/* Results */}
             {bulkResults.length > 0 && (
               <div>
@@ -1014,6 +1052,14 @@ Model Evaluation Metrics`;
               </select>
             </div>
           )}
+
+          {/* AI Import Progress */}
+          <AiProgressOverlay
+            active={importAiProgress.active}
+            steps={importAiProgress.steps}
+            title="Importing Topics"
+            subtitle={`Using ${AI_PROVIDERS.find(p => p.value === importProvider)?.label || 'AI'} for translations`}
+          />
 
           {/* Result */}
           {importResult && !importResult.error && (

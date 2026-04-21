@@ -14,6 +14,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { MultiLangField, initMLIFields, setMLILanguage, useMLIScript } from '@/components/ui/MultiLangField';
+import { AiProgressOverlay } from '@/components/ui/AiProgressOverlay';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, BookOpen, Trash2, Edit2, Globe, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Mic, Eye, Loader2, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
@@ -508,6 +509,35 @@ export default function ChapterTranslationsPage() {
       {/* Edit / Create Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Chapter Translation' : 'Add Chapter Translation'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+          {/* Active toggle — only shown when editing */}
+          {editing && (
+            <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3 -mt-1">
+              <div>
+                <span className="text-sm font-medium text-slate-700">Status</span>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {editing.is_active ? 'This translation is currently active' : 'This translation is currently inactive'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  await onToggleActive(editing);
+                  const refreshed = await api.getChapterTranslation(editing.id);
+                  if (refreshed.success && refreshed.data) {
+                    setEditing(refreshed.data);
+                    setValue('is_active', refreshed.data.is_active);
+                  }
+                }}
+                className={cn(
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-1 cursor-pointer',
+                  editing.is_active ? 'bg-emerald-500' : 'bg-slate-300'
+                )}
+              >
+                <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform', editing.is_active ? 'translate-x-6' : 'translate-x-1')} />
+              </button>
+            </div>
+          )}
+
           {/* AI Generate Panel */}
           <div className="border border-indigo-200 rounded-lg overflow-hidden">
             <button type="button" onClick={() => setAiPanelOpen(!aiPanelOpen)}
@@ -554,6 +584,12 @@ export default function ChapterTranslationsPage() {
                 <Button type="button" onClick={handleAIGenerate} disabled={aiLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
                   {aiLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
                 </Button>
+                <AiProgressOverlay
+                  active={aiLoading}
+                  phases={['Analyzing chapter content...', 'Generating translation with AI...', 'Processing response...', 'Preparing fields...']}
+                  title="AI Translation"
+                  subtitle={`Generating ${languages.find(l => String(l.id) === String(watch('language_id')))?.name || ''} translation`}
+                />
               </div>
             )}
           </div>

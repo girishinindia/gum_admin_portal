@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { toast } from './Toast';
 import { Sparkles, Loader2, Check, RefreshCw, Pencil, Search, CheckSquare, Square, MinusSquare, HelpCircle, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AiProgressOverlay } from './AiProgressOverlay';
 
 type AIProvider = 'anthropic' | 'openai' | 'gemini';
 type Mode = 'generate' | 'update';
@@ -917,20 +918,19 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
                   ? `Update ${selectedRecordIds.size} Record${selectedRecordIds.size !== 1 ? 's' : ''}`
                   : 'Generate Sample Data')}
             </Button>
-            {/* Generation progress bar */}
-            {generating && genProgress.total > 1 && (
-              <div className="space-y-1">
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-brand-500 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${(genProgress.current / genProgress.total) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-slate-500 text-center">
-                  Batch {genProgress.current} of {genProgress.total} ({Math.min(genProgress.current * BATCH_SIZE, count)}/{count} records)
-                </p>
-              </div>
-            )}
+            {/* Generation progress overlay */}
+            <AiProgressOverlay
+              active={generating}
+              phases={[
+                `Preparing ${mode === 'update' ? 'update' : 'generation'} request...`,
+                `${mode === 'update' ? 'Updating' : 'Generating'} with AI...`,
+                genProgress.total > 1 ? `Processing batch ${genProgress.current}/${genProgress.total}...` : 'Processing AI response...',
+                'Formatting results...',
+              ]}
+              title={mode === 'update' ? 'AI Updating' : 'AI Generating'}
+              subtitle={genProgress.total > 1 ? `Batch ${genProgress.current} of ${genProgress.total} (${Math.min(genProgress.current * BATCH_SIZE, count)}/${count} records)` : `${mode === 'update' ? 'Updating' : 'Generating'} ${moduleLabel}`}
+              variant="inline"
+            />
           </div>
         )}
 
@@ -951,26 +951,19 @@ export function AiMasterDialog({ module, moduleLabel, open, onClose, createFn, u
               </pre>
             </div>
 
-            {/* Save progress */}
-            {saving && saveProgress.total > 0 && (
-              <div className="space-y-1.5">
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-300 ease-out"
-                    style={{
-                      width: `${((saveProgress.saved + saveProgress.failed) / saveProgress.total) * 100}%`,
-                      background: saveProgress.failed > 0
-                        ? `linear-gradient(90deg, #22c55e ${(saveProgress.saved / (saveProgress.saved + saveProgress.failed)) * 100}%, #ef4444 ${(saveProgress.saved / (saveProgress.saved + saveProgress.failed)) * 100}%)`
-                        : '#22c55e',
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-slate-500 text-center">
-                  Saving {saveProgress.saved + saveProgress.failed}/{saveProgress.total}
-                  {saveProgress.failed > 0 && <span className="text-red-500 ml-1">({saveProgress.failed} failed)</span>}
-                </p>
-              </div>
-            )}
+            {/* Save progress overlay */}
+            <AiProgressOverlay
+              active={saving}
+              phases={[
+                `Saving records to ${moduleLabel}...`,
+                `${saveProgress.saved + saveProgress.failed}/${saveProgress.total} saved...`,
+                saveProgress.failed > 0 ? `${saveProgress.failed} failed` : 'Almost done...',
+                'Finishing up...',
+              ]}
+              title="Saving Records"
+              subtitle={`${saveProgress.saved + saveProgress.failed}/${saveProgress.total} saved${saveProgress.failed > 0 ? ` (${saveProgress.failed} failed)` : ''}`}
+              variant="inline"
+            />
 
             <div className="flex gap-2">
               <Button type="button" onClick={saveAll} disabled={saving} className="flex-1">

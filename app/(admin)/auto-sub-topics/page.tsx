@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Sparkles, Upload, CheckCircle2, XCircle, Loader2, FileText, AlertTriangle, ChevronRight, RotateCcw, Globe, Languages } from 'lucide-react';
+import { AiProgressOverlay, type AiProgressStep } from '@/components/ui/AiProgressOverlay';
 import { cn } from '@/lib/utils';
 import type { Language } from '@/lib/types';
 
@@ -403,21 +404,17 @@ function AutoSubTopicsContent() {
 
           {/* Progress */}
           {isProcessing && (
-            <div className="mb-5 bg-indigo-50 rounded-xl border border-indigo-200 p-4">
-              <div className="flex items-center gap-3">
-                {step === 'step1_english' && <FileText className="w-5 h-5 text-indigo-600" />}
-                {step === 'step2_translate' && <Languages className="w-5 h-5 text-indigo-600" />}
-                {step === 'step3_pages' && <Upload className="w-5 h-5 text-indigo-600" />}
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-indigo-800">
-                    {step === 'step1_english' ? 'Step 1 of 3: Analyzing English content' :
-                     step === 'step2_translate' ? 'Step 2 of 3: Translating to all languages' :
-                     'Step 3 of 3: Uploading page files'}
-                  </p>
-                  <p className="text-xs text-indigo-600">{progressMsg}</p>
-                </div>
-                <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
-              </div>
+            <div className="mb-5">
+              <AiProgressOverlay
+                active={isProcessing}
+                steps={[
+                  { label: 'Analyzing English content & creating sub-topic', status: step === 'step1_english' ? 'active' : 'done' },
+                  { label: `Translating to ${otherLangs.length} languages`, status: step === 'step2_translate' ? 'active' : step === 'step1_english' ? 'pending' : 'done' },
+                  { label: 'Uploading HTML page files', status: step === 'step3_pages' ? 'active' : 'pending' },
+                ] as AiProgressStep[]}
+                title="Processing Sub-Topic"
+                subtitle={progressMsg}
+              />
             </div>
           )}
 

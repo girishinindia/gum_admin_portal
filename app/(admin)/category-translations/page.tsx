@@ -711,6 +711,35 @@ export default function CategoryTranslationsPage() {
       {/* ─── Edit / Create Dialog ─── */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Category Translation' : 'Add Category Translation'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+          {/* Active toggle — only shown when editing */}
+          {editing && (
+            <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3 -mt-1">
+              <div>
+                <span className="text-sm font-medium text-slate-700">Status</span>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {editing.is_active ? 'This translation is currently active' : 'This translation is currently inactive'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  await onToggleActive(editing);
+                  const refreshed = await api.getCategoryTranslation(editing.id);
+                  if (refreshed.success && refreshed.data) {
+                    setEditing(refreshed.data);
+                    setValue('is_active', refreshed.data.is_active);
+                  }
+                }}
+                className={cn(
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-1 cursor-pointer',
+                  editing.is_active ? 'bg-emerald-500' : 'bg-slate-300'
+                )}
+              >
+                <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform', editing.is_active ? 'translate-x-6' : 'translate-x-1')} />
+              </button>
+            </div>
+          )}
+
           {/* Mode badge */}
           <div className="flex items-center gap-2">
             <Badge variant={formMode === 'existing' ? 'info' : 'success'}>

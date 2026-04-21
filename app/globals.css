@@ -29,3 +29,13 @@
 @layer utilities {
   .text-balance { text-wrap: balance; }
 }
+
+/* AI Progress Bar — indeterminate animation */
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); width: 45%; }
+  50% { transform: translateX(80%); width: 55%; }
+  100% { transform: translateX(250%); width: 45%; }
+}
+.animate-indeterminate {
+  animation: indeterminate 2s ease-in-out infinite;
+}

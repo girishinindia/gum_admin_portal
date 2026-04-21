@@ -12,6 +12,7 @@ import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { AiProgressOverlay, useAiProgress } from '@/components/ui/AiProgressOverlay';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -102,6 +103,9 @@ export default function SubTopicsPage() {
   const [videoTab, setVideoTab] = useState<'upload' | 'youtube'>('upload');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm();
+
+  // AI Progress
+  const bulkAiProgress = useAiProgress();
 
   // Load subjects on mount
   useEffect(() => {
@@ -207,21 +211,31 @@ export default function SubTopicsPage() {
     setBulkLoading(true);
     setBulkResults([]);
     setBulkDone(false);
+    bulkAiProgress.start([
+      'Analyzing sub-topic content',
+      'Generating translations with AI',
+      'Saving translations to database',
+    ]);
     try {
+      bulkAiProgress.nextStep();
       const res = await api.bulkGenerateSubTopicTranslations({
         sub_topic_id: bulkSubTopic.id,
         prompt: bulkPrompt,
         provider: bulkProvider,
       });
+      bulkAiProgress.nextStep();
       if (res.success && res.data) {
         setBulkResults(res.data.results || []);
         toast.success(`Generated translations using ${AI_PROVIDERS.find(p => p.value === bulkProvider)?.label}`);
         loadCoverage();
+        bulkAiProgress.finish();
       } else {
         toast.error(res.error || 'Bulk generation failed');
+        bulkAiProgress.setStepError();
       }
     } catch {
       toast.error('Bulk generation failed');
+      bulkAiProgress.setStepError();
     }
     setBulkLoading(false);
     setBulkDone(true);
@@ -666,7 +680,10 @@ export default function SubTopicsPage() {
               <button type="button" onClick={async () => {
                 await onToggleActive(editing);
                 const refreshed = await api.getSubTopic(editing.id);
-                if (refreshed.success && refreshed.data) setEditing(refreshed.data);
+                if (refreshed.success && refreshed.data) {
+                  setEditing(refreshed.data);
+                  setValue('is_active', refreshed.data.is_active);
+                }
               }} className={cn('relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-1 cursor-pointer', editing.is_active ? 'bg-emerald-500' : 'bg-slate-300')}>
                 <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform', editing.is_active ? 'translate-x-6' : 'translate-x-1')} />
               </button>
@@ -860,6 +877,14 @@ export default function SubTopicsPage() {
               <textarea value={bulkPrompt} onChange={e => setBulkPrompt(e.target.value)} disabled={bulkLoading} rows={4}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 disabled:opacity-50 resize-none" />
             </div>
+
+            {/* AI Progress */}
+            <AiProgressOverlay
+              active={bulkAiProgress.active}
+              steps={bulkAiProgress.steps}
+              title="Generating Translations"
+              subtitle={`Using ${AI_PROVIDERS.find(p => p.value === bulkProvider)?.label || 'AI'} — ${bulkSubTopic?.slug || ''}`}
+            />
 
             {bulkResults.length > 0 && (
               <div>
