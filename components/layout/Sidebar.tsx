@@ -104,6 +104,16 @@ const navGroups: NavGroup[] = [
         icon: FileQuestion,
         subLinks: [{ href: '/sub-topic-translations', label: 'Translations' }],
       },
+      {
+        href: '/auto-sub-topics',
+        label: 'Auto Sub-Topics',
+        icon: Sparkles,
+      },
+      {
+        href: '/material-tree',
+        label: 'Material Tree',
+        icon: FolderOpen,
+      },
     ],
   },
 ];

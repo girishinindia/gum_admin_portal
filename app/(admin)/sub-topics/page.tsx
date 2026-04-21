@@ -14,9 +14,10 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, FileQuestion, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap } from 'lucide-react';
+import { Plus, FileQuestion, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap, FileText, Video, Youtube } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
-import type { SubTopic, Topic } from '@/lib/types';
+import Link from 'next/link';
+import type { SubTopic, Topic, Subject, Chapter } from '@/lib/types';
 
 interface CoverageItem {
   sub_topic_id: number;
@@ -26,6 +27,9 @@ interface CoverageItem {
   is_complete: boolean;
   translated_languages: { id: number; name: string; iso_code: string }[];
   missing_languages: { id: number; name: string; iso_code: string }[];
+  pages_uploaded: number;
+  video_source: string | null;
+  has_video: boolean;
 }
 
 interface BulkResult { iso_code: string; language: string; status: 'success' | 'error'; error?: string; id?: number }
@@ -37,7 +41,7 @@ const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
   { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
 ];
 
-const DEFAULT_BULK_PROMPT = `Create content in English language for selected sub-topic with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.`;
+const DEFAULT_BULK_PROMPT = `Create content in English language for selected sub-topic with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.\n\nMost Important: don't write everything in pure regional language... use some common and sub-topic related technical English words in all outputs as it is. Keep technical or brand words in English that sound strange or unnatural or weird when translated.`;
 
 const DIFFICULTY_LEVELS = ['beginner', 'intermediate', 'advanced', 'expert', 'all_levels'];
 
@@ -45,6 +49,8 @@ type SortField = 'id' | 'slug' | 'display_order' | 'is_active' | 'difficulty_lev
 
 export default function SubTopicsPage() {
   const [items, setItems] = useState<SubTopic[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -59,6 +65,8 @@ export default function SubTopicsPage() {
   const [searchDebounce, setSearchDebounce] = useState('');
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [filterSubject, setFilterSubject] = useState('');
+  const [filterChapter, setFilterChapter] = useState('');
   const [filterTopic, setFilterTopic] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterDifficulty, setFilterDifficulty] = useState<string>('');
@@ -89,9 +97,29 @@ export default function SubTopicsPage() {
 
   const { register, handleSubmit, reset } = useForm();
 
+  // Load subjects on mount
   useEffect(() => {
+    api.listSubjects('?limit=500&is_active=true').then(res => { if (res.success) setSubjects(res.data || []); });
     api.listTopics('?limit=500&is_active=true').then(res => { if (res.success) setTopics(res.data || []); });
   }, []);
+
+  // Load chapters when subject filter changes
+  useEffect(() => {
+    setFilterChapter(''); setFilterTopic('');
+    if (filterSubject) {
+      api.listChapters(`?limit=500&is_active=true&subject_id=${filterSubject}`).then(res => { if (res.success) setChapters(res.data || []); });
+    } else {
+      setChapters([]);
+    }
+  }, [filterSubject]);
+
+  // Reset topic filter when chapter changes
+  useEffect(() => {
+    setFilterTopic('');
+  }, [filterChapter]);
+
+  // Filtered topics based on selected chapter
+  const filteredTopics = filterChapter ? topics.filter(t => String((t as any).chapter_id) === filterChapter) : topics;
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounce(search), 400);
@@ -105,8 +133,8 @@ export default function SubTopicsPage() {
     loadCoverage();
   }, []);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterTopic, filterStatus, filterDifficulty, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterTopic, filterStatus, filterDifficulty, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterSubject, filterChapter, filterTopic, filterStatus, filterDifficulty, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterSubject, filterChapter, filterTopic, filterStatus, filterDifficulty, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -120,6 +148,8 @@ export default function SubTopicsPage() {
       qs.set('show_deleted', 'true');
     } else {
       if (filterTopic) qs.set('topic_id', filterTopic);
+      else if (filterChapter) qs.set('chapter_id', filterChapter);
+      else if (filterSubject) qs.set('subject_id', filterSubject);
       if (filterStatus) qs.set('is_active', filterStatus);
       if (filterDifficulty) qs.set('difficulty_level', filterDifficulty);
     }
@@ -324,6 +354,7 @@ export default function SubTopicsPage() {
         description="Manage topic sub-topics"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Link href="/auto-sub-topics"><Button variant="outline"><Sparkles className="w-4 h-4" /> Auto Sub-Topics</Button></Link>}
             {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-topic</Button>}
           </div>
@@ -367,9 +398,17 @@ export default function SubTopicsPage() {
       <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search sub-topics by slug...'}>
         {!showTrash && (
           <>
-            <select className={selectClass} value={filterTopic} onChange={e => setFilterTopic(e.target.value)}>
-              <option value="">All topics</option>
-              {topics.map(t => <option key={t.id} value={t.id}>{t.slug}</option>)}
+            <select className={selectClass} value={filterSubject} onChange={e => setFilterSubject(e.target.value)}>
+              <option value="">All subjects</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.slug}</option>)}
+            </select>
+            <select className={selectClass} value={filterChapter} onChange={e => setFilterChapter(e.target.value)} disabled={!filterSubject}>
+              <option value="">{filterSubject ? 'All chapters' : 'Select subject first'}</option>
+              {chapters.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
+            </select>
+            <select className={selectClass} value={filterTopic} onChange={e => setFilterTopic(e.target.value)} disabled={!filterChapter}>
+              <option value="">{filterChapter ? 'All topics' : 'Select chapter first'}</option>
+              {filteredTopics.map(t => <option key={t.id} value={t.id}>{t.slug}</option>)}
             </select>
             <select className={selectClass} value={filterDifficulty} onChange={e => setFilterDifficulty(e.target.value)}>
               <option value="">All levels</option>
@@ -424,6 +463,8 @@ export default function SubTopicsPage() {
                 <TH><button onClick={() => handleSort('slug')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Slug <SortIcon field="slug" /></button></TH>
                 <TH><button onClick={() => handleSort('difficulty_level')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Difficulty <SortIcon field="difficulty_level" /></button></TH>
                 {!showTrash && <TH>Translations</TH>}
+                {!showTrash && <TH>Pages</TH>}
+                {!showTrash && <TH>Video</TH>}
                 {showTrash && <TH>Deleted</TH>}
                 <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="is_active" /></button></TH>
                 <TH className="text-right">Actions</TH>
@@ -454,6 +495,44 @@ export default function SubTopicsPage() {
                                 <Sparkles className="w-3.5 h-3.5" />
                               </button>
                             )}
+                          </div>
+                        );
+                      })()}
+                    </TD>
+                  )}
+                  {!showTrash && (
+                    <TD className="py-2.5">
+                      {(() => {
+                        const cov = coverage[t.id];
+                        if (!cov) return <span className="text-slate-300 text-xs">{'\u2014'}</span>;
+                        const autoUrl = `/auto-sub-topics?topic_id=${t.topic_id}`;
+                        return (
+                          <Link href={autoUrl} className="flex items-center gap-1.5 group" title="Upload page files">
+                            <FileText className={cn('w-3.5 h-3.5', cov.pages_uploaded > 0 ? 'text-emerald-500' : 'text-slate-300')} />
+                            <Badge variant={cov.pages_uploaded === cov.total_languages ? 'success' : cov.pages_uploaded > 0 ? 'warning' : 'muted'}>
+                              <span className="group-hover:underline">{cov.pages_uploaded}/{cov.total_languages}</span>
+                            </Badge>
+                          </Link>
+                        );
+                      })()}
+                    </TD>
+                  )}
+                  {!showTrash && (
+                    <TD className="py-2.5">
+                      {(() => {
+                        const cov = coverage[t.id];
+                        if (!cov) return <span className="text-slate-300 text-xs">{'\u2014'}</span>;
+                        if (!cov.has_video) return <span className="text-slate-300 text-xs">No video</span>;
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            {cov.video_source === 'youtube' ? (
+                              <Youtube className="w-3.5 h-3.5 text-red-500" />
+                            ) : (
+                              <Video className="w-3.5 h-3.5 text-brand-500" />
+                            )}
+                            <Badge variant={cov.video_source === 'youtube' ? 'warning' : 'info'}>
+                              {cov.video_source === 'youtube' ? 'YouTube' : 'Bunny'}
+                            </Badge>
                           </div>
                         );
                       })()}

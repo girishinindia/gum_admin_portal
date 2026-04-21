@@ -14,9 +14,9 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap } from 'lucide-react';
+import { Plus, BookOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap, Upload, Download, HelpCircle, FileText, FolderTree } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
-import type { Topic, Chapter } from '@/lib/types';
+import type { Topic, Chapter, Subject } from '@/lib/types';
 
 interface CoverageItem {
   topic_id: number;
@@ -37,7 +37,7 @@ const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
   { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
 ];
 
-const DEFAULT_BULK_PROMPT = `Create content in English language for selected topic with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.`;
+const DEFAULT_BULK_PROMPT = `Create content in English language for selected topic with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.\n\nMost Important: don't write everything in pure regional language... use some common and topic related technical English words in all outputs as it is. Keep technical or brand words in English that sound strange or unnatural or weird when translated.`;
 
 type SortField = 'id' | 'slug' | 'display_order' | 'sort_order' | 'is_active';
 
@@ -82,6 +82,18 @@ export default function TopicsPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
+
+  // Import Topics
+  const [importOpen, setImportOpen] = useState(false);
+  const [importHelpOpen, setImportHelpOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<string[]>([]);
+  const [importSubjectId, setImportSubjectId] = useState('');
+  const [importChapterId, setImportChapterId] = useState('');
+  const [importSubjects, setImportSubjects] = useState<Subject[]>([]);
+  const [importProvider, setImportProvider] = useState<AIProvider>('gemini');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -197,6 +209,94 @@ export default function TopicsPage() {
 
   function handlePageSizeChange(size: number) {
     setPageSize(size);
+  }
+
+  // ─── Import Handlers ───
+  function downloadSampleFile() {
+    const sample = `What is Machine Learning
+Types of Machine Learning
+Supervised vs Unsupervised Learning
+ML Applications in Real World
+Getting Started with ML
+Data Preprocessing Techniques
+Model Evaluation Metrics`;
+    const blob = new Blob([sample], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'sample-topics-import.txt'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function openImportDialog() {
+    setImportOpen(true);
+    setImportFile(null);
+    setImportPreview([]);
+    setImportResult(null);
+    setImportSubjectId('');
+    setImportChapterId('');
+    // Load subjects for the dropdown
+    api.listSubjects('?limit=500&is_active=true').then(res => {
+      if (res.success) setImportSubjects(res.data || []);
+    });
+  }
+
+  // Chapters filtered by selected import subject
+  const importFilteredChapters = importSubjectId
+    ? chapters.filter(c => String((c as any).subject_id) === importSubjectId)
+    : [];
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFile(file);
+    setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      const names = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      setImportPreview(names);
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleImport() {
+    if (!importFile || !importChapterId || !importSubjectId) return;
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const subject = importSubjects.find(s => String(s.id) === importSubjectId);
+      const chapter = chapters.find(c => String(c.id) === importChapterId);
+      if (!subject) { toast.error('Please select a subject'); setImportLoading(false); return; }
+      if (!chapter) { toast.error('Please select a chapter'); setImportLoading(false); return; }
+
+      const subjectCode = subject.code;
+
+      // Read file and wrap: subject > chapter > topics (each line becomes a topic with 2 tabs)
+      const text = await importFile.text();
+      const topicLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const wrappedContent = `${subjectCode}\n\t${chapter.slug}\n${topicLines.map(t => '\t\t' + t).join('\n')}`;
+      const blob = new Blob([wrappedContent], { type: 'text/plain' });
+      const wrappedFile = new File([blob], importFile.name, { type: 'text/plain' });
+
+      const fd = new FormData();
+      fd.append('file', wrappedFile);
+      fd.append('provider', importProvider);
+      fd.append('generate_translations', 'true');
+      const res = await api.importMaterialTree(fd);
+      if (res.success) {
+        setImportResult(res.data);
+        toast.success('Import completed successfully!');
+        load(); loadCoverage();
+      } else {
+        toast.error(res.message || 'Import failed');
+        setImportResult({ error: res.message });
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Import failed');
+      setImportResult({ error: e.message });
+    } finally {
+      setImportLoading(false);
+    }
   }
 
   function openCreate() {
@@ -324,6 +424,7 @@ export default function TopicsPage() {
         description="Manage chapter topics"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={openImportDialog}><Upload className="w-4 h-4" /> Import</Button>}
             {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add topic</Button>}
           </div>
@@ -778,6 +879,162 @@ export default function TopicsPage() {
             </div>
           </div>
         )}
+      </Dialog>
+
+      {/* ─── Import Topics Dialog ─── */}
+      <Dialog open={importOpen} onClose={() => !importLoading && setImportOpen(false)} title="Import Topics" size="lg">
+        <div className="space-y-5 p-2">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-slate-500">Upload a .txt file with one topic name per line to bulk-create topics under a chapter.</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={downloadSampleFile} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap border border-emerald-200 rounded-md px-2.5 py-1.5 hover:bg-emerald-50">
+                <Download className="w-4 h-4" /> Sample file
+              </button>
+              <button onClick={() => setImportHelpOpen(true)} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap border border-blue-200 rounded-md px-2.5 py-1.5 hover:bg-blue-50">
+                <HelpCircle className="w-4 h-4" /> How to use
+              </button>
+            </div>
+          </div>
+
+          {/* Subject selector */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Parent Subject <span className="text-red-500">*</span></label>
+            <select value={importSubjectId} onChange={e => { setImportSubjectId(e.target.value); setImportChapterId(''); }} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" disabled={importLoading}>
+              <option value="">Select a subject...</option>
+              {importSubjects.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
+            </select>
+          </div>
+
+          {/* Chapter selector */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Parent Chapter <span className="text-red-500">*</span></label>
+            <select value={importChapterId} onChange={e => setImportChapterId(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" disabled={importLoading || !importSubjectId}>
+              <option value="">{importSubjectId ? 'Select a chapter...' : 'Select a subject first...'}</option>
+              {importFilteredChapters.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
+            </select>
+          </div>
+
+          {/* File upload */}
+          <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center hover:border-blue-300 transition-colors">
+            <input type="file" accept=".txt,.csv" onChange={handleImportFile} className="hidden" id="import-topic-file" disabled={importLoading} />
+            <label htmlFor="import-topic-file" className="cursor-pointer">
+              {importFile ? (
+                <div className="flex items-center justify-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-700">{importFile.name}</span>
+                  <span className="text-xs text-slate-400">({(importFile.size / 1024).toFixed(1)} KB)</span>
+                </div>
+              ) : (
+                <div>
+                  <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">Click to upload .txt file</p>
+                  <p className="text-xs text-slate-400 mt-1">One topic name per line</p>
+                </div>
+              )}
+            </label>
+          </div>
+
+          {/* Preview */}
+          {importPreview.length > 0 && !importResult && (
+            <div className="border border-slate-200 rounded-lg p-4 max-h-48 overflow-auto bg-slate-50">
+              <div className="flex items-center gap-2 mb-3">
+                <FolderTree className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Preview</span>
+                <span className="text-xs text-slate-400">({importPreview.length} topic{importPreview.length !== 1 ? 's' : ''})</span>
+              </div>
+              {importPreview.map((name, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600 py-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400" /> {name}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* AI Provider */}
+          {importPreview.length > 0 && !importResult && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">AI Provider (for translations)</label>
+              <select value={importProvider} onChange={e => setImportProvider(e.target.value as AIProvider)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" disabled={importLoading}>
+                {AI_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label} — {p.model}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Result */}
+          {importResult && !importResult.error && (
+            <div className="border border-green-200 rounded-lg p-4 bg-green-50 space-y-3">
+              <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
+                <CheckCircle2 className="w-4 h-4" /> Import Complete
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-green-100 text-center">
+                <div className="text-lg font-bold text-purple-700">{importResult.report?.created?.topics || 0}</div>
+                <div className="text-xs text-slate-500">Topics created</div>
+              </div>
+              {importResult.report?.skipped?.topics > 0 && (
+                <div className="text-xs text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Skipped {importResult.report.skipped.topics} existing topics
+                </div>
+              )}
+              {importResult.ai_translations_generated && (
+                <div className="text-xs text-green-600 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> AI translations generated</div>
+              )}
+            </div>
+          )}
+
+          {importResult?.error && (
+            <div className="border border-red-200 rounded-lg p-3 bg-red-50 text-sm text-red-700 flex items-start gap-2">
+              <XCircle className="w-4 h-4 mt-0.5 shrink-0" /> {importResult.error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-slate-100">
+            <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importLoading}>{importResult ? 'Close' : 'Cancel'}</Button>
+            {!importResult && importPreview.length > 0 && (
+              <Button onClick={handleImport} disabled={importLoading || !importFile || !importSubjectId || !importChapterId}>
+                {importLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</> : <><Upload className="w-4 h-4" /> Start Import</>}
+              </Button>
+            )}
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ─── Import Help Dialog ─── */}
+      <Dialog open={importHelpOpen} onClose={() => setImportHelpOpen(false)} title="How to Import Topics" size="lg">
+        <div className="space-y-5 p-2 text-sm text-slate-700">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <p className="font-semibold text-blue-800 mb-2">File Format</p>
+            <p>Create a <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">.txt</code> file with <strong>one topic name per line</strong> — no tabs needed:</p>
+            <div className="mt-2 bg-white rounded border border-blue-200 p-3 font-mono text-xs leading-relaxed">
+              <div className="text-purple-700">What is Machine Learning</div>
+              <div className="text-purple-700">Types of Machine Learning</div>
+              <div className="text-purple-700">Supervised vs Unsupervised</div>
+              <div className="text-purple-700">ML Applications in Real World</div>
+              <div className="text-purple-700">Getting Started with ML</div>
+            </div>
+          </div>
+
+          <div>
+            <p className="font-semibold text-slate-800 mb-2">How It Works</p>
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2 text-xs">
+              <div className="flex items-start gap-2"><span className="bg-blue-100 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">1</span> Select the parent subject first, then pick the chapter</div>
+              <div className="flex items-start gap-2"><span className="bg-blue-100 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">2</span> Upload your .txt file with topic names</div>
+              <div className="flex items-start gap-2"><span className="bg-blue-100 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">3</span> Review the preview and click Start Import</div>
+              <div className="flex items-start gap-2"><span className="bg-blue-100 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">4</span> AI generates all translations, slugs, and Bunny folders automatically</div>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+            <p className="font-semibold text-amber-800 mb-1">Important</p>
+            <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
+              <li>Select the parent subject and chapter before importing</li>
+              <li>Existing topics (matching by name/slug) are automatically skipped</li>
+              <li>AI generates translations in all active languages</li>
+              <li>Safe to re-import — no duplicates will be created</li>
+            </ul>
+          </div>
+
+          <div className="flex justify-end"><Button variant="outline" onClick={() => setImportHelpOpen(false)}>Got it</Button></div>
+        </div>
       </Dialog>
     </div>
   );

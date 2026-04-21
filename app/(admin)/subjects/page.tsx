@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap } from 'lucide-react';
+import { Plus, BookOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap, Upload, Download, HelpCircle, FileText, FolderTree, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Subject } from '@/lib/types';
 
@@ -39,7 +39,7 @@ const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
   { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
 ];
 
-const DEFAULT_BULK_PROMPT = `Create content in English language for selected subject with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.`;
+const DEFAULT_BULK_PROMPT = `Create content in English language for selected subject with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.\n\nMost Important: don't write everything in pure regional language... use some common and subject related technical English words in all outputs as it is. Keep technical or brand words in English that sound strange or unnatural or weird when translated.`;
 
 const DIFFICULTY_OPTIONS = [
   { value: 'beginner', label: 'Beginner' },
@@ -98,6 +98,15 @@ export default function SubjectsPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
+
+  // Import Material Tree
+  const [importOpen, setImportOpen] = useState(false);
+  const [importHelpOpen, setImportHelpOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any>(null);
+  const [importProvider, setImportProvider] = useState<AIProvider>('gemini');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -208,6 +217,106 @@ export default function SubjectsPage() {
 
   function handlePageSizeChange(size: number) {
     setPageSize(size);
+  }
+
+  // ─── Import Material Tree Handlers ───
+  function downloadSampleFile() {
+    const sample = `Machine Learning
+\tIntroduction to ML
+\t\tWhat is Machine Learning
+\t\tTypes of Machine Learning
+\t\tML Applications in Real World
+\tSupervised Learning
+\t\tLinear Regression
+\t\tLogistic Regression
+\t\tDecision Trees
+Web Development
+\tHTML Basics
+\t\tHTML Document Structure
+\t\tHTML Tags and Elements
+\tCSS Fundamentals
+\t\tCSS Selectors
+\t\tCSS Box Model`;
+    const blob = new Blob([sample], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'sample-material-tree.txt'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function parseImportPreview(content: string) {
+    const lines = content.split(/\r?\n/);
+    const subjects: any[] = [];
+    let currentSubject: any = null;
+    let currentChapter: any = null;
+
+    for (const raw of lines) {
+      if (raw.trim() === '') continue;
+      let tabs = 0;
+      let j = 0;
+      while (j < raw.length && raw[j] === '\t') { tabs++; j++; }
+      if (tabs === 0 && raw[0] === ' ') {
+        let spaces = 0; let k = 0;
+        while (k < raw.length && raw[k] === ' ') { spaces++; k++; }
+        if (spaces >= 8) tabs = 2; else if (spaces >= 2) tabs = 1;
+        j = k;
+      }
+      const name = raw.slice(j).trim();
+      if (!name) continue;
+
+      if (tabs === 0) {
+        currentSubject = { name, chapters: [] };
+        currentChapter = null;
+        subjects.push(currentSubject);
+      } else if (tabs === 1 && currentSubject) {
+        currentChapter = { name, topics: [] };
+        currentSubject.chapters.push(currentChapter);
+      } else if (tabs === 2 && currentChapter) {
+        currentChapter.topics.push({ name });
+      }
+    }
+    return subjects;
+  }
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFile(file);
+    setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      const preview = parseImportPreview(content);
+      setImportPreview(preview);
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleImport() {
+    if (!importFile) return;
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', importFile);
+      fd.append('provider', importProvider);
+      fd.append('generate_translations', 'true');
+      const res = await api.importMaterialTree(fd);
+      if (res.success) {
+        setImportResult(res.data);
+        toast.success('Import completed successfully!');
+        load();
+        loadCoverage();
+      } else {
+        toast.error(res.message || 'Import failed');
+        setImportResult({ error: res.message });
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Import failed');
+      setImportResult({ error: e.message });
+    } finally {
+      setImportLoading(false);
+    }
   }
 
   function openCreate() {
@@ -358,6 +467,7 @@ export default function SubjectsPage() {
         description="Manage course subjects"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => { setImportOpen(true); setImportFile(null); setImportPreview(null); setImportResult(null); }}><Upload className="w-4 h-4" /> Import</Button>}
             {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add subject</Button>}
           </div>
@@ -862,6 +972,245 @@ export default function SubjectsPage() {
             </div>
           </div>
         )}
+      </Dialog>
+
+      {/* ─── Import Material Tree Dialog ─── */}
+      <Dialog open={importOpen} onClose={() => !importLoading && setImportOpen(false)} title="Import Material Tree" size="lg">
+        <div className="space-y-5 p-2">
+          {/* Help button */}
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-slate-500">Upload a tab-indented .txt file to bulk-create subjects, chapters, and topics.</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={downloadSampleFile} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap border border-emerald-200 rounded-md px-2.5 py-1.5 hover:bg-emerald-50">
+                <Download className="w-4 h-4" /> Sample file
+              </button>
+              <button onClick={() => setImportHelpOpen(true)} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap border border-blue-200 rounded-md px-2.5 py-1.5 hover:bg-blue-50">
+                <HelpCircle className="w-4 h-4" /> How to use
+              </button>
+            </div>
+          </div>
+
+          {/* File upload */}
+          <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center hover:border-blue-300 transition-colors">
+            <input type="file" accept=".txt,.csv" onChange={handleImportFile} className="hidden" id="import-file-input" disabled={importLoading} />
+            <label htmlFor="import-file-input" className="cursor-pointer">
+              {importFile ? (
+                <div className="flex items-center justify-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-700">{importFile.name}</span>
+                  <span className="text-xs text-slate-400">({(importFile.size / 1024).toFixed(1)} KB)</span>
+                </div>
+              ) : (
+                <div>
+                  <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">Click to upload .txt file</p>
+                  <p className="text-xs text-slate-400 mt-1">Tab-indented tree format</p>
+                </div>
+              )}
+            </label>
+          </div>
+
+          {/* Tree Preview */}
+          {importPreview && importPreview.length > 0 && !importResult && (
+            <div className="border border-slate-200 rounded-lg p-4 max-h-64 overflow-auto bg-slate-50">
+              <div className="flex items-center gap-2 mb-3">
+                <FolderTree className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Preview</span>
+                <span className="text-xs text-slate-400">
+                  ({importPreview.length} subject{importPreview.length !== 1 ? 's' : ''}, {importPreview.reduce((a: number, s: any) => a + s.chapters.length, 0)} chapters, {importPreview.reduce((a: number, s: any) => a + s.chapters.reduce((b: number, c: any) => b + c.topics.length, 0), 0)} topics)
+                </span>
+              </div>
+              {importPreview.map((subject: any, si: number) => (
+                <div key={si} className="mb-2">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-indigo-700">
+                    <BookOpen className="w-3.5 h-3.5" /> {subject.name}
+                  </div>
+                  {subject.chapters.map((chapter: any, ci: number) => (
+                    <div key={ci} className="ml-5 mt-1">
+                      <div className="flex items-center gap-1.5 text-sm text-blue-600">
+                        <ChevronRight className="w-3 h-3" /> {chapter.name}
+                      </div>
+                      {chapter.topics.map((topic: any, ti: number) => (
+                        <div key={ti} className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" /> {topic.name}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* AI Provider */}
+          {importPreview && !importResult && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">AI Provider (for translations)</label>
+              <select value={importProvider} onChange={e => setImportProvider(e.target.value as AIProvider)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" disabled={importLoading}>
+                {AI_PROVIDERS.map(p => (
+                  <option key={p.value} value={p.value}>{p.label} — {p.model}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Import Result */}
+          {importResult && !importResult.error && (
+            <div className="border border-green-200 rounded-lg p-4 bg-green-50 space-y-3">
+              <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
+                <CheckCircle2 className="w-4 h-4" /> Import Complete
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-white rounded-lg p-2 border border-green-100">
+                  <div className="text-lg font-bold text-green-700">{importResult.report?.created?.subjects || 0}</div>
+                  <div className="text-xs text-slate-500">Subjects created</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 border border-green-100">
+                  <div className="text-lg font-bold text-blue-700">{importResult.report?.created?.chapters || 0}</div>
+                  <div className="text-xs text-slate-500">Chapters created</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 border border-green-100">
+                  <div className="text-lg font-bold text-purple-700">{importResult.report?.created?.topics || 0}</div>
+                  <div className="text-xs text-slate-500">Topics created</div>
+                </div>
+              </div>
+              {(importResult.report?.skipped?.subjects > 0 || importResult.report?.skipped?.chapters > 0 || importResult.report?.skipped?.topics > 0) && (
+                <div className="text-xs text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Skipped (already exist): {importResult.report.skipped.subjects} subjects, {importResult.report.skipped.chapters} chapters, {importResult.report.skipped.topics} topics
+                </div>
+              )}
+              {importResult.report?.errors?.length > 0 && (
+                <div className="text-xs text-red-600 space-y-1">
+                  {importResult.report.errors.map((e: string, i: number) => (
+                    <div key={i} className="flex items-start gap-1"><XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {e}</div>
+                  ))}
+                </div>
+              )}
+              {importResult.ai_translations_generated && (
+                <div className="text-xs text-green-600 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" /> AI translations generated for all new items
+                </div>
+              )}
+            </div>
+          )}
+
+          {importResult?.error && (
+            <div className="border border-red-200 rounded-lg p-3 bg-red-50 text-sm text-red-700 flex items-start gap-2">
+              <XCircle className="w-4 h-4 mt-0.5 shrink-0" /> {importResult.error}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-slate-100">
+            <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importLoading}>
+              {importResult ? 'Close' : 'Cancel'}
+            </Button>
+            {!importResult && importPreview && (
+              <Button onClick={handleImport} disabled={importLoading || !importFile}>
+                {importLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</>
+                ) : (
+                  <><Upload className="w-4 h-4" /> Start Import</>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ─── Import Help Dialog ─── */}
+      <Dialog open={importHelpOpen} onClose={() => setImportHelpOpen(false)} title="How to Use Material Import" size="lg">
+        <div className="space-y-5 p-2 text-sm text-slate-700">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <p className="font-semibold text-blue-800 mb-2">File Format</p>
+            <p>Create a <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">.txt</code> file using <strong>tab indentation</strong> to define the hierarchy:</p>
+            <div className="mt-2 bg-white rounded border border-blue-200 p-3 font-mono text-xs leading-relaxed">
+              <div className="text-indigo-700 font-bold">Machine Learning</div>
+              <div className="text-blue-600 pl-6">Introduction to ML</div>
+              <div className="text-slate-500 pl-12">What is ML</div>
+              <div className="text-slate-500 pl-12">Types of ML</div>
+              <div className="text-blue-600 pl-6">Supervised Learning</div>
+              <div className="text-slate-500 pl-12">Linear Regression</div>
+              <div className="text-slate-500 pl-12">Decision Trees</div>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-indigo-500" /> No tab = Subject</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> 1 tab = Chapter</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-400" /> 2 tabs = Topic</div>
+            </div>
+          </div>
+
+          <div>
+            <p className="font-semibold text-slate-800 mb-2">Usage Scenarios</p>
+            <div className="space-y-3">
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="font-medium text-slate-700 mb-1">1. Full Import — New subjects + chapters + topics</p>
+                <div className="font-mono text-xs bg-slate-50 p-2 rounded">
+                  <div className="text-indigo-700">Cloud Computing</div>
+                  <div className="text-blue-600 pl-6">AWS Fundamentals</div>
+                  <div className="text-slate-500 pl-12">EC2 Instances</div>
+                  <div className="text-slate-500 pl-12">S3 Storage</div>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="font-medium text-slate-700 mb-1">2. Only Subjects (no chapters)</p>
+                <div className="font-mono text-xs bg-slate-50 p-2 rounded">
+                  <div className="text-indigo-700">Machine Learning</div>
+                  <div className="text-indigo-700">Blockchain</div>
+                  <div className="text-indigo-700">Data Science</div>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="font-medium text-slate-700 mb-1">3. Add chapters to existing subject</p>
+                <div className="font-mono text-xs bg-slate-50 p-2 rounded">
+                  <div className="text-indigo-700">DSA <span className="text-amber-500 text-[10px]">(exists — will be skipped)</span></div>
+                  <div className="text-blue-600 pl-6">Graph Algorithms <span className="text-green-500 text-[10px]">(new)</span></div>
+                  <div className="text-blue-600 pl-6">Dynamic Programming <span className="text-green-500 text-[10px]">(new)</span></div>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="font-medium text-slate-700 mb-1">4. Add topics to existing chapter</p>
+                <div className="font-mono text-xs bg-slate-50 p-2 rounded">
+                  <div className="text-indigo-700">WEB-DEV <span className="text-amber-500 text-[10px]">(exists)</span></div>
+                  <div className="text-blue-600 pl-6">javascript-fundamentals <span className="text-amber-500 text-[10px]">(exists)</span></div>
+                  <div className="text-slate-500 pl-12">Functions and Closures <span className="text-green-500 text-[10px]">(new)</span></div>
+                  <div className="text-slate-500 pl-12">Promises and Async <span className="text-green-500 text-[10px]">(new)</span></div>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="font-medium text-slate-700 mb-1">5. Mixed — some new, some existing</p>
+                <div className="font-mono text-xs bg-slate-50 p-2 rounded">
+                  <div className="text-indigo-700">DSA <span className="text-amber-500 text-[10px]">(exists)</span></div>
+                  <div className="text-blue-600 pl-6">Graph Algorithms <span className="text-green-500 text-[10px]">(new chapter)</span></div>
+                  <div className="text-slate-500 pl-12">BFS Traversal <span className="text-green-500 text-[10px]">(new topic)</span></div>
+                  <div className="text-indigo-700">Cloud Computing <span className="text-green-500 text-[10px]">(new subject)</span></div>
+                  <div className="text-blue-600 pl-6">AWS Basics <span className="text-green-500 text-[10px]">(new chapter)</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+            <p className="font-semibold text-amber-800 mb-1">Important Notes</p>
+            <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
+              <li>Existing items are matched by name/code/slug and automatically skipped</li>
+              <li>Only new items are created — no duplicates</li>
+              <li>AI generates translations in all active languages for every new item</li>
+              <li>Bunny CDN folders are auto-created for the file structure</li>
+              <li>Slugs are auto-generated and guaranteed unique</li>
+              <li>You can safely re-import the same file — existing items will be skipped</li>
+            </ul>
+          </div>
+
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setImportHelpOpen(false)}>Got it</Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

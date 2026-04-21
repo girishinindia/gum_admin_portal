@@ -40,7 +40,7 @@ const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
   { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
 ];
 
-const DEFAULT_BULK_PROMPT = `Create content in English language for selected category with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.`;
+const DEFAULT_BULK_PROMPT = `Create content in English language for selected category with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.\n\nMost Important: don't write everything in pure regional language... use some common and category related technical English words in all outputs as it is. Keep technical or brand words in English that sound strange or unnatural or weird when translated.`;
 
 export default function CategoriesPage() {
   const [items, setItems] = useState<Category[]>([]);

@@ -430,6 +430,14 @@ export const api = {
   bulkGenerateSubTopicTranslations: (data: { sub_topic_id: number; prompt?: string; provider?: string }) =>
     request('/ai/bulk-generate-sub-topic-translations', { method: 'POST', body: JSON.stringify(data) }),
 
+  // AI — Auto Sub Topics from HTML
+  autoSubTopics: (fd: FormData) =>
+    request('/ai/auto-sub-topics', { method: 'POST', body: fd, isFormData: true }),
+
+  // AI — Import Material Tree from TXT
+  importMaterialTree: (fd: FormData) =>
+    request('/ai/import-material-tree', { method: 'POST', body: fd, isFormData: true }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),
@@ -643,6 +651,11 @@ export const api = {
   listTableSummaries: () => request('/table-summary', { auth: false }),
   syncTableSummary: (tableName: string) => request(`/table-summary/sync/${tableName}`, { method: 'POST' }),
   syncAllTableSummaries: () => request('/table-summary/sync', { method: 'POST' }),
+
+  // Material Tree (Bunny CDN)
+  getMaterialTree: (path?: string) => request(`/material-tree${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+  getFullMaterialTree: () => request('/material-tree/full'),
+  deleteMaterialFolder: (path: string) => request('/material-tree/folder', { method: 'DELETE', body: JSON.stringify({ path }) }),
 
   // AI — Sample Data Generation
   generateSampleData: (data: { module: string; provider: string; target_user_id: number; count?: number }) =>

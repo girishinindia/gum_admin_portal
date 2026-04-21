@@ -14,7 +14,7 @@ import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap } from 'lucide-react';
+import { Plus, BookOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap, Upload, Download, HelpCircle, FileText, FolderTree, ChevronRight } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Chapter, Subject } from '@/lib/types';
 
@@ -37,7 +37,7 @@ const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
   { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
 ];
 
-const DEFAULT_BULK_PROMPT = `Create content in English language for selected chapter with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.`;
+const DEFAULT_BULK_PROMPT = `Create content in English language for selected chapter with human way writing style and convert exact English content with same meaning for other languages which are listed for translations.\n\nTranslate exactly with the same meaning. Keep technical or brand words in English that sound strange or unnatural when translated.\n\nMost Important: don't write everything in pure regional language... use some common and chapter related technical English words in all outputs as it is. Keep technical or brand words in English that sound strange or unnatural or weird when translated.`;
 
 type SortField = 'id' | 'slug' | 'display_order' | 'sort_order' | 'is_active';
 
@@ -82,6 +82,16 @@ export default function ChaptersPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
+
+  // Import Chapters+Topics
+  const [importOpen, setImportOpen] = useState(false);
+  const [importHelpOpen, setImportHelpOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any>(null);
+  const [importSubjectId, setImportSubjectId] = useState('');
+  const [importProvider, setImportProvider] = useState<AIProvider>('gemini');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -197,6 +207,101 @@ export default function ChaptersPage() {
 
   function handlePageSizeChange(size: number) {
     setPageSize(size);
+  }
+
+  // ─── Import Handlers ───
+  function downloadSampleFile() {
+    const sample = `Introduction to ML
+\tWhat is Machine Learning
+\tTypes of Machine Learning
+\tML Applications in Real World
+Supervised Learning
+\tLinear Regression
+\tLogistic Regression
+\tDecision Trees
+Unsupervised Learning
+\tClustering Algorithms
+\tDimensionality Reduction`;
+    const blob = new Blob([sample], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'sample-chapters-import.txt'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function parseChapterImportPreview(content: string) {
+    const lines = content.split(/\r?\n/);
+    const chapters: any[] = [];
+    let currentChapter: any = null;
+    for (const raw of lines) {
+      if (raw.trim() === '') continue;
+      let tabs = 0; let j = 0;
+      while (j < raw.length && raw[j] === '\t') { tabs++; j++; }
+      if (tabs === 0 && raw[0] === ' ') {
+        let spaces = 0; let k = 0;
+        while (k < raw.length && raw[k] === ' ') { spaces++; k++; }
+        if (spaces >= 4) tabs = 1; else if (spaces >= 2) tabs = 1;
+        j = k;
+      }
+      const name = raw.slice(j).trim();
+      if (!name) continue;
+      if (tabs === 0) {
+        currentChapter = { name, topics: [] };
+        chapters.push(currentChapter);
+      } else if (tabs >= 1 && currentChapter) {
+        currentChapter.topics.push({ name });
+      }
+    }
+    return chapters;
+  }
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFile(file);
+    setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      setImportPreview(parseChapterImportPreview(content));
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleImport() {
+    if (!importFile || !importSubjectId) return;
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      // Find subject code/name to wrap the file content
+      const subject = subjects.find(s => String(s.id) === importSubjectId);
+      if (!subject) { toast.error('Please select a subject'); setImportLoading(false); return; }
+
+      // Read file and prepend subject name as parent
+      const text = await importFile.text();
+      const wrappedContent = `${subject.code || subject.slug}\n${text.split('\n').map(l => l.trim() ? '\t' + l : '').join('\n')}`;
+      const blob = new Blob([wrappedContent], { type: 'text/plain' });
+      const wrappedFile = new File([blob], importFile.name, { type: 'text/plain' });
+
+      const fd = new FormData();
+      fd.append('file', wrappedFile);
+      fd.append('provider', importProvider);
+      fd.append('generate_translations', 'true');
+      const res = await api.importMaterialTree(fd);
+      if (res.success) {
+        setImportResult(res.data);
+        toast.success('Import completed successfully!');
+        load(); loadCoverage();
+      } else {
+        toast.error(res.message || 'Import failed');
+        setImportResult({ error: res.message });
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Import failed');
+      setImportResult({ error: e.message });
+    } finally {
+      setImportLoading(false);
+    }
   }
 
   function openCreate() {
@@ -320,6 +425,7 @@ export default function ChaptersPage() {
         description="Manage subject chapters"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={() => { setImportOpen(true); setImportFile(null); setImportPreview(null); setImportResult(null); setImportSubjectId(filterSubject || ''); }}><Upload className="w-4 h-4" /> Import</Button>}
             {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add chapter</Button>}
           </div>
@@ -773,6 +879,202 @@ export default function ChaptersPage() {
             </div>
           </div>
         )}
+      </Dialog>
+
+      {/* ─── Import Chapters Dialog ─── */}
+      <Dialog open={importOpen} onClose={() => !importLoading && setImportOpen(false)} title="Import Chapters & Topics" size="lg">
+        <div className="space-y-5 p-2">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-slate-500">Import chapters only, or chapters with topics. One name per line — use tab indent for topics.</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={downloadSampleFile} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap border border-emerald-200 rounded-md px-2.5 py-1.5 hover:bg-emerald-50">
+                <Download className="w-4 h-4" /> Sample file
+              </button>
+              <button onClick={() => setImportHelpOpen(true)} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap border border-blue-200 rounded-md px-2.5 py-1.5 hover:bg-blue-50">
+                <HelpCircle className="w-4 h-4" /> How to use
+              </button>
+            </div>
+          </div>
+
+          {/* Subject selector */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Parent Subject <span className="text-red-500">*</span></label>
+            <select value={importSubjectId} onChange={e => setImportSubjectId(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" disabled={importLoading}>
+              <option value="">Select a subject...</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.code} — /{s.slug}</option>)}
+            </select>
+          </div>
+
+          {/* File upload */}
+          <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center hover:border-blue-300 transition-colors">
+            <input type="file" accept=".txt,.csv" onChange={handleImportFile} className="hidden" id="import-chapter-file" disabled={importLoading} />
+            <label htmlFor="import-chapter-file" className="cursor-pointer">
+              {importFile ? (
+                <div className="flex items-center justify-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-700">{importFile.name}</span>
+                  <span className="text-xs text-slate-400">({(importFile.size / 1024).toFixed(1)} KB)</span>
+                </div>
+              ) : (
+                <div>
+                  <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">Click to upload .txt file</p>
+                  <p className="text-xs text-slate-400 mt-1">Chapters only, or chapters + topics (tab-indented)</p>
+                </div>
+              )}
+            </label>
+          </div>
+
+          {/* Tree Preview */}
+          {importPreview && importPreview.length > 0 && !importResult && (
+            <div className="border border-slate-200 rounded-lg p-4 max-h-64 overflow-auto bg-slate-50">
+              <div className="flex items-center gap-2 mb-3">
+                <FolderTree className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Preview</span>
+                {(() => {
+                  const topicCount = importPreview.reduce((a: number, c: any) => a + c.topics.length, 0);
+                  return (
+                    <span className="text-xs text-slate-400">
+                      ({importPreview.length} chapter{importPreview.length !== 1 ? 's' : ''}{topicCount > 0 ? `, ${topicCount} topic${topicCount !== 1 ? 's' : ''}` : ' only'})
+                    </span>
+                  );
+                })()}
+              </div>
+              {importPreview.map((chapter: any, ci: number) => (
+                <div key={ci} className="mb-2">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-blue-700">
+                    <ChevronRight className="w-3.5 h-3.5" /> {chapter.name}
+                  </div>
+                  {chapter.topics.map((topic: any, ti: number) => (
+                    <div key={ti} className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300" /> {topic.name}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* AI Provider */}
+          {importPreview && !importResult && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">AI Provider (for translations)</label>
+              <select value={importProvider} onChange={e => setImportProvider(e.target.value as AIProvider)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" disabled={importLoading}>
+                {AI_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label} — {p.model}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Import Result */}
+          {importResult && !importResult.error && (
+            <div className="border border-green-200 rounded-lg p-4 bg-green-50 space-y-3">
+              <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
+                <CheckCircle2 className="w-4 h-4" /> Import Complete
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="bg-white rounded-lg p-2 border border-green-100">
+                  <div className="text-lg font-bold text-blue-700">{importResult.report?.created?.chapters || 0}</div>
+                  <div className="text-xs text-slate-500">Chapters created</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 border border-green-100">
+                  <div className="text-lg font-bold text-purple-700">{importResult.report?.created?.topics || 0}</div>
+                  <div className="text-xs text-slate-500">Topics created</div>
+                </div>
+              </div>
+              {(importResult.report?.skipped?.chapters > 0 || importResult.report?.skipped?.topics > 0) && (
+                <div className="text-xs text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Skipped (already exist): {importResult.report.skipped.chapters} chapters, {importResult.report.skipped.topics} topics
+                </div>
+              )}
+              {importResult.ai_translations_generated && (
+                <div className="text-xs text-green-600 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> AI translations generated</div>
+              )}
+            </div>
+          )}
+
+          {importResult?.error && (
+            <div className="border border-red-200 rounded-lg p-3 bg-red-50 text-sm text-red-700 flex items-start gap-2">
+              <XCircle className="w-4 h-4 mt-0.5 shrink-0" /> {importResult.error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-slate-100">
+            <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importLoading}>{importResult ? 'Close' : 'Cancel'}</Button>
+            {!importResult && importPreview && (
+              <Button onClick={handleImport} disabled={importLoading || !importFile || !importSubjectId}>
+                {importLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</> : <><Upload className="w-4 h-4" /> Start Import</>}
+              </Button>
+            )}
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ─── Import Help Dialog ─── */}
+      <Dialog open={importHelpOpen} onClose={() => setImportHelpOpen(false)} title="How to Import Chapters" size="lg">
+        <div className="space-y-5 p-2 text-sm text-slate-700">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <p className="font-semibold text-blue-800 mb-2">File Format</p>
+            <p>Create a <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">.txt</code> file — you can import <strong>chapters only</strong> or <strong>chapters with topics</strong>:</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> No tab = Chapter name</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-400" /> 1 tab = Topic name (optional)</div>
+            </div>
+          </div>
+
+          <div>
+            <p className="font-semibold text-slate-800 mb-2">Both Formats Supported</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="font-medium text-blue-700 mb-2 text-xs uppercase tracking-wider">Option 1: Chapters Only</p>
+                <div className="font-mono text-xs bg-slate-50 p-2.5 rounded space-y-1">
+                  <div className="text-blue-700 font-medium">Graph Algorithms</div>
+                  <div className="text-blue-700 font-medium">Dynamic Programming</div>
+                  <div className="text-blue-700 font-medium">Greedy Algorithms</div>
+                  <div className="text-blue-700 font-medium">Backtracking</div>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-2">Just chapter names, one per line. No tabs.</p>
+              </div>
+              <div className="border border-slate-200 rounded-lg p-3">
+                <p className="font-medium text-blue-700 mb-2 text-xs uppercase tracking-wider">Option 2: Chapters + Topics</p>
+                <div className="font-mono text-xs bg-slate-50 p-2.5 rounded space-y-0.5">
+                  <div className="text-blue-700 font-medium">Graph Algorithms</div>
+                  <div className="text-slate-500 pl-5">BFS Traversal</div>
+                  <div className="text-slate-500 pl-5">DFS Traversal</div>
+                  <div className="text-blue-700 font-medium">Dynamic Programming</div>
+                  <div className="text-slate-500 pl-5">Memoization</div>
+                  <div className="text-slate-500 pl-5">Tabulation</div>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-2">Topics indented with 1 tab under their chapter.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+            <p className="font-semibold text-emerald-800 mb-1">You can also mix both</p>
+            <div className="font-mono text-xs bg-white p-2.5 rounded border border-emerald-200 space-y-0.5">
+              <div className="text-blue-700 font-medium">Graph Algorithms <span className="text-emerald-500 text-[10px] font-normal">(chapter with topics)</span></div>
+              <div className="text-slate-500 pl-5">BFS Traversal</div>
+              <div className="text-slate-500 pl-5">DFS Traversal</div>
+              <div className="text-blue-700 font-medium">Greedy Algorithms <span className="text-emerald-500 text-[10px] font-normal">(chapter only, no topics)</span></div>
+              <div className="text-blue-700 font-medium">Dynamic Programming <span className="text-emerald-500 text-[10px] font-normal">(chapter with topics)</span></div>
+              <div className="text-slate-500 pl-5">Memoization</div>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+            <p className="font-semibold text-amber-800 mb-1">Important</p>
+            <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
+              <li>Select the parent subject before importing</li>
+              <li>Existing chapters are auto-detected and skipped</li>
+              <li>New topics are added under existing or new chapters</li>
+              <li>AI generates translations for all new items</li>
+              <li>Safe to re-import — duplicates are skipped</li>
+            </ul>
+          </div>
+
+          <div className="flex justify-end"><Button variant="outline" onClick={() => setImportHelpOpen(false)}>Got it</Button></div>
+        </div>
       </Dialog>
     </div>
   );
