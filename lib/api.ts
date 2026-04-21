@@ -446,6 +446,10 @@ export const api = {
   importMaterialTree: (fd: FormData) =>
     request('/ai/import-material-tree', { method: 'POST', body: fd, isFormData: true }),
 
+  // AI — Import from CDN (scan Bunny storage and create missing DB records)
+  importFromCdn: (data: { provider?: string; generate_seo?: boolean }) =>
+    request('/ai/import-from-cdn', { method: 'POST', body: JSON.stringify(data) }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),

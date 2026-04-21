@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive } from 'lucide-react';
+import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive, CloudDownload, Sparkles, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TreeNode {
@@ -163,12 +163,28 @@ function TreeNodeItem({ node, depth, onDelete }: { node: TreeNode; depth: number
   );
 }
 
+interface ImportReport {
+  subjects: { found: number; created: number; existing: number };
+  chapters: { found: number; created: number; existing: number };
+  topics: { found: number; created: number; existing: number };
+  sub_topics: { found: number; created: number; existing: number };
+  translations: { found: number; created: number; existing: number; updated: number };
+  errors: string[];
+}
+
 export default function MaterialTreePage() {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [stats, setStats] = useState<TreeStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [loadTime, setLoadTime] = useState<number>(0);
+
+  // Import from CDN state
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importProvider, setImportProvider] = useState<string>('gemini');
+  const [importGenerateSeo, setImportGenerateSeo] = useState(false);
+  const [importReport, setImportReport] = useState<ImportReport | null>(null);
 
   async function loadTree() {
     setLoading(true);
@@ -205,6 +221,24 @@ export default function MaterialTreePage() {
     setDeleting(null);
   }
 
+  async function handleImportFromCdn() {
+    setImporting(true);
+    setImportReport(null);
+    try {
+      const res = await api.importFromCdn({ provider: importProvider, generate_seo: importGenerateSeo });
+      if (res.success && res.data?.report) {
+        setImportReport(res.data.report);
+        toast.success('CDN import completed');
+        loadTree(); // Refresh the tree
+      } else {
+        toast.error(res.message || 'CDN import failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'CDN import failed');
+    }
+    setImporting(false);
+  }
+
   useEffect(() => { loadTree(); }, []);
 
   return (
@@ -217,6 +251,10 @@ export default function MaterialTreePage() {
             {loadTime > 0 && !loading && (
               <span className="text-xs text-slate-400">{loadTime}ms</span>
             )}
+            <Button variant="outline" onClick={() => { setShowImportDialog(true); setImportReport(null); }} disabled={loading || importing}>
+              <CloudDownload className="w-4 h-4" />
+              Import from CDN
+            </Button>
             <Button variant="outline" onClick={loadTree} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
               Refresh
@@ -304,6 +342,126 @@ export default function MaterialTreePage() {
           )}
         </div>
       </div>
+
+      {/* Import from CDN Dialog */}
+      {showImportDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <CloudDownload className="w-5 h-5 text-indigo-600" />
+                <h2 className="text-lg font-semibold text-slate-800">Import from CDN</h2>
+              </div>
+              <button onClick={() => setShowImportDialog(false)} className="p-1 rounded-lg hover:bg-slate-100">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              {!importReport ? (
+                <>
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
+                    <p className="font-medium mb-1">How it works</p>
+                    <p>Scans the Bunny CDN <code className="bg-indigo-100 px-1 rounded">materials/</code> folder and creates missing database records for any subjects, chapters, topics, sub-topics, and translations found.</p>
+                    <p className="mt-2 text-xs text-indigo-600">Expected structure: <code>materials/subject/chapter/topic/lang-iso/file.html</code></p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">AI Provider</label>
+                    <select
+                      value={importProvider}
+                      onChange={e => setImportProvider(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="gemini">Google Gemini</option>
+                      <option value="anthropic">Anthropic Claude</option>
+                      <option value="openai">OpenAI GPT</option>
+                    </select>
+                    <p className="text-xs text-slate-400 mt-1">Used only if SEO generation is enabled below</p>
+                  </div>
+
+                  <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={importGenerateSeo}
+                      onChange={e => setImportGenerateSeo(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        AI-generate SEO metadata
+                      </div>
+                      <div className="text-xs text-slate-500">Downloads English HTML files and uses AI to generate titles, descriptions, and keywords for new sub-topics. Slower but produces better data.</div>
+                    </div>
+                  </label>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleImportFromCdn} disabled={importing}>
+                      {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
+                      {importing ? 'Scanning CDN...' : 'Start Import'}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Import Results */}
+                  <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
+                    <CheckCircle className="w-6 h-6 text-green-600 shrink-0" />
+                    <div>
+                      <p className="font-medium text-green-800">Import Complete</p>
+                      <p className="text-sm text-green-600">CDN scan finished. See results below.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(['subjects', 'chapters', 'topics', 'sub_topics', 'translations'] as const).map(key => {
+                      const r = importReport[key];
+                      const label = key.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+                      return (
+                        <div key={key} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg text-sm">
+                          <span className="font-medium text-slate-700">{label}</span>
+                          <div className="flex items-center gap-3 text-xs">
+                            <span className="text-slate-500">Found: {r.found}</span>
+                            <span className="text-green-600 font-medium">Created: {r.created}</span>
+                            <span className="text-slate-400">Existing: {r.existing}</span>
+                            {'updated' in r && (r as any).updated > 0 && (
+                              <span className="text-blue-600">Updated: {(r as any).updated}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {importReport.errors.length > 0 && (
+                    <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                        <span className="text-sm font-medium text-red-800">{importReport.errors.length} Error{importReport.errors.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {importReport.errors.map((e, i) => (
+                          <p key={i} className="text-xs text-red-600">{e}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-2">
+                    <Button onClick={() => setShowImportDialog(false)}>
+                      Done
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
