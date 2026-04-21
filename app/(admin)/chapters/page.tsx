@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { DataToolbar } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
@@ -93,7 +94,7 @@ export default function ChaptersPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, watch, setValue } = useForm();
 
   useEffect(() => {
     api.listSubjects('?limit=500&is_active=true').then(res => { if (res.success) setSubjects(res.data || []); });
@@ -496,14 +497,13 @@ Unsupervised Learning
       >
         {!showTrash && (
           <>
-            <select
-              className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat"
+            <SearchableSelect
+              options={subjects.map(s => ({ value: String(s.id), label: s.code }))}
               value={filterSubject}
-              onChange={e => setFilterSubject(e.target.value)}
-            >
-              <option value="">All subjects</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
-            </select>
+              onChange={setFilterSubject}
+              placeholder="All subjects"
+              searchPlaceholder="Search subjects..."
+            />
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -754,14 +754,14 @@ Unsupervised Learning
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
-            <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-              {...register('subject_id', { required: true })}>
-              <option value="">Select a subject</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
-            </select>
-          </div>
+          <SearchableSelect
+            label="Subject"
+            options={subjects.map(s => ({ value: String(s.id), label: s.code }))}
+            value={watch('subject_id') || ''}
+            onChange={(val) => setValue('subject_id', val)}
+            placeholder="Select a subject"
+            searchPlaceholder="Search subjects..."
+          />
           <Input label="Slug" placeholder="introduction-to-react" {...register('slug', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Display Order" type="number" {...register('display_order')} />
@@ -900,10 +900,14 @@ Unsupervised Learning
           {/* Subject selector */}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Parent Subject <span className="text-red-500">*</span></label>
-            <select value={importSubjectId} onChange={e => setImportSubjectId(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" disabled={importLoading}>
-              <option value="">Select a subject...</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.code} — /{s.slug}</option>)}
-            </select>
+            <SearchableSelect
+              options={subjects.map(s => ({ value: String(s.id), label: `${s.code} — /${s.slug}` }))}
+              value={importSubjectId}
+              onChange={setImportSubjectId}
+              placeholder="Select a subject..."
+              searchPlaceholder="Search subjects..."
+              disabled={importLoading}
+            />
           </div>
 
           {/* File upload */}

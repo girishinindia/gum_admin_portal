@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar } from '@/components/ui/DataToolbar';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -100,7 +101,7 @@ export default function SubTopicsPage() {
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoTab, setVideoTab] = useState<'upload' | 'youtube'>('upload');
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, watch, setValue } = useForm();
 
   // Load subjects on mount
   useEffect(() => {
@@ -440,18 +441,29 @@ export default function SubTopicsPage() {
       <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search sub-topics by slug...'}>
         {!showTrash && (
           <>
-            <select className={selectClass} value={filterSubject} onChange={e => setFilterSubject(e.target.value)}>
-              <option value="">All subjects</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.slug}</option>)}
-            </select>
-            <select className={selectClass} value={filterChapter} onChange={e => setFilterChapter(e.target.value)} disabled={!filterSubject}>
-              <option value="">{filterSubject ? 'All chapters' : 'Select subject first'}</option>
-              {chapters.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
-            </select>
-            <select className={selectClass} value={filterTopic} onChange={e => setFilterTopic(e.target.value)} disabled={!filterChapter}>
-              <option value="">{filterChapter ? 'All topics' : 'Select chapter first'}</option>
-              {filteredTopics.map(t => <option key={t.id} value={t.id}>{t.slug}</option>)}
-            </select>
+            <SearchableSelect
+              options={subjects.map(s => ({ value: String(s.id), label: s.slug }))}
+              value={filterSubject}
+              onChange={setFilterSubject}
+              placeholder="All subjects"
+              searchPlaceholder="Search subjects..."
+            />
+            <SearchableSelect
+              options={chapters.map(c => ({ value: String(c.id), label: c.slug }))}
+              value={filterChapter}
+              onChange={setFilterChapter}
+              placeholder={filterSubject ? 'All chapters' : 'Select subject first'}
+              searchPlaceholder="Search chapters..."
+              disabled={!filterSubject}
+            />
+            <SearchableSelect
+              options={filteredTopics.map(t => ({ value: String(t.id), label: t.slug }))}
+              value={filterTopic}
+              onChange={setFilterTopic}
+              placeholder={filterChapter ? 'All topics' : 'Select chapter first'}
+              searchPlaceholder="Search topics..."
+              disabled={!filterChapter}
+            />
             <select className={selectClass} value={filterDifficulty} onChange={e => setFilterDifficulty(e.target.value)}>
               <option value="">All levels</option>
               {DIFFICULTY_LEVELS.map(d => <option key={d} value={d}>{d.replace('_', ' ')}</option>)}
@@ -661,56 +673,47 @@ export default function SubTopicsPage() {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
-            <select
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-              value={dialogSubject}
-              onChange={e => {
-                const val = e.target.value;
-                setDialogSubject(val);
-                setDialogChapter('');
-                reset((prev: any) => ({ ...prev, topic_id: '' }));
-                if (val) {
-                  api.listChapters(`?limit=500&is_active=true&subject_id=${val}`).then(res => {
-                    if (res.success) setDialogChapters(res.data || []);
-                    else setDialogChapters([]);
-                  });
-                } else {
-                  setDialogChapters([]);
-                }
-              }}
-            >
-              <option value="">All subjects</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.code || s.slug}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Chapter</label>
-            <select
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400"
-              value={dialogChapter}
-              onChange={e => {
-                setDialogChapter(e.target.value);
-                reset((prev: any) => ({ ...prev, topic_id: '' }));
-              }}
-              disabled={!dialogSubject}
-            >
-              <option value="">{dialogSubject ? 'All chapters' : 'Select subject first'}</option>
-              {dialogChapters.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Topic</label>
-            <select
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400"
-              {...register('topic_id')}
-              disabled={!dialogChapter}
-            >
-              <option value="">{dialogChapter ? 'Select a topic' : 'Select chapter first'}</option>
-              {dialogFilteredTopics.map(t => <option key={t.id} value={t.id}>{t.slug}</option>)}
-            </select>
-          </div>
+          <SearchableSelect
+            label="Subject"
+            options={subjects.map(s => ({ value: String(s.id), label: s.code || s.slug }))}
+            value={dialogSubject}
+            onChange={(val) => {
+              setDialogSubject(val);
+              setDialogChapter('');
+              setValue('topic_id', '');
+              if (val) {
+                api.listChapters(`?limit=500&is_active=true&subject_id=${val}`).then(res => {
+                  if (res.success) setDialogChapters(res.data || []);
+                  else setDialogChapters([]);
+                });
+              } else {
+                setDialogChapters([]);
+              }
+            }}
+            placeholder="Select a subject"
+            searchPlaceholder="Search subjects..."
+          />
+          <SearchableSelect
+            label="Chapter"
+            options={dialogChapters.map(c => ({ value: String(c.id), label: c.slug }))}
+            value={dialogChapter}
+            onChange={(val) => {
+              setDialogChapter(val);
+              setValue('topic_id', '');
+            }}
+            placeholder={dialogSubject ? 'Select a chapter' : 'Select subject first'}
+            searchPlaceholder="Search chapters..."
+            disabled={!dialogSubject}
+          />
+          <SearchableSelect
+            label="Topic"
+            options={dialogFilteredTopics.map(t => ({ value: String(t.id), label: t.slug }))}
+            value={watch('topic_id') || ''}
+            onChange={(val) => setValue('topic_id', val)}
+            placeholder={dialogChapter ? 'Select a topic' : 'Select chapter first'}
+            searchPlaceholder="Search topics..."
+            disabled={!dialogChapter}
+          />
           <Input label="Slug" placeholder="my-sub-topic-slug" {...register('slug', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <div>
