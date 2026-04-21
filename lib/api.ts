@@ -438,6 +438,10 @@ export const api = {
   translatePage: (fd: FormData) =>
     request('/ai/translate-page', { method: 'POST', body: fd, isFormData: true }),
 
+  // AI — Reverse translate HTML page to English
+  reverseTranslatePage: (fd: FormData) =>
+    request('/ai/reverse-translate-page', { method: 'POST', body: fd, isFormData: true }),
+
   // AI — Import Material Tree from TXT
   importMaterialTree: (fd: FormData) =>
     request('/ai/import-material-tree', { method: 'POST', body: fd, isFormData: true }),

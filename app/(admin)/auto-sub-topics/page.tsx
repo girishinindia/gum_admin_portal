@@ -22,7 +22,7 @@ interface Subject { id: number; slug: string; is_active: boolean }
 interface Chapter { id: number; slug: string; subject_id: number; is_active: boolean }
 interface Topic { id: number; slug: string; chapter_id: number; is_active: boolean }
 
-type Step = 'idle' | 'step1_english' | 'step2_translate' | 'step3_pages' | 'step4_translate_pages' | 'done' | 'error';
+type Step = 'idle' | 'step0_reverse' | 'step1_english' | 'step2_translate' | 'step3_pages' | 'step4_translate_pages' | 'done' | 'error';
 
 export default function AutoSubTopicsPage() {
   return (
@@ -271,9 +271,19 @@ function AutoSubTopicsContent() {
   const englishFile = englishLang ? langFiles[englishLang.id] : undefined;
   const uploadedCount = Object.keys(langFiles).length;
 
+  // Find the primary file — any language file that was uploaded (English preferred)
+  const primaryLangId = englishFile && englishLang ? englishLang.id : Object.keys(langFiles).length > 0 ? Number(Object.keys(langFiles)[0]) : null;
+  const primaryFile = primaryLangId ? langFiles[primaryLangId] : undefined;
+  const primaryLang = primaryLangId ? languages.find(l => l.id === primaryLangId) : null;
+  const isSourceEnglish = primaryLang?.iso_code === 'en';
+
   async function handleProcess() {
-    if (!englishFile || !selectedTopic || !englishLang) {
-      toast.error('English HTML file is required');
+    if (!primaryFile || !selectedTopic || !primaryLang) {
+      toast.error('Please upload an HTML file in any language');
+      return;
+    }
+    if (!englishLang) {
+      toast.error('English language is not configured');
       return;
     }
 
@@ -281,6 +291,46 @@ function AutoSubTopicsContent() {
     setResultSubTopic(null);
     setTranslationResults([]);
     setPagesUploaded(0);
+    setPageTranslationResults([]);
+
+    let effectiveEnglishFile = englishFile;
+    let sourceLangIso = primaryLang.iso_code || 'en';
+
+    // ═══ Step 0: If source is not English, reverse-translate to English first ═══
+    if (!isSourceEnglish) {
+      setStep('step0_reverse');
+      setProgressMsg(`Translating ${primaryLang.name} HTML to English...`);
+
+      try {
+        const reverseFd = new FormData();
+        reverseFd.append('file', primaryFile, primaryFile.name);
+        reverseFd.append('source_language', sourceLangIso);
+        reverseFd.append('provider', aiProvider);
+
+        const reverseRes = await api.reverseTranslatePage(reverseFd);
+        if (!reverseRes.success || !reverseRes.data?.english_html) {
+          setStep('error');
+          setErrorMsg(reverseRes.error || 'Failed to reverse-translate to English');
+          return;
+        }
+
+        // Create a File object from the English HTML string
+        const englishHtmlBlob = new Blob([reverseRes.data.english_html], { type: 'text/html' });
+        const baseName = primaryFile.name.replace(/\.(html|htm)$/i, '');
+        effectiveEnglishFile = new File([englishHtmlBlob], `${baseName}_en.html`, { type: 'text/html' });
+        toast.success(`Step 0: ${primaryLang.name} → English translation complete`);
+      } catch (e: any) {
+        setStep('error');
+        setErrorMsg(e.message || 'Failed to reverse-translate to English');
+        return;
+      }
+    }
+
+    if (!effectiveEnglishFile) {
+      setStep('error');
+      setErrorMsg('No English HTML available');
+      return;
+    }
 
     // ═══ Step 1: Process English HTML → create ONE sub-topic + English translation ═══
     setStep('step1_english');
@@ -291,7 +341,7 @@ function AutoSubTopicsContent() {
     fd.append('language_id', String(englishLang.id));
     fd.append('provider', aiProvider);
     fd.append('prompt', aiPrompt);
-    fd.append('file', englishFile, englishFile.name);
+    fd.append('file', effectiveEnglishFile, effectiveEnglishFile.name);
 
     let subTopicId: number;
     try {
@@ -306,10 +356,10 @@ function AutoSubTopicsContent() {
       setStep('error'); setErrorMsg(e.message || 'Failed to process English file'); return;
     }
 
-    // ═══ Step 2: Translate English → all other active languages ═══
+    // ═══ Step 2: Translate English → all other active languages (SEO data) ═══
     if (otherLangs.length > 0) {
       setStep('step2_translate');
-      setProgressMsg(`Translating to ${otherLangs.length} languages...`);
+      setProgressMsg(`Translating SEO to ${otherLangs.length} languages...`);
 
       try {
         const res = await api.bulkGenerateSubTopicTranslations({
@@ -328,14 +378,12 @@ function AutoSubTopicsContent() {
             toast.success(`Step 2: ${successCount} language translations created`);
           }
         } else {
-          // API returned an error — mark all other languages as failed
           const errorResults = otherLangs.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
           setTranslationResults(errorResults);
           toast.error(`Step 2 failed: ${res.error || 'Translation generation failed'}. You can retry from the Sub-Topic Translations page.`);
         }
       } catch (e: any) {
         console.error('Bulk translation failed:', e);
-        // Mark all other languages as failed on exception
         const errorResults = otherLangs.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
         setTranslationResults(errorResults);
         toast.error(`Translation step failed: ${e.message || 'Unknown error'}. You can retry from the Sub-Topic Translations page.`);
@@ -343,15 +391,20 @@ function AutoSubTopicsContent() {
     }
 
     // ═══ Step 3: Upload HTML page files for all languages that have them ═══
-    const allPageFiles = Object.entries(langFiles);
-    if (allPageFiles.length > 0) {
+    // Also upload the English file if it was generated from reverse translation
+    const filesToUpload: [string, File][] = Object.entries(langFiles) as [string, File][];
+    if (!isSourceEnglish && effectiveEnglishFile && englishLang) {
+      // Add the generated English file for upload
+      filesToUpload.push([String(englishLang.id), effectiveEnglishFile]);
+    }
+
+    if (filesToUpload.length > 0) {
       setStep('step3_pages');
       setProgressMsg('Uploading HTML page files...');
 
       let uploaded = 0;
-      for (const [langIdStr, file] of allPageFiles) {
+      for (const [langIdStr, file] of filesToUpload) {
         const langId = Number(langIdStr);
-        // Find the translation record for this sub-topic + language
         const lookupRes = await api.listSubTopicTranslations(`?sub_topic_id=${subTopicId}&language_id=${langId}&limit=1`);
         if (lookupRes.success && lookupRes.data && lookupRes.data.length > 0) {
           const transId = lookupRes.data[0].id;
@@ -366,45 +419,49 @@ function AutoSubTopicsContent() {
     }
 
     // ═══ Step 4: AI-translate the English HTML page to all other languages ═══
-    if (englishFile && otherLangs.length > 0) {
-      setStep('step4_translate_pages');
-      setProgressMsg(`AI translating HTML page to ${otherLangs.length} languages...`);
+    // Skip the source language if it was non-English (we already have the original)
+    if (effectiveEnglishFile && otherLangs.length > 0) {
+      const skipLangsForTranslation = otherLangs.filter(l => l.iso_code !== sourceLangIso);
+      if (skipLangsForTranslation.length > 0) {
+        setStep('step4_translate_pages');
+        setProgressMsg(`AI translating HTML page to ${skipLangsForTranslation.length} languages...`);
 
-      try {
-        const translateFd = new FormData();
-        translateFd.append('file', englishFile, englishFile.name);
-        translateFd.append('sub_topic_id', String(subTopicId));
-        translateFd.append('provider', aiProvider);
+        try {
+          const translateFd = new FormData();
+          translateFd.append('file', effectiveEnglishFile, effectiveEnglishFile.name);
+          translateFd.append('sub_topic_id', String(subTopicId));
+          translateFd.append('provider', aiProvider);
+          if (!isSourceEnglish) translateFd.append('skip_language', sourceLangIso);
 
-        const translateRes = await api.translatePage(translateFd);
-        if (translateRes.success && translateRes.data?.results) {
-          setPageTranslationResults(translateRes.data.results);
-          const { success: sCount, errors: eCount } = translateRes.data.summary;
-          if (eCount > 0) {
-            toast.error(`Step 4: ${sCount} page translations succeeded, ${eCount} failed`);
+          const translateRes = await api.translatePage(translateFd);
+          if (translateRes.success && translateRes.data?.results) {
+            setPageTranslationResults(translateRes.data.results);
+            const { success: sCount, errors: eCount } = translateRes.data.summary;
+            if (eCount > 0) {
+              toast.error(`Step 4: ${sCount} page translations succeeded, ${eCount} failed`);
+            } else {
+              toast.success(`Step 4: HTML page translated to ${sCount} languages`);
+            }
           } else {
-            toast.success(`Step 4: HTML page translated to ${sCount} languages`);
+            const errorResults = skipLangsForTranslation.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
+            setPageTranslationResults(errorResults);
+            toast.error(`Step 4 failed: ${translateRes.error || 'Page translation failed'}`);
           }
-        } else {
-          const errorResults = otherLangs.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
+        } catch (e: any) {
+          console.error('Page translation failed:', e);
+          const errorResults = skipLangsForTranslation.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
           setPageTranslationResults(errorResults);
-          toast.error(`Step 4 failed: ${translateRes.error || 'Page translation failed'}`);
+          toast.error(`Page translation failed: ${e.message || 'Unknown error'}`);
         }
-      } catch (e: any) {
-        console.error('Page translation failed:', e);
-        const errorResults = otherLangs.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
-        setPageTranslationResults(errorResults);
-        toast.error(`Page translation failed: ${e.message || 'Unknown error'}`);
       }
     }
 
     setStep('done');
     toast.success('All done!');
-    // Reload existing pages to reflect newly uploaded files
     if (selectedTopic) loadExistingPages(selectedTopic);
   }
 
-  const isProcessing = step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages' || step === 'step4_translate_pages';
+  const isProcessing = step === 'step0_reverse' || step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages' || step === 'step4_translate_pages';
   const selectedSubjectObj = subjects.find(s => String(s.id) === selectedSubject);
   const selectedChapterObj = chapters.find(c => String(c.id) === selectedChapter);
   const selectedTopicObj = topics.find(t => String(t.id) === selectedTopic);
@@ -497,11 +554,12 @@ function AutoSubTopicsContent() {
           <div className="flex items-start gap-3 mb-5 px-4 py-3 bg-blue-50 border border-blue-100 rounded-lg">
             <Globe className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-blue-800 space-y-1">
-              <p className="font-semibold">How it works (1 file = 1 sub-topic):</p>
-              <p><strong>Step 1:</strong> English HTML file (required) → AI analyzes content → creates 1 sub-topic + English translation with full SEO</p>
-              <p><strong>Step 2:</strong> AI translates English content to all {otherLangs.length} other active languages with exact meaning</p>
-              <p><strong>Step 3:</strong> All uploaded HTML files are stored as page files on their respective language translations</p>
-              <p><strong>Step 4:</strong> AI translates the English HTML page to all languages (keeping format, HTML structure, and technical terms in English) → saved as <code className="text-[10px] bg-blue-100 px-1 rounded">filename_gu.html</code>, <code className="text-[10px] bg-blue-100 px-1 rounded">filename_hi.html</code>, etc.</p>
+              <p className="font-semibold">How it works (1 file in any language = 1 sub-topic + all translations):</p>
+              <p><strong>Step 0:</strong> If file is not English → AI translates it to English first (reverse translation)</p>
+              <p><strong>Step 1:</strong> English HTML → AI analyzes content → creates 1 sub-topic + English translation with full SEO</p>
+              <p><strong>Step 2:</strong> AI translates SEO content to all {otherLangs.length} other active languages</p>
+              <p><strong>Step 3:</strong> Upload source + English HTML page files to CDN</p>
+              <p><strong>Step 4:</strong> AI translates the English HTML page to remaining languages → saved as <code className="text-[10px] bg-blue-100 px-1 rounded">filename_gu.html</code>, <code className="text-[10px] bg-blue-100 px-1 rounded">filename_hi.html</code>, etc.</p>
             </div>
           </div>
 
@@ -531,8 +589,9 @@ function AutoSubTopicsContent() {
             <div className="flex items-center gap-3 text-sm">
               <span className="text-slate-600">{languages.length} languages</span>
               {uploadedCount > 0 && <Badge variant="info">{uploadedCount} file{uploadedCount > 1 ? 's' : ''}</Badge>}
-              {!englishFile && <Badge variant="warning">English file required for new sub-topic</Badge>}
-              {englishFile && <Badge variant="success">English ready</Badge>}
+              {!primaryFile && <Badge variant="warning">Upload HTML file in any language</Badge>}
+              {primaryFile && isSourceEnglish && <Badge variant="success">English ready</Badge>}
+              {primaryFile && !isSourceEnglish && primaryLang && <Badge variant="info">{primaryLang.name} → will auto-translate to English</Badge>}
               {existingSubTopics.length > 0 && selectedSubTopicId && <Badge variant="info">Drop files to upload instantly</Badge>}
             </div>
             <div className="flex items-center gap-2">
@@ -541,8 +600,9 @@ function AutoSubTopicsContent() {
                   <RotateCcw className="w-4 h-4" /> Start Over
                 </Button>
               )}
-              <Button onClick={handleProcess} disabled={!englishFile || isProcessing}>
-                {step === 'step1_english' ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating Sub-Topic...</>
+              <Button onClick={handleProcess} disabled={!primaryFile || isProcessing}>
+                {step === 'step0_reverse' ? <><Loader2 className="w-4 h-4 animate-spin" /> Translating to English...</>
+                  : step === 'step1_english' ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating Sub-Topic...</>
                   : step === 'step2_translate' ? <><Loader2 className="w-4 h-4 animate-spin" /> Translating SEO...</>
                   : step === 'step3_pages' ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading Pages...</>
                   : step === 'step4_translate_pages' ? <><Loader2 className="w-4 h-4 animate-spin" /> Translating Pages...</>
@@ -557,10 +617,11 @@ function AutoSubTopicsContent() {
               <AiProgressOverlay
                 active={isProcessing}
                 steps={[
-                  { label: 'Analyzing English content & creating sub-topic', status: step === 'step1_english' ? 'active' : 'done' },
-                  { label: `Translating SEO to ${otherLangs.length} languages`, status: step === 'step2_translate' ? 'active' : step === 'step1_english' ? 'pending' : 'done' },
-                  { label: 'Uploading HTML page files', status: step === 'step3_pages' ? 'active' : (step === 'step1_english' || step === 'step2_translate') ? 'pending' : 'done' },
-                  { label: `AI translating HTML page to ${otherLangs.length} languages`, status: step === 'step4_translate_pages' ? 'active' : (step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages') ? 'pending' : 'done' },
+                  ...(!isSourceEnglish ? [{ label: `Reverse translating ${primaryLang?.name || ''} → English`, status: step === 'step0_reverse' ? 'active' as const : 'done' as const }] : []),
+                  { label: 'Analyzing English content & creating sub-topic', status: step === 'step1_english' ? 'active' : (step === 'step0_reverse') ? 'pending' : 'done' },
+                  { label: `Translating SEO to ${otherLangs.length} languages`, status: step === 'step2_translate' ? 'active' : (step === 'step0_reverse' || step === 'step1_english') ? 'pending' : 'done' },
+                  { label: 'Uploading HTML page files', status: step === 'step3_pages' ? 'active' : (step === 'step0_reverse' || step === 'step1_english' || step === 'step2_translate') ? 'pending' : 'done' },
+                  { label: `AI translating HTML page to remaining languages`, status: step === 'step4_translate_pages' ? 'active' : (step === 'step0_reverse' || step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages') ? 'pending' : 'done' },
                 ] as AiProgressStep[]}
                 title="Processing Sub-Topic"
                 subtitle={progressMsg}
@@ -699,22 +760,27 @@ function AutoSubTopicsContent() {
                           <p className="text-xs text-slate-500">
                             {existing
                               ? 'Drop or click to replace'
-                              : isEnglish ? <><strong>Drop or click</strong> .html (required)</> : 'Drop or click .html file'}
+                              : isEnglish ? <><strong>Drop or click</strong> .html</> : 'Drop or click .html file'}
                           </p>
                         </div>
                       )}
                     </div>
-                    {isEnglish && !hasAttachment && (
-                      <p className="text-[10px] text-amber-600 mt-1.5 text-center font-medium">English file is required — AI generates sub-topic from this</p>
+                    {isEnglish && !hasAttachment && !file && (
+                      <p className="text-[10px] text-slate-400 mt-1.5 text-center">Upload English or any other language file to start</p>
                     )}
                     {isEnglish && file && (
                       <p className="text-[10px] text-emerald-600 mt-1.5 text-center font-medium">
                         {existing ? 'New file will replace existing — AI will re-generate sub-topic' : 'AI will create sub-topic + translation from this file'}
                       </p>
                     )}
-                    {!isEnglish && !existing && !isCardUploading && uploadStatus !== 'success' && (
+                    {!isEnglish && !existing && !isCardUploading && uploadStatus !== 'success' && !file && (
                       <p className="text-[10px] text-slate-400 mt-1.5 text-center">
-                        {selectedSubTopicId ? 'Drop file to upload instantly' : 'Select a sub-topic above to enable instant upload'}
+                        {selectedSubTopicId ? 'Drop file to upload instantly' : 'Drop file here — will auto-translate to English + all languages'}
+                      </p>
+                    )}
+                    {!isEnglish && file && !isCardUploading && uploadStatus !== 'success' && !selectedSubTopicId && (
+                      <p className="text-[10px] text-blue-600 mt-1.5 text-center font-medium">
+                        AI will translate this to English first, then generate sub-topic + all languages
                       </p>
                     )}
                     {uploadStatus === 'success' && (
