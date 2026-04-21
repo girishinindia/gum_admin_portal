@@ -43,6 +43,7 @@ type SortField = 'id' | 'slug' | 'display_order' | 'sort_order' | 'is_active';
 
 export default function TopicsPage() {
   const [items, setItems] = useState<Topic[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -59,6 +60,7 @@ export default function TopicsPage() {
   const [searchDebounce, setSearchDebounce] = useState('');
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [filterSubject, setFilterSubject] = useState('');
   const [filterChapter, setFilterChapter] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('');
 
@@ -95,9 +97,14 @@ export default function TopicsPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
 
+  // Dialog: cascading subject > chapter filters
+  const [dialogSubject, setDialogSubject] = useState('');
+  const [dialogChapters, setDialogChapters] = useState<Chapter[]>([]);
+
   const { register, handleSubmit, reset } = useForm();
 
   useEffect(() => {
+    api.listSubjects('?limit=500&is_active=true').then(res => { if (res.success) setSubjects(res.data || []); });
     api.listChapters('?limit=500&is_active=true').then(res => { if (res.success) setChapters(res.data || []); });
   }, []);
 
@@ -115,8 +122,13 @@ export default function TopicsPage() {
     loadCoverage();
   }, []);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterChapter, filterStatus, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterChapter, filterStatus, showTrash]);
+  // Filtered chapters based on selected subject filter (for toolbar)
+  const filteredChaptersForToolbar = filterSubject
+    ? chapters.filter(c => String((c as any).subject_id) === filterSubject)
+    : chapters;
+
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterSubject, filterChapter, filterStatus, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterSubject, filterChapter, filterStatus, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -130,6 +142,7 @@ export default function TopicsPage() {
       qs.set('show_deleted', 'true');
     } else {
       if (filterChapter) qs.set('chapter_id', filterChapter);
+      else if (filterSubject) qs.set('subject_id', filterSubject);
       if (filterStatus) qs.set('is_active', filterStatus);
     }
     const res = await api.listTopics('?' + qs.toString());
@@ -234,10 +247,8 @@ Model Evaluation Metrics`;
     setImportResult(null);
     setImportSubjectId('');
     setImportChapterId('');
-    // Load subjects for the dropdown
-    api.listSubjects('?limit=500&is_active=true').then(res => {
-      if (res.success) setImportSubjects(res.data || []);
-    });
+    // Use already-loaded subjects
+    setImportSubjects(subjects);
   }
 
   // Chapters filtered by selected import subject
@@ -302,6 +313,8 @@ Model Evaluation Metrics`;
   function openCreate() {
     setEditing(null);
     setDialogKey(k => k + 1);
+    setDialogSubject('');
+    setDialogChapters([]);
     reset({ chapter_id: '', slug: '', display_order: 0, sort_order: 0 });
     setDialogOpen(true);
   }
@@ -309,6 +322,17 @@ Model Evaluation Metrics`;
   function openEdit(t: Topic) {
     setEditing(t);
     setDialogKey(k => k + 1);
+    // Pre-select subject based on the topic's chapter and load related chapters
+    const ch = chapters.find(c => c.id === t.chapter_id);
+    const subjectId = ch ? String((ch as any).subject_id) : '';
+    setDialogSubject(subjectId);
+    if (subjectId) {
+      api.listChapters(`?limit=500&is_active=true&subject_id=${subjectId}`).then(res => {
+        if (res.success) setDialogChapters(res.data || []);
+      });
+    } else {
+      setDialogChapters([]);
+    }
     reset({ chapter_id: t.chapter_id || '', slug: t.slug, display_order: t.display_order, sort_order: t.sort_order ?? 0 });
     setDialogOpen(true);
   }
@@ -497,11 +521,19 @@ Model Evaluation Metrics`;
           <>
             <select
               className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat"
+              value={filterSubject}
+              onChange={e => { setFilterSubject(e.target.value); setFilterChapter(''); }}
+            >
+              <option value="">All subjects</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
+            </select>
+            <select
+              className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat"
               value={filterChapter}
               onChange={e => setFilterChapter(e.target.value)}
             >
-              <option value="">All chapters</option>
-              {chapters.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
+              <option value="">{filterSubject ? 'All chapters' : 'All chapters'}</option>
+              {filteredChaptersForToolbar.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
             </select>
             <select
               value={filterStatus}
@@ -754,11 +786,37 @@ Model Evaluation Metrics`;
           )}
 
           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
+            <select
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              value={dialogSubject}
+              onChange={e => {
+                const val = e.target.value;
+                setDialogSubject(val);
+                reset((prev: any) => ({ ...prev, chapter_id: '' }));
+                if (val) {
+                  api.listChapters(`?limit=500&is_active=true&subject_id=${val}`).then(res => {
+                    if (res.success) setDialogChapters(res.data || []);
+                    else setDialogChapters([]);
+                  });
+                } else {
+                  setDialogChapters([]);
+                }
+              }}
+            >
+              <option value="">All subjects</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Chapter</label>
-            <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-              {...register('chapter_id')}>
-              <option value="">No chapter</option>
-              {chapters.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
+            <select
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400"
+              {...register('chapter_id')}
+              disabled={!dialogSubject}
+            >
+              <option value="">{dialogSubject ? 'Select a chapter' : 'Select subject first'}</option>
+              {dialogChapters.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
             </select>
           </div>
           <Input label="Slug" placeholder="my-topic-slug" {...register('slug', { required: true })} />

@@ -758,6 +758,7 @@ Unsupervised Learning
             <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
             <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               {...register('subject_id', { required: true })}>
+              <option value="">Select a subject</option>
               {subjects.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
             </select>
           </div>

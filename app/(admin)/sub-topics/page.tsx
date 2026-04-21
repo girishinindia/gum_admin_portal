@@ -89,6 +89,11 @@ export default function SubTopicsPage() {
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
 
+  // Dialog: cascading subject > chapter > topic filters
+  const [dialogSubject, setDialogSubject] = useState('');
+  const [dialogChapter, setDialogChapter] = useState('');
+  const [dialogChapters, setDialogChapters] = useState<Chapter[]>([]);
+
   // Video upload
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUploading, setVideoUploading] = useState(false);
@@ -118,8 +123,18 @@ export default function SubTopicsPage() {
     setFilterTopic('');
   }, [filterChapter]);
 
-  // Filtered topics based on selected chapter
+  // Filtered topics based on selected chapter (toolbar)
   const filteredTopics = filterChapter ? topics.filter(t => String((t as any).chapter_id) === filterChapter) : topics;
+
+  // Filtered topics for the dialog based on dialog chapter selection
+  const dialogFilteredTopics = dialogChapter
+    ? topics.filter(t => String((t as any).chapter_id) === dialogChapter)
+    : dialogSubject
+      ? topics.filter(t => {
+          const ch = dialogChapters.find(c => c.id === (t as any).chapter_id);
+          return !!ch;
+        })
+      : topics;
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounce(search), 400);
@@ -225,6 +240,9 @@ export default function SubTopicsPage() {
   function openCreate() {
     setEditing(null);
     setDialogKey(k => k + 1);
+    setDialogSubject('');
+    setDialogChapter('');
+    setDialogChapters([]);
     reset({ topic_id: '', slug: '', display_order: 0, difficulty_level: 'all_levels', estimated_minutes: '', youtube_url: '' });
     setVideoFile(null);
     setVideoUploading(false);
@@ -236,6 +254,30 @@ export default function SubTopicsPage() {
   function openEdit(t: SubTopic) {
     setEditing(t);
     setDialogKey(k => k + 1);
+    // Pre-select subject and chapter based on the sub-topic's topic
+    const topic = topics.find(tp => tp.id === t.topic_id);
+    const chapterId = topic ? String((topic as any).chapter_id) : '';
+    // Find subject from chapter
+    if (chapterId) {
+      // Load chapters for the subject
+      api.listChapters(`?limit=500&is_active=true`).then(res => {
+        if (res.success) {
+          const allChapters = res.data || [];
+          const ch = allChapters.find((c: any) => String(c.id) === chapterId);
+          const subjectId = ch ? String((ch as any).subject_id) : '';
+          setDialogSubject(subjectId);
+          if (subjectId) {
+            const filtered = allChapters.filter((c: any) => String(c.subject_id) === subjectId);
+            setDialogChapters(filtered);
+          }
+          setDialogChapter(chapterId);
+        }
+      });
+    } else {
+      setDialogSubject('');
+      setDialogChapter('');
+      setDialogChapters([]);
+    }
     reset({ topic_id: t.topic_id || '', slug: t.slug, display_order: t.display_order, difficulty_level: t.difficulty_level || 'all_levels', estimated_minutes: t.estimated_minutes || '', youtube_url: (t as any).youtube_url || '' });
     setVideoFile(null);
     setVideoUploading(false);
@@ -620,10 +662,53 @@ export default function SubTopicsPage() {
           )}
 
           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
+            <select
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              value={dialogSubject}
+              onChange={e => {
+                const val = e.target.value;
+                setDialogSubject(val);
+                setDialogChapter('');
+                reset((prev: any) => ({ ...prev, topic_id: '' }));
+                if (val) {
+                  api.listChapters(`?limit=500&is_active=true&subject_id=${val}`).then(res => {
+                    if (res.success) setDialogChapters(res.data || []);
+                    else setDialogChapters([]);
+                  });
+                } else {
+                  setDialogChapters([]);
+                }
+              }}
+            >
+              <option value="">All subjects</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.code || s.slug}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Chapter</label>
+            <select
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400"
+              value={dialogChapter}
+              onChange={e => {
+                setDialogChapter(e.target.value);
+                reset((prev: any) => ({ ...prev, topic_id: '' }));
+              }}
+              disabled={!dialogSubject}
+            >
+              <option value="">{dialogSubject ? 'All chapters' : 'Select subject first'}</option>
+              {dialogChapters.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Topic</label>
-            <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500" {...register('topic_id')}>
-              <option value="">No topic</option>
-              {topics.map(t => <option key={t.id} value={t.id}>{t.slug}</option>)}
+            <select
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400"
+              {...register('topic_id')}
+              disabled={!dialogChapter}
+            >
+              <option value="">{dialogChapter ? 'Select a topic' : 'Select chapter first'}</option>
+              {dialogFilteredTopics.map(t => <option key={t.id} value={t.id}>{t.slug}</option>)}
             </select>
           </div>
           <Input label="Slug" placeholder="my-sub-topic-slug" {...register('slug', { required: true })} />
