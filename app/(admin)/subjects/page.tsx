@@ -374,8 +374,8 @@ Web Development
     payload.sort_order = Number(payload.sort_order) || 0;
 
     const res = editing
-      ? await api.updateSubject(editing.id, JSON.stringify(payload))
-      : await api.createSubject(JSON.stringify(payload));
+      ? await api.updateSubject(editing.id, payload)
+      : await api.createSubject(payload);
     if (res.success) {
       toast.success(editing ? 'Subject updated' : 'Subject created');
       setDialogOpen(false); load(); refreshSummary();
