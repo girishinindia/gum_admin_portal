@@ -57,6 +57,11 @@ function AutoSubTopicsContent() {
   const [existingSubTopics, setExistingSubTopics] = useState<{ id: number; slug: string; name?: string }[]>([]);
   const [selectedSubTopicId, setSelectedSubTopicId] = useState<string>('');
 
+  // Per-card upload status: 'uploading' | 'success' | 'error'
+  const [cardUploadStatus, setCardUploadStatus] = useState<Record<number, 'uploading' | 'success' | 'error'>>({});
+  // Per-card drag-over state
+  const [dragOverLang, setDragOverLang] = useState<number | null>(null);
+
   const [step, setStep] = useState<Step>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [progressMsg, setProgressMsg] = useState('');
@@ -186,6 +191,7 @@ function AutoSubTopicsContent() {
   function resetResults() {
     setStep('idle'); setErrorMsg(''); setLangFiles({});
     setResultSubTopic(null); setTranslationResults([]); setPagesUploaded(0); setProgressMsg('');
+    setCardUploadStatus({});
     if (selectedTopic) loadExistingPages(selectedTopic);
   }
 
@@ -201,6 +207,62 @@ function AutoSubTopicsContent() {
       return next;
     });
     if (step === 'error' || step === 'done') { setStep('idle'); setErrorMsg(''); }
+
+    // Auto-upload for non-English languages when a sub-topic exists
+    const isEnglish = englishLang && langId === englishLang.id;
+    if (file && !isEnglish && selectedSubTopicId) {
+      autoUploadPage(langId, file, Number(selectedSubTopicId));
+    }
+  }
+
+  // Immediately upload a page file for a specific language to an existing sub-topic
+  async function autoUploadPage(langId: number, file: File, subTopicId: number) {
+    setCardUploadStatus(prev => ({ ...prev, [langId]: 'uploading' }));
+    try {
+      const lookupRes = await api.listSubTopicTranslations(`?sub_topic_id=${subTopicId}&language_id=${langId}&limit=1`);
+      if (!lookupRes.success || !lookupRes.data || lookupRes.data.length === 0) {
+        const lang = languages.find(l => l.id === langId);
+        toast.error(`No translation found for ${lang?.name || 'language'} on this sub-topic`);
+        setCardUploadStatus(prev => ({ ...prev, [langId]: 'error' }));
+        return;
+      }
+      const transId = lookupRes.data[0].id;
+      const pageFd = new FormData();
+      pageFd.append('page_file', file, file.name);
+      const updRes = await api.updateSubTopicTranslation(transId, pageFd, true);
+      if (updRes.success) {
+        setCardUploadStatus(prev => ({ ...prev, [langId]: 'success' }));
+        const lang = languages.find(l => l.id === langId);
+        toast.success(`${lang?.name || 'Language'} page uploaded`);
+        // Refresh existing pages to show the new file
+        if (selectedTopic) loadExistingPages(selectedTopic);
+      } else {
+        setCardUploadStatus(prev => ({ ...prev, [langId]: 'error' }));
+        toast.error(`Upload failed: ${updRes.error || 'Unknown error'}`);
+      }
+    } catch (e: any) {
+      setCardUploadStatus(prev => ({ ...prev, [langId]: 'error' }));
+      toast.error(`Upload failed: ${e.message || 'Unknown error'}`);
+    }
+  }
+
+  // Drag and drop handlers
+  function handleDragOver(e: React.DragEvent, langId: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverLang(langId);
+  }
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverLang(null);
+  }
+  function handleDrop(e: React.DragEvent, langId: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverLang(null);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileSelect(langId, file);
   }
 
   const englishLang = languages.find(l => l.iso_code === 'en');
@@ -308,65 +370,10 @@ function AutoSubTopicsContent() {
     if (selectedTopic) loadExistingPages(selectedTopic);
   }
 
-  // ═══ Upload Pages Only — for existing sub-topics (no English file needed) ═══
-  async function handleUploadPagesOnly() {
-    const nonEnglishFiles = Object.entries(langFiles).filter(([langIdStr]) => {
-      const langId = Number(langIdStr);
-      return !englishLang || langId !== englishLang.id;
-    });
-
-    if (nonEnglishFiles.length === 0) {
-      toast.error('No language files to upload');
-      return;
-    }
-
-    const targetSubTopicId = Number(selectedSubTopicId);
-    if (!targetSubTopicId) {
-      toast.error('Select a sub-topic to upload pages to');
-      return;
-    }
-
-    setErrorMsg('');
-    setResultSubTopic(null);
-    setTranslationResults([]);
-    setPagesUploaded(0);
-    setStep('step3_pages');
-    setProgressMsg('Uploading HTML page files...');
-
-    let uploaded = 0;
-    let failed = 0;
-    for (const [langIdStr, file] of nonEnglishFiles) {
-      const langId = Number(langIdStr);
-      // Find the translation record for this sub-topic + language
-      const lookupRes = await api.listSubTopicTranslations(`?sub_topic_id=${targetSubTopicId}&language_id=${langId}&limit=1`);
-      if (lookupRes.success && lookupRes.data && lookupRes.data.length > 0) {
-        const transId = lookupRes.data[0].id;
-        const pageFd = new FormData();
-        pageFd.append('page_file', file, file.name);
-        const updRes = await api.updateSubTopicTranslation(transId, pageFd, true);
-        if (updRes.success) uploaded++;
-        else failed++;
-      } else {
-        // No translation record exists for this language — skip
-        const lang = languages.find(l => l.id === langId);
-        toast.error(`No translation found for ${lang?.name || 'language'} on this sub-topic`);
-        failed++;
-      }
-    }
-    setPagesUploaded(uploaded);
-    if (uploaded > 0) toast.success(`${uploaded} page file${uploaded > 1 ? 's' : ''} uploaded successfully`);
-    if (failed > 0) toast.error(`${failed} file${failed > 1 ? 's' : ''} failed to upload`);
-
-    setStep('done');
-    if (selectedTopic) loadExistingPages(selectedTopic);
-  }
-
   const isProcessing = step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages';
   const selectedSubjectObj = subjects.find(s => String(s.id) === selectedSubject);
   const selectedChapterObj = chapters.find(c => String(c.id) === selectedChapter);
   const selectedTopicObj = topics.find(t => String(t.id) === selectedTopic);
-  const hasNonEnglishFiles = Object.keys(langFiles).some(k => !englishLang || Number(k) !== englishLang.id);
-  const canUploadPagesOnly = !englishFile && hasNonEnglishFiles && existingSubTopics.length > 0 && !!selectedSubTopicId;
 
   // Sort languages: English first, then alphabetical
   const sortedLanguages = [...languages].sort((a, b) => {
@@ -463,12 +470,12 @@ function AutoSubTopicsContent() {
             </div>
           </div>
 
-          {/* Sub-topic selector for "Upload Pages Only" mode */}
-          {existingSubTopics.length > 0 && !englishFile && hasNonEnglishFiles && (
+          {/* Sub-topic selector — always show when sub-topics exist for direct page uploads */}
+          {existingSubTopics.length > 0 && (
             <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
               <Upload className="w-4 h-4 text-amber-600 flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-xs text-amber-800 font-medium mb-1.5">Upload pages to existing sub-topic (no English file needed)</p>
+                <p className="text-xs text-amber-800 font-medium mb-1.5">Drop or select HTML files on language cards — they upload instantly to this sub-topic</p>
                 <select
                   className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                   value={selectedSubTopicId}
@@ -489,21 +496,14 @@ function AutoSubTopicsContent() {
             <div className="flex items-center gap-3 text-sm">
               <span className="text-slate-600">{languages.length} languages</span>
               {uploadedCount > 0 && <Badge variant="info">{uploadedCount} file{uploadedCount > 1 ? 's' : ''}</Badge>}
-              {!englishFile && !hasNonEnglishFiles && <Badge variant="warning">English file required</Badge>}
-              {!englishFile && hasNonEnglishFiles && existingSubTopics.length > 0 && <Badge variant="info">Upload pages mode</Badge>}
-              {!englishFile && hasNonEnglishFiles && existingSubTopics.length === 0 && <Badge variant="warning">English file required for new sub-topic</Badge>}
+              {!englishFile && <Badge variant="warning">English file required for new sub-topic</Badge>}
               {englishFile && <Badge variant="success">English ready</Badge>}
+              {existingSubTopics.length > 0 && selectedSubTopicId && <Badge variant="info">Drop files to upload instantly</Badge>}
             </div>
             <div className="flex items-center gap-2">
               {step === 'done' && (
                 <Button variant="outline" onClick={resetResults}>
                   <RotateCcw className="w-4 h-4" /> Start Over
-                </Button>
-              )}
-              {canUploadPagesOnly && !englishFile && (
-                <Button onClick={handleUploadPagesOnly} disabled={isProcessing}>
-                  {step === 'step3_pages' ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading Pages...</>
-                    : <><Upload className="w-4 h-4" /> Upload Pages</>}
                 </Button>
               )}
               <Button onClick={handleProcess} disabled={!englishFile || isProcessing}>
@@ -558,10 +558,16 @@ function AutoSubTopicsContent() {
               const tr = translationResults.find(r => r.iso_code === lang.iso_code);
               const langDone = isEnglish ? !!resultSubTopic : (tr?.status === 'success');
               const hasAttachment = !!file || !!existing;
+              const uploadStatus = cardUploadStatus[lang.id];
+              const isDragOver = dragOverLang === lang.id;
+              const isCardUploading = uploadStatus === 'uploading';
 
               return (
                 <div key={lang.id} className={cn(
                   'bg-white rounded-xl border shadow-sm overflow-hidden transition-all',
+                  isDragOver ? 'border-brand-500 ring-2 ring-brand-300 scale-[1.02]' :
+                  uploadStatus === 'success' ? 'border-emerald-300' :
+                  uploadStatus === 'error' ? 'border-red-300' :
                   langDone ? 'border-emerald-200' :
                   isEnglish && !hasAttachment ? 'border-amber-300 ring-1 ring-amber-200' :
                   hasAttachment ? 'border-brand-200' : 'border-slate-200'
@@ -580,16 +586,24 @@ function AutoSubTopicsContent() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       {isEnglish && <Badge variant="success">Primary</Badge>}
-                      {existing && !file && <Badge variant="info">Attached</Badge>}
-                      {langDone && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                      {tr?.status === 'error' && <XCircle className="w-4 h-4 text-red-500" />}
+                      {existing && !file && !isCardUploading && <Badge variant="info">Attached</Badge>}
+                      {isCardUploading && <Loader2 className="w-4 h-4 text-brand-500 animate-spin" />}
+                      {uploadStatus === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                      {uploadStatus === 'error' && <XCircle className="w-4 h-4 text-red-500" />}
+                      {!uploadStatus && langDone && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                      {!uploadStatus && tr?.status === 'error' && <XCircle className="w-4 h-4 text-red-500" />}
                     </div>
                   </div>
 
-                  {/* Card body */}
-                  <div className="p-3">
-                    {/* Show existing attached file if no new file is selected */}
-                    {existing && !file && (
+                  {/* Card body — drag and drop zone */}
+                  <div
+                    className="p-3"
+                    onDragOver={e => handleDragOver(e, lang.id)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={e => handleDrop(e, lang.id)}
+                  >
+                    {/* Show existing attached file */}
+                    {existing && !isCardUploading && (
                       <div className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-2.5 mb-2">
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-emerald-600 flex-shrink-0" />
@@ -605,39 +619,49 @@ function AutoSubTopicsContent() {
                       </div>
                     )}
 
+                    {/* Upload status indicator */}
+                    {isCardUploading && (
+                      <div className="border border-brand-200 bg-brand-50/50 rounded-lg p-3 mb-2 flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 text-brand-600 animate-spin" />
+                        <span className="text-xs text-brand-700 font-medium">Uploading...</span>
+                      </div>
+                    )}
+
                     <div
                       className={cn(
-                        'border-2 border-dashed rounded-lg p-3 text-center transition-colors',
-                        file ? 'border-brand-200 bg-brand-50/30' : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50',
-                        isProcessing ? 'opacity-50 pointer-events-none' : 'cursor-pointer'
+                        'border-2 border-dashed rounded-lg p-3 text-center transition-all',
+                        isDragOver ? 'border-brand-400 bg-brand-50 scale-[1.01]' :
+                        file ? 'border-brand-200 bg-brand-50/30' :
+                        'border-slate-200 hover:border-brand-300 hover:bg-slate-50',
+                        (isProcessing || isCardUploading) ? 'opacity-50 pointer-events-none' : 'cursor-pointer'
                       )}
                       onClick={() => {
-                        if (isProcessing) return;
+                        if (isProcessing || isCardUploading) return;
                         const input = document.createElement('input');
                         input.type = 'file'; input.accept = '.html,.htm';
                         input.onchange = (e: any) => { const f = e.target?.files?.[0]; if (f) handleFileSelect(lang.id, f); };
                         input.click();
                       }}
                     >
-                      {file ? (
+                      {isDragOver ? (
+                        <div>
+                          <Upload className="w-5 h-5 text-brand-500 mx-auto mb-1" />
+                          <p className="text-xs text-brand-600 font-semibold">Drop file here</p>
+                        </div>
+                      ) : file ? (
                         <div className="flex items-center justify-center gap-2">
                           <FileText className="w-4 h-4 text-brand-600 flex-shrink-0" />
                           <span className="text-xs text-brand-700 font-medium truncate max-w-[150px]">{file.name}</span>
                           <span className="text-[10px] text-slate-400">({(file.size / 1024).toFixed(0)}KB)</span>
                           {existing && <Badge variant="warning">Replace</Badge>}
-                          {!isProcessing && (
-                            <button type="button" onClick={(e) => { e.stopPropagation(); handleFileSelect(lang.id, null); }} className="text-red-400 hover:text-red-600">
-                              <XCircle className="w-3.5 h-3.5" />
-                            </button>
-                          )}
                         </div>
                       ) : (
                         <div>
                           <Upload className="w-4 h-4 text-slate-300 mx-auto mb-1" />
                           <p className="text-xs text-slate-500">
                             {existing
-                              ? 'Upload new .html to replace'
-                              : isEnglish ? <><strong>Upload .html</strong> (required)</> : 'Upload .html file'}
+                              ? 'Drop or click to replace'
+                              : isEnglish ? <><strong>Drop or click</strong> .html (required)</> : 'Drop or click .html file'}
                           </p>
                         </div>
                       )}
@@ -650,8 +674,16 @@ function AutoSubTopicsContent() {
                         {existing ? 'New file will replace existing — AI will re-generate sub-topic' : 'AI will create sub-topic + translation from this file'}
                       </p>
                     )}
-                    {!isEnglish && !existing && (
-                      <p className="text-[10px] text-slate-400 mt-1.5 text-center">Translation auto-generated from English. File stored as page.</p>
+                    {!isEnglish && !existing && !isCardUploading && uploadStatus !== 'success' && (
+                      <p className="text-[10px] text-slate-400 mt-1.5 text-center">
+                        {selectedSubTopicId ? 'Drop file to upload instantly' : 'Select a sub-topic above to enable instant upload'}
+                      </p>
+                    )}
+                    {uploadStatus === 'success' && (
+                      <p className="text-[10px] text-emerald-600 mt-1.5 text-center font-medium">Page uploaded successfully</p>
+                    )}
+                    {uploadStatus === 'error' && (
+                      <p className="text-[10px] text-red-500 mt-1.5 text-center font-medium">Upload failed — try again</p>
                     )}
                   </div>
                 </div>
