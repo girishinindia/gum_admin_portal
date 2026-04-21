@@ -22,7 +22,7 @@ interface Subject { id: number; slug: string; is_active: boolean }
 interface Chapter { id: number; slug: string; subject_id: number; is_active: boolean }
 interface Topic { id: number; slug: string; chapter_id: number; is_active: boolean }
 
-type Step = 'idle' | 'step1_english' | 'step2_translate' | 'step3_pages' | 'done' | 'error';
+type Step = 'idle' | 'step1_english' | 'step2_translate' | 'step3_pages' | 'step4_translate_pages' | 'done' | 'error';
 
 export default function AutoSubTopicsPage() {
   return (
@@ -70,6 +70,7 @@ function AutoSubTopicsContent() {
   const [resultSubTopic, setResultSubTopic] = useState<{ sub_topic_id: number; slug: string; name: string; is_new: boolean } | null>(null);
   const [translationResults, setTranslationResults] = useState<{ language: string; iso_code: string; status: string }[]>([]);
   const [pagesUploaded, setPagesUploaded] = useState(0);
+  const [pageTranslationResults, setPageTranslationResults] = useState<{ language: string; iso_code: string; status: string; page_url?: string }[]>([]);
 
   // Load subjects and languages on mount; handle query param pre-selection
   useEffect(() => {
@@ -191,7 +192,7 @@ function AutoSubTopicsContent() {
   function resetResults() {
     setStep('idle'); setErrorMsg(''); setLangFiles({});
     setResultSubTopic(null); setTranslationResults([]); setPagesUploaded(0); setProgressMsg('');
-    setCardUploadStatus({});
+    setCardUploadStatus({}); setPageTranslationResults([]);
     if (selectedTopic) loadExistingPages(selectedTopic);
   }
 
@@ -364,13 +365,46 @@ function AutoSubTopicsContent() {
       if (uploaded > 0) toast.success(`Step 3: ${uploaded} page file${uploaded > 1 ? 's' : ''} uploaded`);
     }
 
+    // ═══ Step 4: AI-translate the English HTML page to all other languages ═══
+    if (englishFile && otherLangs.length > 0) {
+      setStep('step4_translate_pages');
+      setProgressMsg(`AI translating HTML page to ${otherLangs.length} languages...`);
+
+      try {
+        const translateFd = new FormData();
+        translateFd.append('file', englishFile, englishFile.name);
+        translateFd.append('sub_topic_id', String(subTopicId));
+        translateFd.append('provider', aiProvider);
+
+        const translateRes = await api.translatePage(translateFd);
+        if (translateRes.success && translateRes.data?.results) {
+          setPageTranslationResults(translateRes.data.results);
+          const { success: sCount, errors: eCount } = translateRes.data.summary;
+          if (eCount > 0) {
+            toast.error(`Step 4: ${sCount} page translations succeeded, ${eCount} failed`);
+          } else {
+            toast.success(`Step 4: HTML page translated to ${sCount} languages`);
+          }
+        } else {
+          const errorResults = otherLangs.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
+          setPageTranslationResults(errorResults);
+          toast.error(`Step 4 failed: ${translateRes.error || 'Page translation failed'}`);
+        }
+      } catch (e: any) {
+        console.error('Page translation failed:', e);
+        const errorResults = otherLangs.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
+        setPageTranslationResults(errorResults);
+        toast.error(`Page translation failed: ${e.message || 'Unknown error'}`);
+      }
+    }
+
     setStep('done');
     toast.success('All done!');
     // Reload existing pages to reflect newly uploaded files
     if (selectedTopic) loadExistingPages(selectedTopic);
   }
 
-  const isProcessing = step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages';
+  const isProcessing = step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages' || step === 'step4_translate_pages';
   const selectedSubjectObj = subjects.find(s => String(s.id) === selectedSubject);
   const selectedChapterObj = chapters.find(c => String(c.id) === selectedChapter);
   const selectedTopicObj = topics.find(t => String(t.id) === selectedTopic);
@@ -467,6 +501,7 @@ function AutoSubTopicsContent() {
               <p><strong>Step 1:</strong> English HTML file (required) → AI analyzes content → creates 1 sub-topic + English translation with full SEO</p>
               <p><strong>Step 2:</strong> AI translates English content to all {otherLangs.length} other active languages with exact meaning</p>
               <p><strong>Step 3:</strong> All uploaded HTML files are stored as page files on their respective language translations</p>
+              <p><strong>Step 4:</strong> AI translates the English HTML page to all languages (keeping format, HTML structure, and technical terms in English) → saved as <code className="text-[10px] bg-blue-100 px-1 rounded">filename_gu.html</code>, <code className="text-[10px] bg-blue-100 px-1 rounded">filename_hi.html</code>, etc.</p>
             </div>
           </div>
 
@@ -508,8 +543,9 @@ function AutoSubTopicsContent() {
               )}
               <Button onClick={handleProcess} disabled={!englishFile || isProcessing}>
                 {step === 'step1_english' ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating Sub-Topic...</>
-                  : step === 'step2_translate' ? <><Loader2 className="w-4 h-4 animate-spin" /> Translating...</>
+                  : step === 'step2_translate' ? <><Loader2 className="w-4 h-4 animate-spin" /> Translating SEO...</>
                   : step === 'step3_pages' ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading Pages...</>
+                  : step === 'step4_translate_pages' ? <><Loader2 className="w-4 h-4 animate-spin" /> Translating Pages...</>
                   : <><Sparkles className="w-4 h-4" /> Process</>}
               </Button>
             </div>
@@ -522,8 +558,9 @@ function AutoSubTopicsContent() {
                 active={isProcessing}
                 steps={[
                   { label: 'Analyzing English content & creating sub-topic', status: step === 'step1_english' ? 'active' : 'done' },
-                  { label: `Translating to ${otherLangs.length} languages`, status: step === 'step2_translate' ? 'active' : step === 'step1_english' ? 'pending' : 'done' },
-                  { label: 'Uploading HTML page files', status: step === 'step3_pages' ? 'active' : 'pending' },
+                  { label: `Translating SEO to ${otherLangs.length} languages`, status: step === 'step2_translate' ? 'active' : step === 'step1_english' ? 'pending' : 'done' },
+                  { label: 'Uploading HTML page files', status: step === 'step3_pages' ? 'active' : (step === 'step1_english' || step === 'step2_translate') ? 'pending' : 'done' },
+                  { label: `AI translating HTML page to ${otherLangs.length} languages`, status: step === 'step4_translate_pages' ? 'active' : (step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages') ? 'pending' : 'done' },
                 ] as AiProgressStep[]}
                 title="Processing Sub-Topic"
                 subtitle={progressMsg}
@@ -556,7 +593,8 @@ function AutoSubTopicsContent() {
               const file = langFiles[lang.id];
               const existing = existingPages[lang.id];
               const tr = translationResults.find(r => r.iso_code === lang.iso_code);
-              const langDone = isEnglish ? !!resultSubTopic : (tr?.status === 'success');
+              const ptr = pageTranslationResults.find(r => r.iso_code === lang.iso_code);
+              const langDone = isEnglish ? !!resultSubTopic : (tr?.status === 'success' || ptr?.status === 'success');
               const hasAttachment = !!file || !!existing;
               const uploadStatus = cardUploadStatus[lang.id];
               const isDragOver = dragOverLang === lang.id;
@@ -704,18 +742,39 @@ function AutoSubTopicsContent() {
                     <Badge variant={resultSubTopic.is_new ? 'success' : 'info'}>{resultSubTopic.is_new ? 'new' : 'existing'}</Badge>
                   </div>
 
-                  {/* Translation badges */}
+                  {/* SEO Translation badges */}
                   {translationResults.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 ml-7">
-                      {translationResults.map((tr, j) => (
-                        <span key={j} className={cn(
-                          'inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full font-medium',
-                          tr.status === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
-                        )}>
-                          {tr.status === 'success' ? <CheckCircle2 className="w-2.5 h-2.5" /> : <XCircle className="w-2.5 h-2.5" />}
-                          {tr.iso_code} — {tr.language}
-                        </span>
-                      ))}
+                    <div className="ml-7 mb-2">
+                      <p className="text-[10px] text-slate-500 font-medium mb-1">SEO Translations:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {translationResults.map((tr, j) => (
+                          <span key={j} className={cn(
+                            'inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full font-medium',
+                            tr.status === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                          )}>
+                            {tr.status === 'success' ? <CheckCircle2 className="w-2.5 h-2.5" /> : <XCircle className="w-2.5 h-2.5" />}
+                            {tr.iso_code} — {tr.language}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Page Translation badges */}
+                  {pageTranslationResults.length > 0 && (
+                    <div className="ml-7">
+                      <p className="text-[10px] text-slate-500 font-medium mb-1">Page Translations (HTML):</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {pageTranslationResults.map((ptr, j) => (
+                          <span key={j} className={cn(
+                            'inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full font-medium',
+                            ptr.status === 'success' ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-600'
+                          )}>
+                            {ptr.status === 'success' ? <CheckCircle2 className="w-2.5 h-2.5" /> : <XCircle className="w-2.5 h-2.5" />}
+                            {ptr.iso_code} — {ptr.language}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -725,7 +784,9 @@ function AutoSubTopicsContent() {
                 <div className="px-5 py-3 bg-emerald-50 border-t border-emerald-200 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span className="text-sm font-medium text-emerald-700">
-                    Complete! 1 sub-topic, {1 + translationResults.filter(r => r.status === 'success').length} translations{pagesUploaded > 0 ? `, ${pagesUploaded} page file${pagesUploaded > 1 ? 's' : ''}` : ''}.
+                    Complete! 1 sub-topic, {1 + translationResults.filter(r => r.status === 'success').length} SEO translations
+                    {pageTranslationResults.filter(r => r.status === 'success').length > 0 ? `, ${pageTranslationResults.filter(r => r.status === 'success').length} page translations` : ''}
+                    {pagesUploaded > 0 ? `, ${pagesUploaded} page file${pagesUploaded > 1 ? 's' : ''}` : ''}.
                   </span>
                 </div>
               )}

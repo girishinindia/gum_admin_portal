@@ -434,6 +434,10 @@ export const api = {
   autoSubTopics: (fd: FormData) =>
     request('/ai/auto-sub-topics', { method: 'POST', body: fd, isFormData: true }),
 
+  // AI — Translate HTML page to all languages
+  translatePage: (fd: FormData) =>
+    request('/ai/translate-page', { method: 'POST', body: fd, isFormData: true }),
+
   // AI — Import Material Tree from TXT
   importMaterialTree: (fd: FormData) =>
     request('/ai/import-material-tree', { method: 'POST', body: fd, isFormData: true }),
