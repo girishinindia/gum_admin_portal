@@ -242,11 +242,24 @@ function AutoSubTopicsContent() {
           const results = res.data.results.map((r: any) => ({ language: r.language, iso_code: r.iso_code, status: r.status }));
           setTranslationResults(results);
           const successCount = results.filter((r: any) => r.status === 'success').length;
-          toast.success(`Step 2: ${successCount} language translations created`);
+          const errorCount = results.filter((r: any) => r.status === 'error').length;
+          if (errorCount > 0) {
+            toast.error(`Step 2: ${successCount} succeeded, ${errorCount} failed`);
+          } else {
+            toast.success(`Step 2: ${successCount} language translations created`);
+          }
+        } else {
+          // API returned an error — mark all other languages as failed
+          const errorResults = otherLangs.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
+          setTranslationResults(errorResults);
+          toast.error(`Step 2 failed: ${res.error || 'Translation generation failed'}. You can retry from the Sub-Topic Translations page.`);
         }
       } catch (e: any) {
         console.error('Bulk translation failed:', e);
-        toast.error('Translation step had errors, continuing...');
+        // Mark all other languages as failed on exception
+        const errorResults = otherLangs.map(l => ({ language: l.name, iso_code: l.iso_code || '', status: 'error' }));
+        setTranslationResults(errorResults);
+        toast.error(`Translation step failed: ${e.message || 'Unknown error'}. You can retry from the Sub-Topic Translations page.`);
       }
     }
 
