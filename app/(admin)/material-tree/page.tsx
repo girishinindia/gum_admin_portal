@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages } from 'lucide-react';
+import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TreeNode {
@@ -17,7 +17,7 @@ interface TreeNode {
   lastChanged: string;
   children?: TreeNode[];
   dbId?: number;
-  type?: 'subject' | 'chapter' | 'topic' | 'sub_topic' | 'language' | 'file';
+  type?: 'subject' | 'chapter' | 'topic' | 'sub_topic' | 'language' | 'resources' | 'file';
 }
 
 interface TreeStats {
@@ -53,13 +53,13 @@ function getTypeColor(type?: string, depth?: number) {
     subject:   { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200', label: 'Subject' },
     chapter:   { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', label: 'Chapter' },
     topic:     { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', label: 'Topic' },
-    sub_topic: { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200', label: 'Sub-Topic' },
+    language:  { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Language' },
+    resources: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', label: 'Resources' },
   };
   if (type && colors[type]) return colors[type];
   // Fallback by depth
   const depthColors = [
-    colors.subject, colors.chapter, colors.topic, colors.sub_topic,
-    { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Language' },
+    colors.subject, colors.chapter, colors.topic, colors.language,
   ];
   return depthColors[Math.min(depth || 0, depthColors.length - 1)];
 }
@@ -109,13 +109,15 @@ function TreeNodeItem({ node, depth, onDelete }: { node: TreeNode; depth: number
             ) : (
               <span className="w-3.5 shrink-0" />
             )}
-            <FolderOpen className={cn('w-4 h-4 shrink-0', color.text)} />
+            {node.type === 'language' ? <Languages className={cn('w-4 h-4 shrink-0', color.text)} /> :
+             node.type === 'resources' ? <FolderArchive className={cn('w-4 h-4 shrink-0', color.text)} /> :
+             <FolderOpen className={cn('w-4 h-4 shrink-0', color.text)} />}
             <span className={cn('font-medium', color.text)}>{node.name}</span>
             <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', color.bg, color.text, color.border, 'border')}>
               {color.label}
             </span>
             <span className="text-xs text-slate-400 ml-auto flex items-center gap-2">
-              {directFolders > 0 && <span>{directFolders} {node.type === 'subject' ? 'ch' : node.type === 'chapter' ? 'tp' : node.type === 'topic' ? 'st' : 'item'}{directFolders !== 1 ? 's' : ''}</span>}
+              {directFolders > 0 && <span>{directFolders} {node.type === 'subject' ? 'ch' : node.type === 'chapter' ? 'tp' : node.type === 'topic' ? 'folder' : node.type === 'language' ? 'file' : 'item'}{directFolders !== 1 ? 's' : ''}</span>}
               {directFiles > 0 && <span>{directFiles} file{directFiles !== 1 ? 's' : ''}</span>}
               {desc.files > 0 && depth < 2 && <span className="text-slate-300">({desc.files} total files)</span>}
               {isEmpty && <span className="text-amber-500 italic">empty</span>}
@@ -249,8 +251,8 @@ export default function MaterialTreePage() {
               <Hash className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <div className="text-xs text-slate-500">Topics / Sub-Topics</div>
-              <div className="text-xl font-bold text-slate-800">{stats.topics} / {stats.subTopics}</div>
+              <div className="text-xs text-slate-500">Topics</div>
+              <div className="text-xl font-bold text-slate-800">{stats.topics}</div>
             </div>
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
@@ -276,7 +278,8 @@ export default function MaterialTreePage() {
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-400" /> Subject</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" /> Chapter</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-400" /> Topic</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-400" /> Sub-Topic</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Language</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Resources</span>
             </div>
           )}
         </div>
