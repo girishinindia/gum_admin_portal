@@ -53,6 +53,10 @@ function AutoSubTopicsContent() {
   const [existingPages, setExistingPages] = useState<Record<number, { url: string; fileName: string; subTopicName: string; subTopicSlug: string; translationId: number }>>({});
   const [loadingExisting, setLoadingExisting] = useState(false);
 
+  // Existing sub-topics for "Upload Pages Only" mode
+  const [existingSubTopics, setExistingSubTopics] = useState<{ id: number; slug: string; name?: string }[]>([]);
+  const [selectedSubTopicId, setSelectedSubTopicId] = useState<string>('');
+
   const [step, setStep] = useState<Step>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [progressMsg, setProgressMsg] = useState('');
@@ -137,7 +141,18 @@ function AutoSubTopicsContent() {
     try {
       // Get all sub-topics for this topic
       const stRes = await api.listSubTopics(`?topic_id=${topicId}&limit=500`);
-      if (!stRes.success || !stRes.data?.length) { setLoadingExisting(false); return; }
+      if (!stRes.success || !stRes.data?.length) {
+        setExistingSubTopics([]);
+        setSelectedSubTopicId('');
+        setLoadingExisting(false);
+        return;
+      }
+
+      // Store existing sub-topics for "Upload Pages Only" mode
+      const subTopicsList = stRes.data.map((st: any) => ({ id: st.id, slug: st.slug, name: st.name || st.slug }));
+      setExistingSubTopics(subTopicsList);
+      // Auto-select the most recent sub-topic
+      if (subTopicsList.length > 0) setSelectedSubTopicId(String(subTopicsList[subTopicsList.length - 1].id));
 
       const pages: Record<number, { url: string; fileName: string; subTopicName: string; subTopicSlug: string; translationId: number }> = {};
 
@@ -171,6 +186,7 @@ function AutoSubTopicsContent() {
   function resetResults() {
     setStep('idle'); setErrorMsg(''); setLangFiles({});
     setResultSubTopic(null); setTranslationResults([]); setPagesUploaded(0); setProgressMsg('');
+    if (selectedTopic) loadExistingPages(selectedTopic);
   }
 
   function handleFileSelect(langId: number, file: File | null) {
@@ -292,10 +308,65 @@ function AutoSubTopicsContent() {
     if (selectedTopic) loadExistingPages(selectedTopic);
   }
 
+  // ═══ Upload Pages Only — for existing sub-topics (no English file needed) ═══
+  async function handleUploadPagesOnly() {
+    const nonEnglishFiles = Object.entries(langFiles).filter(([langIdStr]) => {
+      const langId = Number(langIdStr);
+      return !englishLang || langId !== englishLang.id;
+    });
+
+    if (nonEnglishFiles.length === 0) {
+      toast.error('No language files to upload');
+      return;
+    }
+
+    const targetSubTopicId = Number(selectedSubTopicId);
+    if (!targetSubTopicId) {
+      toast.error('Select a sub-topic to upload pages to');
+      return;
+    }
+
+    setErrorMsg('');
+    setResultSubTopic(null);
+    setTranslationResults([]);
+    setPagesUploaded(0);
+    setStep('step3_pages');
+    setProgressMsg('Uploading HTML page files...');
+
+    let uploaded = 0;
+    let failed = 0;
+    for (const [langIdStr, file] of nonEnglishFiles) {
+      const langId = Number(langIdStr);
+      // Find the translation record for this sub-topic + language
+      const lookupRes = await api.listSubTopicTranslations(`?sub_topic_id=${targetSubTopicId}&language_id=${langId}&limit=1`);
+      if (lookupRes.success && lookupRes.data && lookupRes.data.length > 0) {
+        const transId = lookupRes.data[0].id;
+        const pageFd = new FormData();
+        pageFd.append('page_file', file, file.name);
+        const updRes = await api.updateSubTopicTranslation(transId, pageFd, true);
+        if (updRes.success) uploaded++;
+        else failed++;
+      } else {
+        // No translation record exists for this language — skip
+        const lang = languages.find(l => l.id === langId);
+        toast.error(`No translation found for ${lang?.name || 'language'} on this sub-topic`);
+        failed++;
+      }
+    }
+    setPagesUploaded(uploaded);
+    if (uploaded > 0) toast.success(`${uploaded} page file${uploaded > 1 ? 's' : ''} uploaded successfully`);
+    if (failed > 0) toast.error(`${failed} file${failed > 1 ? 's' : ''} failed to upload`);
+
+    setStep('done');
+    if (selectedTopic) loadExistingPages(selectedTopic);
+  }
+
   const isProcessing = step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages';
   const selectedSubjectObj = subjects.find(s => String(s.id) === selectedSubject);
   const selectedChapterObj = chapters.find(c => String(c.id) === selectedChapter);
   const selectedTopicObj = topics.find(t => String(t.id) === selectedTopic);
+  const hasNonEnglishFiles = Object.keys(langFiles).some(k => !englishLang || Number(k) !== englishLang.id);
+  const canUploadPagesOnly = !englishFile && hasNonEnglishFiles && existingSubTopics.length > 0 && !!selectedSubTopicId;
 
   // Sort languages: English first, then alphabetical
   const sortedLanguages = [...languages].sort((a, b) => {
@@ -392,18 +463,47 @@ function AutoSubTopicsContent() {
             </div>
           </div>
 
+          {/* Sub-topic selector for "Upload Pages Only" mode */}
+          {existingSubTopics.length > 0 && !englishFile && hasNonEnglishFiles && (
+            <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <Upload className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs text-amber-800 font-medium mb-1.5">Upload pages to existing sub-topic (no English file needed)</p>
+                <select
+                  className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  value={selectedSubTopicId}
+                  onChange={e => setSelectedSubTopicId(e.target.value)}
+                  disabled={isProcessing}
+                >
+                  <option value="">Select a sub-topic...</option>
+                  {existingSubTopics.map(st => (
+                    <option key={st.id} value={st.id}>{st.slug}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
           {/* Action bar */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3 text-sm">
               <span className="text-slate-600">{languages.length} languages</span>
               {uploadedCount > 0 && <Badge variant="info">{uploadedCount} file{uploadedCount > 1 ? 's' : ''}</Badge>}
-              {!englishFile && <Badge variant="warning">English file required</Badge>}
+              {!englishFile && !hasNonEnglishFiles && <Badge variant="warning">English file required</Badge>}
+              {!englishFile && hasNonEnglishFiles && existingSubTopics.length > 0 && <Badge variant="info">Upload pages mode</Badge>}
+              {!englishFile && hasNonEnglishFiles && existingSubTopics.length === 0 && <Badge variant="warning">English file required for new sub-topic</Badge>}
               {englishFile && <Badge variant="success">English ready</Badge>}
             </div>
             <div className="flex items-center gap-2">
               {step === 'done' && (
                 <Button variant="outline" onClick={resetResults}>
                   <RotateCcw className="w-4 h-4" /> Start Over
+                </Button>
+              )}
+              {canUploadPagesOnly && !englishFile && (
+                <Button onClick={handleUploadPagesOnly} disabled={isProcessing}>
+                  {step === 'step3_pages' ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading Pages...</>
+                    : <><Upload className="w-4 h-4" /> Upload Pages</>}
                 </Button>
               )}
               <Button onClick={handleProcess} disabled={!englishFile || isProcessing}>
