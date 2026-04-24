@@ -86,7 +86,17 @@ export default function CategoriesPage() {
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const [slugManual, setSlugManual] = useState(false);
+  const watchedCode = watch('code');
+
+  // Auto-generate slug from code
+  useEffect(() => {
+    if (!slugManual && watchedCode !== undefined) {
+      const slug = (watchedCode || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      setValue('slug', slug);
+    }
+  }, [watchedCode, slugManual, setValue]);
 
   // Search debounce
   useEffect(() => {
@@ -198,14 +208,14 @@ export default function CategoriesPage() {
   }
 
   function openCreate() {
-    setEditing(null); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1);
-    reset({ code: '', slug: '', display_order: 0, is_new: false, new_until: '', og_site_name: '', og_type: '', twitter_site: '', twitter_card: '', robots_directive: '' });
+    setEditing(null); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1); setSlugManual(false);
+    reset({ code: '', slug: '', display_order: 0, is_new: false, new_until: '', og_site_name: '', og_type: '', twitter_site: '', twitter_card: '', robots_directive: '' } as any);
     setDialogOpen(true);
   }
 
   function openEdit(c: Category) {
-    setEditing(c); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1);
-    reset({ name: c.name, code: c.code, slug: c.slug, display_order: c.display_order, is_new: c.is_new, new_until: c.new_until || '', og_site_name: c.og_site_name || '', og_type: c.og_type || '', twitter_site: c.twitter_site || '', twitter_card: c.twitter_card || '', robots_directive: c.robots_directive || '' });
+    setEditing(c); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1); setSlugManual(true);
+    reset({ code: c.code, slug: c.slug, display_order: c.display_order, is_new: c.is_new, new_until: c.new_until || '', og_site_name: c.og_site_name || '', og_type: c.og_type || '', twitter_site: c.twitter_site || '', twitter_card: c.twitter_card || '', robots_directive: c.robots_directive || '' });
     setDialogOpen(true);
   }
 
@@ -472,13 +482,7 @@ export default function CategoriesPage() {
                 <TH className="w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 {!showTrash && <TH className="w-14">Image</TH>}
-                <TH>
-                  <button onClick={() => handleSort('code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Code <SortIcon field="code" />
-                  </button>
-                </TH>
                 <TH>Name</TH>
-                {!showTrash && <TH>Slug</TH>}
                 <TH>
                   <button onClick={() => handleSort('display_order')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
                     Order <SortIcon field="display_order" />
@@ -512,16 +516,8 @@ export default function CategoriesPage() {
                     </TD>
                   )}
                   <TD className="py-2.5">
-                    <span className={cn('font-mono text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.code}</span>
+                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.english_name || ''}</span>
                   </TD>
-                  <TD className="py-2.5">
-                    <span className="text-sm text-slate-700">{c.name}</span>
-                  </TD>
-                  {!showTrash && (
-                    <TD className="py-2.5">
-                      <span className="text-xs text-slate-500">/{c.slug}</span>
-                    </TD>
-                  )}
                   <TD className="py-2.5">
                     <span className="text-slate-600">{c.display_order}</span>
                   </TD>
@@ -635,7 +631,7 @@ export default function CategoriesPage() {
                 )}
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-900 font-mono">{viewing.code}</h3>
+                <h3 className="text-lg font-semibold text-slate-900">{viewing.english_name || viewing.code}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>
                     {viewing.is_active ? 'Active' : 'Inactive'}
@@ -647,6 +643,7 @@ export default function CategoriesPage() {
 
             {/* Detail grid */}
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+              <DetailRow label="Code" value={viewing.code} />
               <DetailRow label="Slug" value={`/${viewing.slug}`} />
               <DetailRow label="Display Order" value={String(viewing.display_order)} />
               <DetailRow label="New Until" value={viewing.new_until ? new Date(viewing.new_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : undefined} />
@@ -684,7 +681,7 @@ export default function CategoriesPage() {
                 )}
               </div>
               <div>
-                <div className="font-semibold text-slate-900 font-mono text-sm">{bulkCategory.code}</div>
+                <div className="font-semibold text-slate-900 text-sm">{bulkCategory.english_name || bulkCategory.code}</div>
                 <div className="text-xs text-slate-500">/{bulkCategory.slug}</div>
               </div>
             </div>
@@ -818,10 +815,9 @@ export default function CategoriesPage() {
           <ImageUpload key={dialogKey} label="Category Image" hint="Resized to 400x400px WebP"
             value={editing?.image} aspectRatio={1} maxWidth={400} maxHeight={400} shape="rounded"
             onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }} />
-          <Input label="Name" placeholder="Programming" {...register('name', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Code" placeholder="programming" {...register('code', { required: true })} />
-            <Input label="Slug" placeholder="programming" {...register('slug', { required: true })} />
+            <Input label="Slug" placeholder="programming" {...register('slug', { required: true, onChange: () => setSlugManual(true) })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Display Order" type="number" {...register('display_order')} />

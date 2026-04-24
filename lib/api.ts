@@ -446,9 +446,17 @@ export const api = {
   importMaterialTree: (fd: FormData) =>
     request('/ai/import-material-tree', { method: 'POST', body: fd, isFormData: true }),
 
-  // AI — Import from CDN (scan Bunny storage and create missing DB records)
-  importFromCdn: (data: { provider?: string; generate_seo?: boolean }) =>
+  // AI — Import from CDN (scan Bunny storage and create/sync DB records)
+  importFromCdn: (data: { provider?: string; generate_seo?: boolean; upload_videos?: boolean; sync_mode?: string; auto_delete?: boolean }) =>
     request('/ai/import-from-cdn', { method: 'POST', body: JSON.stringify(data) }),
+
+  // AI — Scaffold CDN folder structure from .txt content
+  scaffoldCdn: (data: { txt_content: string }) =>
+    request('/ai/scaffold-cdn', { method: 'POST', body: JSON.stringify(data) }),
+
+  // AI — Check video transcoding status
+  checkVideoStatus: () =>
+    request('/ai/check-video-status', { method: 'POST', body: JSON.stringify({}) }),
 
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),

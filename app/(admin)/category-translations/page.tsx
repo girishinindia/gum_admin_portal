@@ -531,7 +531,7 @@ export default function CategoryTranslationsPage() {
             <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
               <option value="">All categories</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{(c as any).english_name || c.code}</option>)}
             </select>
             <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
@@ -599,7 +599,7 @@ export default function CategoryTranslationsPage() {
                     <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                     <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{item.id}</span></TD>
                     <TD className="py-2.5"><span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{item.name}</span>{item.description && !showTrash && <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{item.description}</p>}</TD>
-                    <TD className="py-2.5">{item.categories?.code ? <Badge variant="info">{item.categories.code}</Badge> : <span className="text-slate-300">—</span>}</TD>
+                    <TD className="py-2.5">{item.categories?.code ? <Badge variant="info">{categories.find(cat => cat.id === item.category_id)?.english_name || item.categories.code}</Badge> : <span className="text-slate-300">—</span>}</TD>
                     <TD className="py-2.5">{item.languages?.name ? <Badge variant="muted">{item.languages.name}{item.languages.iso_code ? ` (${item.languages.iso_code})` : ''}</Badge> : <span className="text-slate-300">—</span>}</TD>
                     {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{item.deleted_at ? fromNow(item.deleted_at) : '—'}</span></TD>}
                     <TD className="py-2.5">
@@ -636,7 +636,7 @@ export default function CategoryTranslationsPage() {
           <div className="p-6 space-y-4">
             {/* Header info */}
             <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="info">{viewItem.categories?.code || `Cat #${viewItem.category_id}`}</Badge>
+              <Badge variant="info">{categories.find(cat => cat.id === viewItem.category_id)?.english_name || viewItem.categories?.code || `Cat #${viewItem.category_id}`}</Badge>
               <Badge variant="muted">{viewItem.languages?.name || `Lang #${viewItem.language_id}`}{viewItem.languages?.iso_code ? ` (${viewItem.languages.iso_code})` : ''}</Badge>
               <Badge variant={viewItem.is_active ? 'success' : 'danger'}>{viewItem.is_active ? 'Active' : 'Inactive'}</Badge>
             </div>
@@ -801,7 +801,7 @@ export default function CategoryTranslationsPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
                   <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     {...register('category_id', { required: true })}>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.code} (/{c.slug})</option>)}
+                    {categories.map(c => <option key={c.id} value={c.id}>{(c as any).english_name || c.code}</option>)}
                   </select>
                 </div>
                 <div>

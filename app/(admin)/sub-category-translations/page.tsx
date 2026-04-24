@@ -458,7 +458,7 @@ export default function SubCategoryTranslationsPage() {
               <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={filterSubCategory} onChange={e => setFilterSubCategory(e.target.value)}>
                 <option value="">All sub-categories</option>
-                {subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.code}{sc.categories?.code ? ` (${sc.categories.code})` : ''}</option>)}
+                {subCategories.map(sc => <option key={sc.id} value={sc.id}>{(sc as any).english_name || sc.code}{sc.categories?.code ? ` (${sc.categories.code})` : ''}</option>)}
               </select>
               <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
@@ -747,7 +747,7 @@ export default function SubCategoryTranslationsPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Sub-Category</label>
                   <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     {...register('sub_category_id', { required: true })}>
-                    {subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.code}{sc.categories?.code ? ` (${sc.categories.code})` : ''}</option>)}
+                    {subCategories.map(sc => <option key={sc.id} value={sc.id}>{(sc as any).english_name || sc.code}{sc.categories?.code ? ` (${sc.categories.code})` : ''}</option>)}
                   </select>
                 </div>
                 <div>

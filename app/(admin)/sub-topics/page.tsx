@@ -456,14 +456,14 @@ export default function SubTopicsPage() {
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: s.slug }))}
+              options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || s.slug }))}
               value={filterSubject}
               onChange={setFilterSubject}
               placeholder="All subjects"
               searchPlaceholder="Search subjects..."
             />
             <SearchableSelect
-              options={chapters.map(c => ({ value: String(c.id), label: c.slug }))}
+              options={chapters.map(c => ({ value: String(c.id), label: (c as any).english_name || c.slug }))}
               value={filterChapter}
               onChange={setFilterChapter}
               placeholder={filterSubject ? 'All chapters' : 'Select subject first'}
@@ -471,7 +471,7 @@ export default function SubTopicsPage() {
               disabled={!filterSubject}
             />
             <SearchableSelect
-              options={filteredTopics.map(t => ({ value: String(t.id), label: t.slug }))}
+              options={filteredTopics.map(t => ({ value: String(t.id), label: (t as any).english_name || t.slug }))}
               value={filterTopic}
               onChange={setFilterTopic}
               placeholder={filterChapter ? 'All topics' : 'Select chapter first'}
@@ -692,7 +692,7 @@ export default function SubTopicsPage() {
 
           <SearchableSelect
             label="Subject"
-            options={subjects.map(s => ({ value: String(s.id), label: s.code || s.slug }))}
+            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code || s.slug }))}
             value={dialogSubject}
             onChange={(val) => {
               setDialogSubject(val);
@@ -712,7 +712,7 @@ export default function SubTopicsPage() {
           />
           <SearchableSelect
             label="Chapter"
-            options={dialogChapters.map(c => ({ value: String(c.id), label: c.slug }))}
+            options={dialogChapters.map(c => ({ value: String(c.id), label: (c as any).english_name || c.slug }))}
             value={dialogChapter}
             onChange={(val) => {
               setDialogChapter(val);
@@ -724,14 +724,17 @@ export default function SubTopicsPage() {
           />
           <SearchableSelect
             label="Topic"
-            options={dialogFilteredTopics.map(t => ({ value: String(t.id), label: t.slug }))}
+            options={dialogFilteredTopics.map(t => ({ value: String(t.id), label: (t as any).english_name || t.slug }))}
             value={watch('topic_id') || ''}
             onChange={(val) => setValue('topic_id', val)}
             placeholder={dialogChapter ? 'Select a topic' : 'Select chapter first'}
             searchPlaceholder="Search topics..."
             disabled={!dialogChapter}
           />
-          <Input label="Slug" placeholder="my-sub-topic-slug" {...register('slug', { required: true })} />
+          <div>
+            <Input label="Slug" placeholder="auto-generated if empty" {...register('slug')} />
+            {!editing && <p className="text-xs text-slate-400 mt-1">Leave empty to auto-generate from name</p>}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Difficulty Level</label>

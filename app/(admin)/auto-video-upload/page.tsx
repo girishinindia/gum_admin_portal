@@ -11,7 +11,7 @@ import { Video, Youtube, Upload, CheckCircle2, XCircle, Loader2, AlertTriangle, 
 import { cn } from '@/lib/utils';
 import type { SubTopic } from '@/lib/types';
 
-interface Subject { id: number; slug: string; code?: string; is_active: boolean }
+interface Subject { id: number; slug: string; code?: string; is_active: boolean; english_name?: string | null }
 interface Chapter { id: number; slug: string; subject_id: number; is_active: boolean }
 interface Topic { id: number; slug: string; chapter_id: number; is_active: boolean }
 
@@ -269,7 +269,7 @@ function AutoVideoUploadContent() {
         <div className="grid grid-cols-3 gap-4">
           <SearchableSelect
             label="Subject"
-            options={subjects.map(s => ({ value: String(s.id), label: s.code || s.slug }))}
+            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code || s.slug }))}
             value={selectedSubject}
             onChange={setSelectedSubject}
             placeholder="Select a subject..."
@@ -278,7 +278,7 @@ function AutoVideoUploadContent() {
           />
           <SearchableSelect
             label="Chapter"
-            options={chapters.map(c => ({ value: String(c.id), label: c.slug }))}
+            options={chapters.map(c => ({ value: String(c.id), label: (c as any).english_name || c.slug }))}
             value={selectedChapter}
             onChange={setSelectedChapter}
             placeholder={selectedSubject ? 'Select a chapter...' : 'Select subject first'}
@@ -287,7 +287,7 @@ function AutoVideoUploadContent() {
           />
           <SearchableSelect
             label="Topic"
-            options={topics.map(t => ({ value: String(t.id), label: t.slug }))}
+            options={topics.map(t => ({ value: String(t.id), label: (t as any).english_name || t.slug }))}
             value={selectedTopic}
             onChange={setSelectedTopic}
             placeholder={selectedChapter ? 'Select a topic...' : 'Select chapter first'}

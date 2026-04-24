@@ -109,7 +109,17 @@ export default function SubjectsPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
 
-  const { register, handleSubmit, reset, setValue } = useForm();
+  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const [slugManual, setSlugManual] = useState(false);
+  const watchedCode = watch('code');
+
+  // Auto-generate slug from code
+  useEffect(() => {
+    if (!slugManual && watchedCode !== undefined) {
+      const slug = (watchedCode || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      setValue('slug', slug);
+    }
+  }, [watchedCode, slugManual, setValue]);
 
   // AI Progress
   const bulkAiProgress = useAiProgress();
@@ -347,13 +357,13 @@ Web Development
   }
 
   function openCreate() {
-    setEditing(null); setDialogKey(k => k + 1);
+    setEditing(null); setDialogKey(k => k + 1); setSlugManual(false);
     reset({ code: '', slug: '', difficulty_level: 'beginner', estimated_hours: '', display_order: 0, sort_order: 0 });
     setDialogOpen(true);
   }
 
   function openEdit(s: Subject) {
-    setEditing(s); setDialogKey(k => k + 1);
+    setEditing(s); setDialogKey(k => k + 1); setSlugManual(true);
     reset({ code: s.code, slug: s.slug, difficulty_level: s.difficulty_level || 'beginner', estimated_hours: s.estimated_hours ?? '', display_order: s.display_order, sort_order: s.sort_order ?? 0 });
     setDialogOpen(true);
   }
@@ -625,17 +635,9 @@ Web Development
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH>
                   <button onClick={() => handleSort('code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Code <SortIcon field="code" />
+                    Name <SortIcon field="code" />
                   </button>
                 </TH>
-                {!showTrash && (
-                  <TH>
-                    <button onClick={() => handleSort('slug')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                      Slug <SortIcon field="slug" />
-                    </button>
-                  </TH>
-                )}
-                {!showTrash && <TH>Difficulty</TH>}
                 {!showTrash && <TH>Est. Hours</TH>}
                 <TH>
                   <button onClick={() => handleSort('display_order')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -663,27 +665,12 @@ Web Development
                   <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{s.id}</span></TD>
                   <TD className="py-2.5">
-                    <span className={cn('font-mono text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{s.code}</span>
+                    <div>
+                      <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>
+                        {s.english_name || ''}
+                      </span>
+                    </div>
                   </TD>
-                  {!showTrash && (
-                    <TD className="py-2.5">
-                      <span className="text-xs text-slate-500">/{s.slug}</span>
-                    </TD>
-                  )}
-                  {!showTrash && (
-                    <TD className="py-2.5">
-                      {s.difficulty_level ? (
-                        <span className={cn(
-                          'inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full',
-                          DIFFICULTY_COLORS[s.difficulty_level] || 'bg-slate-100 text-slate-700'
-                        )}>
-                          {DIFFICULTY_OPTIONS.find(d => d.value === s.difficulty_level)?.label || s.difficulty_level}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </TD>
-                  )}
                   {!showTrash && (
                     <TD className="py-2.5">
                       <span className="text-slate-600">{s.estimated_hours != null ? s.estimated_hours : '—'}</span>
@@ -872,7 +859,7 @@ Web Development
 
           <div className="grid grid-cols-2 gap-3">
             <Input label="Code" placeholder="mathematics" {...register('code', { required: true })} />
-            <Input label="Slug" placeholder="mathematics" {...register('slug', { required: true })} />
+            <Input label="Slug" placeholder="mathematics" {...register('slug', { required: true, onChange: () => setSlugManual(true) })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

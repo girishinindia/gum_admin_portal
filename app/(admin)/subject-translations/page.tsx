@@ -424,7 +424,7 @@ export default function SubjectTranslationsPage() {
           <>
             <select className={selectClass} value={filterSubject} onChange={e => setFilterSubject(e.target.value)}>
               <option value="">All subjects</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.english_name || s.code}</option>)}
             </select>
             <select className={selectClass} value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
               <option value="">All languages</option>
@@ -660,7 +660,7 @@ export default function SubjectTranslationsPage() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
               <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                 {...register('subject_id', { required: true })}>
-                {subjects.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
+                {subjects.map(s => <option key={s.id} value={s.id}>{s.english_name || s.code}</option>)}
               </select>
             </div>
             <div>

@@ -525,7 +525,7 @@ Unsupervised Learning
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: s.code }))}
+              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code }))}
               value={filterSubject}
               onChange={setFilterSubject}
               placeholder="All subjects"
@@ -590,7 +590,7 @@ Unsupervised Learning
                 <TH>Subject</TH>
                 <TH>
                   <button onClick={() => handleSort('slug')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Slug <SortIcon field="slug" />
+                    Name <SortIcon field="slug" />
                   </button>
                 </TH>
                 <TH>
@@ -619,10 +619,14 @@ Unsupervised Learning
                   <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{c.id}</span></TD>
                   <TD className="py-2.5">
-                    <span className="text-slate-600">{c.subjects?.code || '\u2014'}</span>
+                    <span className="text-slate-600">{subjects.find(s => s.id === c.subject_id)?.english_name || c.subjects?.code || '\u2014'}</span>
                   </TD>
                   <TD className="py-2.5">
-                    <span className={cn('font-mono text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.slug}</span>
+                    <div>
+                      <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>
+                        {(c as any).english_name || ''}
+                      </span>
+                    </div>
                   </TD>
                   <TD className="py-2.5">
                     <span className="text-slate-600">{c.display_order}</span>
@@ -726,13 +730,13 @@ Unsupervised Learning
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 font-mono">{viewing.slug}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  {viewing.subjects?.code && <Badge variant="info">{viewing.subjects.code}</Badge>}
+                  {viewing.subject_id && <Badge variant="info">{subjects.find(s => s.id === viewing.subject_id)?.english_name || viewing.subjects?.code || '—'}</Badge>}
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-              <DetailRow label="Subject" value={viewing.subjects?.code} />
+              <DetailRow label="Subject" value={subjects.find(s => s.id === viewing.subject_id)?.english_name || viewing.subjects?.code} />
               <DetailRow label="Slug" value={`/${viewing.slug}`} />
               <DetailRow label="Display Order" value={String(viewing.display_order)} />
               <DetailRow label="Sort Order" value={String(viewing.sort_order ?? 0)} />
@@ -786,13 +790,16 @@ Unsupervised Learning
 
           <SearchableSelect
             label="Subject"
-            options={subjects.map(s => ({ value: String(s.id), label: s.code }))}
+            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code }))}
             value={watch('subject_id') || ''}
             onChange={(val) => setValue('subject_id', val)}
             placeholder="Select a subject"
             searchPlaceholder="Search subjects..."
           />
-          <Input label="Slug" placeholder="introduction-to-react" {...register('slug', { required: true })} />
+          <div>
+            <Input label="Slug" placeholder="auto-generated if empty" {...register('slug')} />
+            {!editing && <p className="text-xs text-slate-400 mt-1">Leave empty to auto-generate from name</p>}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Display Order" type="number" {...register('display_order')} />
             <Input label="Sort Order" type="number" {...register('sort_order')} />
@@ -939,7 +946,7 @@ Unsupervised Learning
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Parent Subject <span className="text-red-500">*</span></label>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: `${s.code} — /${s.slug}` }))}
+              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code }))}
               value={importSubjectId}
               onChange={setImportSubjectId}
               placeholder="Select a subject..."

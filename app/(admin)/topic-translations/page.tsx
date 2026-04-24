@@ -378,7 +378,7 @@ export default function TopicTranslationsPage() {
           <>
             <select className={selectClass} value={filterTopic} onChange={e => setFilterTopic(e.target.value)}>
               <option value="">All topics</option>
-              {topics.map(t => <option key={t.id} value={t.id}>{t.slug}</option>)}
+              {topics.map(t => <option key={t.id} value={t.id}>{(t as any).english_name || t.slug}</option>)}
             </select>
             <select className={selectClass} value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
               <option value="">All languages</option>
@@ -606,7 +606,7 @@ export default function TopicTranslationsPage() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Topic</label>
               <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                 {...register('topic_id', { required: true })}>
-                {topics.map(t => <option key={t.id} value={t.id}>{t.slug}</option>)}
+                {topics.map(t => <option key={t.id} value={t.id}>{(t as any).english_name || t.slug}</option>)}
               </select>
             </div>
             <div>

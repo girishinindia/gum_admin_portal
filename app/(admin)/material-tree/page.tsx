@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive, CloudDownload, Sparkles, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive, CloudDownload, Sparkles, CheckCircle, AlertCircle, X, Upload, Video, FolderPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TreeNode {
@@ -164,12 +164,21 @@ function TreeNodeItem({ node, depth, onDelete }: { node: TreeNode; depth: number
 }
 
 interface ImportReport {
-  subjects: { found: number; created: number; existing: number };
-  chapters: { found: number; created: number; existing: number };
-  topics: { found: number; created: number; existing: number };
-  sub_topics: { found: number; created: number; existing: number };
-  translations: { found: number; created: number; existing: number; updated: number };
+  sync_mode?: string;
+  subjects: { found: number; created: number; existing: number; updated?: number };
+  chapters: { found: number; created: number; existing: number; updated?: number; deleted?: number; unchanged?: number };
+  topics: { found: number; created: number; existing: number; updated?: number; deleted?: number; unchanged?: number };
+  sub_topics: { found: number; created: number; existing: number; updated?: number; deleted?: number; unchanged?: number };
+  translations: { found: number; created: number; existing: number; updated: number; deactivated?: number };
+  videos: { found: number; matched: number; uploaded: number; replaced?: number; status_checked?: number; now_ready?: number; errors: number };
   errors: string[];
+}
+
+interface ScaffoldResult {
+  course: string;
+  folders_created: number;
+  txt_uploaded: string;
+  folder_paths: string[];
 }
 
 export default function MaterialTreePage() {
@@ -181,10 +190,22 @@ export default function MaterialTreePage() {
 
   // Import from CDN state
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importTab, setImportTab] = useState<'scaffold' | 'import'>('import');
   const [importing, setImporting] = useState(false);
   const [importProvider, setImportProvider] = useState<string>('gemini');
   const [importGenerateSeo, setImportGenerateSeo] = useState(false);
+  const [importUploadVideos, setImportUploadVideos] = useState(true);
+  const [importSyncMode, setImportSyncMode] = useState<string>('create_only');
+  const [importAutoDelete, setImportAutoDelete] = useState(false);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
+
+  // Video status check
+  const [checkingVideos, setCheckingVideos] = useState(false);
+
+  // Scaffold CDN state
+  const [scaffolding, setScaffolding] = useState(false);
+  const [scaffoldTxt, setScaffoldTxt] = useState('');
+  const [scaffoldResult, setScaffoldResult] = useState<ScaffoldResult | null>(null);
 
   async function loadTree() {
     setLoading(true);
@@ -221,15 +242,22 @@ export default function MaterialTreePage() {
     setDeleting(null);
   }
 
-  async function handleImportFromCdn() {
+  async function handleImportFromCdn(mode?: string) {
+    const syncMode = mode || importSyncMode;
     setImporting(true);
     setImportReport(null);
     try {
-      const res = await api.importFromCdn({ provider: importProvider, generate_seo: importGenerateSeo });
+      const res = await api.importFromCdn({
+        provider: importProvider,
+        generate_seo: importGenerateSeo,
+        upload_videos: importUploadVideos,
+        sync_mode: syncMode,
+        auto_delete: importAutoDelete,
+      });
       if (res.success && res.data?.report) {
         setImportReport(res.data.report);
-        toast.success('CDN import completed');
-        loadTree(); // Refresh the tree
+        toast.success(syncMode === 'dry_run' ? 'Dry run completed — no changes made' : 'CDN import completed');
+        if (syncMode !== 'dry_run') loadTree();
       } else {
         toast.error(res.message || 'CDN import failed');
       }
@@ -237,6 +265,51 @@ export default function MaterialTreePage() {
       toast.error(e.message || 'CDN import failed');
     }
     setImporting(false);
+  }
+
+  async function handleCheckVideoStatus() {
+    setCheckingVideos(true);
+    try {
+      const res = await api.checkVideoStatus();
+      if (res.success && res.data?.report) {
+        const r = res.data.report;
+        toast.success(`Checked ${r.checked} videos: ${r.ready} ready, ${r.still_pending} pending, ${r.failed} failed`);
+      } else {
+        toast.error(res.message || 'Video status check failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Video status check failed');
+    }
+    setCheckingVideos(false);
+  }
+
+  async function handleScaffoldCdn() {
+    if (!scaffoldTxt.trim()) { toast.error('Paste or upload the .txt course content'); return; }
+    setScaffolding(true);
+    setScaffoldResult(null);
+    try {
+      const res = await api.scaffoldCdn({ txt_content: scaffoldTxt });
+      if (res.success && res.data) {
+        setScaffoldResult(res.data);
+        toast.success(`CDN structure created for "${res.data.course}"`);
+        loadTree();
+      } else {
+        toast.error(res.message || 'Scaffold failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Scaffold failed');
+    }
+    setScaffolding(false);
+  }
+
+  function handleTxtFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setScaffoldTxt(ev.target?.result as string || '');
+    };
+    reader.readAsText(file);
   }
 
   useEffect(() => { loadTree(); }, []);
@@ -251,9 +324,13 @@ export default function MaterialTreePage() {
             {loadTime > 0 && !loading && (
               <span className="text-xs text-slate-400">{loadTime}ms</span>
             )}
-            <Button variant="outline" onClick={() => { setShowImportDialog(true); setImportReport(null); }} disabled={loading || importing}>
+            <Button variant="outline" onClick={handleCheckVideoStatus} disabled={loading || checkingVideos}>
+              {checkingVideos ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+              Check Videos
+            </Button>
+            <Button variant="outline" onClick={() => { setShowImportDialog(true); setImportReport(null); setScaffoldResult(null); }} disabled={loading || importing}>
               <CloudDownload className="w-4 h-4" />
-              Import from CDN
+              Import / Sync
             </Button>
             <Button variant="outline" onClick={loadTree} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
@@ -343,42 +420,105 @@ export default function MaterialTreePage() {
         </div>
       </div>
 
-      {/* Import from CDN Dialog */}
+      {/* Import / Scaffold CDN Dialog */}
       {showImportDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <CloudDownload className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-lg font-semibold text-slate-800">Import from CDN</h2>
+                <h2 className="text-lg font-semibold text-slate-800">CDN Tools</h2>
               </div>
               <button onClick={() => setShowImportDialog(false)} className="p-1 rounded-lg hover:bg-slate-100">
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
 
+            {/* Tab switcher */}
+            <div className="flex border-b border-slate-100">
+              <button
+                onClick={() => setImportTab('import')}
+                className={cn('flex-1 py-3 text-sm font-medium text-center transition-colors', importTab === 'import' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700')}
+              >
+                <CloudDownload className="w-4 h-4 inline mr-1.5" />Import from CDN
+              </button>
+              <button
+                onClick={() => setImportTab('scaffold')}
+                className={cn('flex-1 py-3 text-sm font-medium text-center transition-colors', importTab === 'scaffold' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700')}
+              >
+                <FolderPlus className="w-4 h-4 inline mr-1.5" />Scaffold CDN
+              </button>
+            </div>
+
             <div className="px-6 py-4 space-y-4">
-              {!importReport ? (
+              {/* ─── Import Tab ─── */}
+              {importTab === 'import' && !importReport && (
                 <>
                   <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
                     <p className="font-medium mb-1">How it works</p>
-                    <p>Scans the Bunny CDN <code className="bg-indigo-100 px-1 rounded">materials/</code> folder and creates missing database records for any subjects, chapters, topics, sub-topics, and translations found.</p>
-                    <p className="mt-2 text-xs text-indigo-600">Expected structure: <code>materials/subject/chapter/topic/lang-iso/file.html</code></p>
+                    <p>Scans the Bunny CDN root for course folders with <code className="bg-indigo-100 px-1 rounded">.txt</code> structure files. Parses the hierarchy and creates/syncs subjects, chapters, topics, sub-topics in the database.</p>
+                    <p className="mt-2 text-xs text-indigo-600">Expected: <code>CourseName/CourseName.txt</code> + <code>01_Chapter/01_Topic/en/01_SubTopic.html</code></p>
                   </div>
 
+                  {/* Sync Mode Selector */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">AI Provider</label>
-                    <select
-                      value={importProvider}
-                      onChange={e => setImportProvider(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="gemini">Google Gemini</option>
-                      <option value="anthropic">Anthropic Claude</option>
-                      <option value="openai">OpenAI GPT</option>
-                    </select>
-                    <p className="text-xs text-slate-400 mt-1">Used only if SEO generation is enabled below</p>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Import Mode</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: 'create_only', label: 'Create Only', desc: 'Only add new records' },
+                        { value: 'sync', label: 'Full Sync', desc: 'Create + update + delete' },
+                        { value: 'dry_run', label: 'Dry Run', desc: 'Preview, no changes' },
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setImportSyncMode(opt.value)}
+                          className={cn(
+                            'p-2.5 rounded-lg border text-left transition-colors',
+                            importSyncMode === opt.value
+                              ? 'border-indigo-300 bg-indigo-50 ring-1 ring-indigo-200'
+                              : 'border-slate-200 hover:bg-slate-50'
+                          )}
+                        >
+                          <div className="text-xs font-medium text-slate-700">{opt.label}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+
+                  {(importSyncMode === 'sync' || importSyncMode === 'dry_run') && (
+                    <label className="flex items-center gap-3 p-3 border border-red-100 bg-red-50/50 rounded-lg cursor-pointer hover:bg-red-50">
+                      <input
+                        type="checkbox"
+                        checked={importAutoDelete}
+                        onChange={e => setImportAutoDelete(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                          <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                          Auto-delete removed items
+                        </div>
+                        <div className="text-xs text-slate-500">Soft-delete chapters/topics/sub-topics not found in the .txt file. Off = only flagged in report.</div>
+                      </div>
+                    </label>
+                  )}
+
+                  <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={importUploadVideos}
+                      onChange={e => setImportUploadVideos(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                        <Video className="w-3.5 h-3.5 text-purple-500" />
+                        Upload videos to Bunny Stream
+                      </div>
+                      <div className="text-xs text-slate-500">Fetches videos from CDN storage into Bunny Stream. Matches video filenames to sub-topics automatically.</div>
+                    </div>
+                  </label>
 
                   <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
                     <input
@@ -392,49 +532,92 @@ export default function MaterialTreePage() {
                         <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                         AI-generate SEO metadata
                       </div>
-                      <div className="text-xs text-slate-500">Downloads English HTML files and uses AI to generate titles, descriptions, and keywords for new sub-topics. Slower but produces better data.</div>
+                      <div className="text-xs text-slate-500">Uses AI to generate titles, descriptions, and keywords for new sub-topics.</div>
                     </div>
                   </label>
 
+                  {importGenerateSeo && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">AI Provider</label>
+                      <select
+                        value={importProvider}
+                        onChange={e => setImportProvider(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="gemini">Google Gemini</option>
+                        <option value="anthropic">Anthropic Claude</option>
+                        <option value="openai">OpenAI GPT</option>
+                      </select>
+                    </div>
+                  )}
+
                   <div className="flex justify-end gap-2 pt-2">
-                    <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleImportFromCdn} disabled={importing}>
+                    <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>Cancel</Button>
+                    {importSyncMode !== 'dry_run' && (
+                      <Button variant="outline" onClick={() => handleImportFromCdn('dry_run')} disabled={importing}>
+                        {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                        Dry Run
+                      </Button>
+                    )}
+                    <Button onClick={() => handleImportFromCdn()} disabled={importing}>
                       {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
-                      {importing ? 'Scanning CDN...' : 'Start Import'}
+                      {importing ? 'Processing...' : importSyncMode === 'dry_run' ? 'Run Preview' : importSyncMode === 'sync' ? 'Start Sync' : 'Start Import'}
                     </Button>
                   </div>
                 </>
-              ) : (
+              )}
+
+              {/* Import Results */}
+              {importTab === 'import' && importReport && (
                 <>
-                  {/* Import Results */}
-                  <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
-                    <CheckCircle className="w-6 h-6 text-green-600 shrink-0" />
+                  <div className={cn(
+                    'border rounded-xl p-4 flex items-center gap-3',
+                    importReport.sync_mode === 'dry_run' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'
+                  )}>
+                    <CheckCircle className={cn('w-6 h-6 shrink-0', importReport.sync_mode === 'dry_run' ? 'text-amber-600' : 'text-green-600')} />
                     <div>
-                      <p className="font-medium text-green-800">Import Complete</p>
-                      <p className="text-sm text-green-600">CDN scan finished. See results below.</p>
+                      <p className={cn('font-medium', importReport.sync_mode === 'dry_run' ? 'text-amber-800' : 'text-green-800')}>
+                        {importReport.sync_mode === 'dry_run' ? 'Dry Run Complete — No Changes Made' : importReport.sync_mode === 'sync' ? 'Sync Complete' : 'Import Complete'}
+                      </p>
+                      <p className={cn('text-sm', importReport.sync_mode === 'dry_run' ? 'text-amber-600' : 'text-green-600')}>
+                        {importReport.sync_mode === 'dry_run' ? 'Preview of what would happen. Run again to apply.' : 'CDN scan finished. See results below.'}
+                      </p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     {(['subjects', 'chapters', 'topics', 'sub_topics', 'translations'] as const).map(key => {
-                      const r = importReport[key];
+                      const r = importReport[key] as any;
                       const label = key.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
                       return (
                         <div key={key} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg text-sm">
                           <span className="font-medium text-slate-700">{label}</span>
-                          <div className="flex items-center gap-3 text-xs">
-                            <span className="text-slate-500">Found: {r.found}</span>
-                            <span className="text-green-600 font-medium">Created: {r.created}</span>
-                            <span className="text-slate-400">Existing: {r.existing}</span>
-                            {'updated' in r && (r as any).updated > 0 && (
-                              <span className="text-blue-600">Updated: {(r as any).updated}</span>
-                            )}
+                          <div className="flex items-center gap-2 text-xs flex-wrap justify-end">
+                            {r.found > 0 && <span className="text-slate-500">Found: {r.found}</span>}
+                            {r.created > 0 && <span className="text-green-600 font-medium">+{r.created}</span>}
+                            {r.updated > 0 && <span className="text-blue-600 font-medium">~{r.updated}</span>}
+                            {r.deleted > 0 && <span className="text-red-600 font-medium">-{r.deleted}</span>}
+                            {r.deactivated > 0 && <span className="text-orange-600">Deactivated: {r.deactivated}</span>}
+                            {r.existing > 0 && <span className="text-slate-400">Existing: {r.existing}</span>}
+                            {r.unchanged > 0 && <span className="text-slate-300">Unchanged: {r.unchanged}</span>}
                           </div>
                         </div>
                       );
                     })}
+
+                    {/* Videos row */}
+                    {importReport.videos && (importReport.videos.found > 0 || importReport.videos.uploaded > 0) && (
+                      <div className="flex items-center justify-between px-3 py-2 bg-purple-50 rounded-lg text-sm">
+                        <span className="font-medium text-purple-700 flex items-center gap-1"><Video className="w-3.5 h-3.5" /> Videos</span>
+                        <div className="flex items-center gap-2 text-xs flex-wrap justify-end">
+                          <span className="text-slate-500">Found: {importReport.videos.found}</span>
+                          <span className="text-purple-600">Matched: {importReport.videos.matched}</span>
+                          {importReport.videos.uploaded > 0 && <span className="text-green-600 font-medium">+{importReport.videos.uploaded}</span>}
+                          {(importReport.videos.now_ready || 0) > 0 && <span className="text-emerald-600">Ready: {importReport.videos.now_ready}</span>}
+                          {importReport.videos.errors > 0 && <span className="text-red-600">Errors: {importReport.videos.errors}</span>}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {importReport.errors.length > 0 && (
@@ -451,10 +634,93 @@ export default function MaterialTreePage() {
                     </div>
                   )}
 
-                  <div className="flex justify-end pt-2">
-                    <Button onClick={() => setShowImportDialog(false)}>
-                      Done
+                  <div className="flex justify-end gap-2 pt-2">
+                    {importReport.sync_mode === 'dry_run' && (
+                      <Button onClick={() => { setImportReport(null); setImportSyncMode('sync'); }}>
+                        Apply as Full Sync
+                      </Button>
+                    )}
+                    <Button variant="outline" onClick={() => setImportReport(null)}>
+                      {importReport.sync_mode === 'dry_run' ? 'Back to Options' : 'Import Again'}
                     </Button>
+                    <Button onClick={() => setShowImportDialog(false)}>Done</Button>
+                  </div>
+                </>
+              )}
+
+              {/* ─── Scaffold Tab ─── */}
+              {importTab === 'scaffold' && !scaffoldResult && (
+                <>
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-800">
+                    <p className="font-medium mb-1">Create CDN folder structure</p>
+                    <p>Paste or upload your course <code className="bg-amber-100 px-1 rounded">.txt</code> file content. This will create the complete folder structure on Bunny CDN following the naming convention (course folder, chapters, topics, language folders, videos/).</p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-medium text-slate-700">Course structure (.txt)</label>
+                      <label className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer flex items-center gap-1">
+                        <Upload className="w-3 h-3" /> Upload file
+                        <input type="file" accept=".txt" onChange={handleTxtFileUpload} className="hidden" />
+                      </label>
+                    </div>
+                    <textarea
+                      value={scaffoldTxt}
+                      onChange={e => setScaffoldTxt(e.target.value)}
+                      placeholder={"HTML4 & HTML5\n\t1. Getting Started with HTML\n\t\t1. Introduction to HTML\n\t\t\t1. What is HTML and Why Learn It\n\t\t\t2. Understanding HTML Versions"}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[200px] resize-y"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Format: Course name (no tabs), then tab-indented chapters (1 tab), topics (2 tabs), sub-topics (3 tabs) with order numbers.</p>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={scaffolding}>Cancel</Button>
+                    <Button onClick={handleScaffoldCdn} disabled={scaffolding || !scaffoldTxt.trim()}>
+                      {scaffolding ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderPlus className="w-4 h-4" />}
+                      {scaffolding ? 'Creating folders...' : 'Create CDN Structure'}
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {/* Scaffold Results */}
+              {importTab === 'scaffold' && scaffoldResult && (
+                <>
+                  <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
+                    <CheckCircle className="w-6 h-6 text-green-600 shrink-0" />
+                    <div>
+                      <p className="font-medium text-green-800">CDN Structure Created</p>
+                      <p className="text-sm text-green-600">Course: <strong>{scaffoldResult.course}</strong></p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg text-sm">
+                      <span className="font-medium text-slate-700">Folders created</span>
+                      <span className="text-green-600 font-medium">{scaffoldResult.folders_created}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg text-sm">
+                      <span className="font-medium text-slate-700">.txt file uploaded</span>
+                      <span className="text-xs text-slate-500 font-mono truncate ml-2">{scaffoldResult.txt_uploaded}</span>
+                    </div>
+                  </div>
+
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-slate-500 hover:text-slate-700">View all folder paths ({scaffoldResult.folder_paths.length})</summary>
+                    <div className="mt-2 max-h-40 overflow-y-auto bg-slate-50 rounded-lg p-3 font-mono space-y-0.5">
+                      {scaffoldResult.folder_paths.map((p, i) => (
+                        <div key={i} className="text-slate-600">{p}/</div>
+                      ))}
+                    </div>
+                  </details>
+
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-sm text-indigo-700">
+                    Now upload your HTML and video files to the created folders, then use <strong>Import from CDN</strong> to create database records.
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => { setScaffoldResult(null); setScaffoldTxt(''); }}>Scaffold Another</Button>
+                    <Button onClick={() => { setImportTab('import'); setScaffoldResult(null); }}>Go to Import</Button>
                   </div>
                 </>
               )}

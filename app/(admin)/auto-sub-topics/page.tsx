@@ -501,7 +501,7 @@ function AutoSubTopicsContent() {
             <select className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
               value={selectedChapter} onChange={e => setSelectedChapter(e.target.value)} disabled={!selectedSubject || isProcessing}>
               <option value="">{selectedSubject ? 'Select a chapter...' : 'Select subject first'}</option>
-              {chapters.map(c => <option key={c.id} value={c.id}>{c.slug}</option>)}
+              {chapters.map(c => <option key={c.id} value={c.id}>{(c as any).english_name || c.slug}</option>)}
             </select>
           </div>
           <div>
@@ -509,7 +509,7 @@ function AutoSubTopicsContent() {
             <select className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
               value={selectedTopic} onChange={e => setSelectedTopic(e.target.value)} disabled={!selectedChapter || isProcessing}>
               <option value="">{selectedChapter ? 'Select a topic...' : 'Select chapter first'}</option>
-              {topics.map(t => <option key={t.id} value={t.id}>{t.slug}</option>)}
+              {topics.map(t => <option key={t.id} value={t.id}>{(t as any).english_name || t.slug}</option>)}
             </select>
           </div>
         </div>

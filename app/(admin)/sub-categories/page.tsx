@@ -86,7 +86,17 @@ export default function SubCategoriesPage() {
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const [slugManual, setSlugManual] = useState(false);
+  const watchedCode = watch('code');
+
+  // Auto-generate slug from code
+  useEffect(() => {
+    if (!slugManual && watchedCode !== undefined) {
+      const slug = (watchedCode || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      setValue('slug', slug);
+    }
+  }, [watchedCode, slugManual, setValue]);
 
   useEffect(() => {
     api.listCategories('?limit=100').then(res => { if (res.success) setCategories(res.data || []); });
@@ -207,7 +217,8 @@ export default function SubCategoriesPage() {
     setImageFile(null);
     setImagePreview(null);
     setDialogKey(k => k + 1);
-    reset({ category_id: categories[0]?.id || '', name: '', code: '', slug: '', display_order: 0, is_new: false, new_until: '', og_site_name: '', og_type: '', twitter_site: '', twitter_card: '', robots_directive: '' });
+    setSlugManual(false);
+    reset({ category_id: categories[0]?.id || '', code: '', slug: '', display_order: 0, is_new: false, new_until: '', og_site_name: '', og_type: '', twitter_site: '', twitter_card: '', robots_directive: '' });
     setDialogOpen(true);
   }
 
@@ -216,7 +227,8 @@ export default function SubCategoriesPage() {
     setImageFile(null);
     setImagePreview(null);
     setDialogKey(k => k + 1);
-    reset({ category_id: sc.category_id, name: sc.name, code: sc.code, slug: sc.slug, display_order: sc.display_order, is_new: sc.is_new, new_until: sc.new_until || '', og_site_name: sc.og_site_name || '', og_type: sc.og_type || '', twitter_site: sc.twitter_site || '', twitter_card: sc.twitter_card || '', robots_directive: sc.robots_directive || '' });
+    setSlugManual(true);
+    reset({ category_id: sc.category_id, code: sc.code, slug: sc.slug, display_order: sc.display_order, is_new: sc.is_new, new_until: sc.new_until || '', og_site_name: sc.og_site_name || '', og_type: sc.og_type || '', twitter_site: sc.twitter_site || '', twitter_card: sc.twitter_card || '', robots_directive: sc.robots_directive || '' });
     setDialogOpen(true);
   }
 
@@ -403,7 +415,7 @@ export default function SubCategoriesPage() {
               onChange={e => setFilterCategory(e.target.value)}
             >
               <option value="">All categories</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name || c.code}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{(c as any).english_name || c.code}</option>)}
             </select>
             <select
               value={filterStatus}
@@ -462,11 +474,6 @@ export default function SubCategoriesPage() {
                 <TH className="w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 {!showTrash && <TH className="w-14">Image</TH>}
-                <TH>
-                  <button onClick={() => handleSort('code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Code <SortIcon field="code" />
-                  </button>
-                </TH>
                 <TH>Name</TH>
                 <TH>Category</TH>
                 <TH>
@@ -502,13 +509,10 @@ export default function SubCategoriesPage() {
                     </TD>
                   )}
                   <TD className="py-2.5">
-                    <span className={cn('font-mono text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{sc.code}</span>
+                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{sc.english_name || ''}</span>
                   </TD>
                   <TD className="py-2.5">
-                    <span className="text-sm text-slate-700">{sc.name}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <span className="text-slate-600">{sc.categories?.name || sc.categories?.code || '—'}</span>
+                    <span className="text-slate-600">{categories.find(cat => cat.id === sc.category_id)?.english_name || sc.categories?.code || '—'}</span>
                   </TD>
                   <TD className="py-2.5">
                     <span className="text-slate-600">{sc.display_order}</span>
@@ -614,14 +618,15 @@ export default function SubCategoriesPage() {
                 )}
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-900 font-mono">{viewing.code}</h3>
+                <h3 className="text-lg font-semibold text-slate-900">{viewing.english_name || viewing.code}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  {viewing.categories?.code && <Badge variant="info">{viewing.categories.code}</Badge>}
+                  {viewing.categories?.code && <Badge variant="info">{categories.find(cat => cat.id === viewing.category_id)?.english_name || viewing.categories.code}</Badge>}
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+              <DetailRow label="Code" value={viewing.code} />
               <DetailRow label="Slug" value={`/${viewing.slug}`} />
               <DetailRow label="Display Order" value={String(viewing.display_order)} />
               <DetailRow label="New Until" value={viewing.new_until ? new Date(viewing.new_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : undefined} />
@@ -655,7 +660,7 @@ export default function SubCategoriesPage() {
                 )}
               </div>
               <div>
-                <div className="font-semibold text-slate-900 font-mono text-sm">{bulkSubCategory.code}</div>
+                <div className="font-semibold text-slate-900 text-sm">{bulkSubCategory.english_name || bulkSubCategory.code}</div>
                 <div className="text-xs text-slate-500">/{bulkSubCategory.slug}</div>
               </div>
             </div>
@@ -801,13 +806,12 @@ export default function SubCategoriesPage() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
             <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               {...register('category_id', { required: true })}>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name || c.code}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{(c as any).english_name || c.code}</option>)}
             </select>
           </div>
-          <Input label="Name" placeholder="React" {...register('name', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Code" placeholder="react" {...register('code', { required: true })} />
-            <Input label="Slug" placeholder="react" {...register('slug', { required: true })} />
+            <Input label="Slug" placeholder="react" {...register('slug', { required: true, onChange: () => setSlugManual(true) })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Display Order" type="number" {...register('display_order')} />

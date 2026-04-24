@@ -232,9 +232,9 @@ export interface SocialMedia {
 
 export interface Category {
   id: number;
-  name: string;
   code: string;
   slug: string;
+  english_name?: string | null;
   display_order: number;
   image?: string | null;
   is_new: boolean;
@@ -256,9 +256,9 @@ export interface Category {
 export interface SubCategory {
   id: number;
   category_id: number;
-  name: string;
   code: string;
   slug: string;
+  english_name?: string | null;
   display_order: number;
   image?: string | null;
   is_new: boolean;
@@ -275,7 +275,7 @@ export interface SubCategory {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
-  categories?: { name: string; code: string; slug: string };
+  categories?: { code: string; slug: string };
 }
 
 export interface CategoryTranslation {
@@ -306,7 +306,7 @@ export interface CategoryTranslation {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
-  categories?: { name: string; code: string; slug: string };
+  categories?: { code: string; slug: string };
   languages?: { name: string; native_name?: string; iso_code?: string };
 }
 
@@ -457,6 +457,7 @@ export interface Subject {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
+  english_name?: string | null;
 }
 
 export interface Chapter {
@@ -472,6 +473,7 @@ export interface Chapter {
   updated_at: string;
   deleted_at?: string | null;
   subjects?: { code: string; slug: string };
+  english_name?: string | null;
 }
 
 export interface Topic {
