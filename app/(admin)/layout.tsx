@@ -3,6 +3,7 @@ import { ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import { KeyboardShortcutsHelp } from '@/components/ui/KeyboardShortcutsHelp';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -32,6 +33,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+      <KeyboardShortcutsHelp />
     </div>
   );
 }

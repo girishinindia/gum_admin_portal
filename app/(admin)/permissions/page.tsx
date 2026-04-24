@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -9,7 +9,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
-import { DataToolbar } from '@/components/ui/DataToolbar';
+import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -38,6 +39,21 @@ export default function PermissionsPage() {
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number; updated_at: string } | null>(null);
+
+
+  const toolbarRef = useRef<DataToolbarHandle>(null);
+
+  useKeyboardShortcuts([
+    { key: '/', action: () => toolbarRef.current?.focusSearch() },
+    { key: 'r', action: () => load() },
+    { key: 'ArrowRight', action: () => { if (page < totalPages) setPage(p => p + 1); } },
+    { key: 'ArrowLeft', action: () => { if (page > 1) setPage(p => p - 1); } },
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
   useEffect(() => { setPage(1); }, [searchDebounce, filterResource, filterStatus, pageSize]);
@@ -173,7 +189,7 @@ export default function PermissionsPage() {
         </div>
       )}
 
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search permissions...">
+      <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder="Search permissions...">
         <select className={selectClass} value={filterResource} onChange={e => setFilterResource(e.target.value)}>
           <option value="">All Resources</option>
           {uniqueResources.map(r => <option key={r} value={r}>{r}</option>)}

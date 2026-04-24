@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -11,7 +12,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
-import { DataToolbar } from '@/components/ui/DataToolbar';
+import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { MultiLangField, initMLIFields, setMLILanguage, useMLIScript } from '@/components/ui/MultiLangField';
 import { AiProgressOverlay } from '@/components/ui/AiProgressOverlay';
@@ -95,6 +97,25 @@ export default function SubjectTranslationsPage() {
   }, [watchedLangId, languages]);
 
   const MLI_FIELDS = ['st-name', 'st-short-intro', 'st-long-intro'];
+
+
+  const toolbarRef = useRef<DataToolbarHandle>(null);
+  const router = useRouter();
+
+  useKeyboardShortcuts([
+    { key: '/', action: () => toolbarRef.current?.focusSearch() },
+    { key: 'n', action: () => { if (!showTrash) openCreate(); } },
+    { key: 'r', action: () => load() },
+    { key: 't', action: () => setShowTrash(prev => !prev) },
+    { key: 'ctrl+a', action: () => toggleSelectAll() },
+    { key: 'ArrowRight', action: () => { if (page < totalPages) setPage(p => p + 1); } },
+    { key: 'ArrowLeft', action: () => { if (page > 1) setPage(p => p - 1); } },
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   // Initialise MultiLangInput on fields when dialog opens or script loads
   useEffect(() => {
@@ -419,7 +440,7 @@ export default function SubjectTranslationsPage() {
         </button>
       </div>
 
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
+      <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
         {!showTrash && (
           <>
             <select className={selectClass} value={filterSubject} onChange={e => setFilterSubject(e.target.value)}>

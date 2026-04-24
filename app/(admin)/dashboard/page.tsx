@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -8,7 +9,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
-import { DataToolbar } from '@/components/ui/DataToolbar';
+import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,6 +50,22 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [searchDebounce, setSearchDebounce] = useState('');
   const [viewing, setViewing] = useState<any | null>(null);
+
+
+  const toolbarRef = useRef<DataToolbarHandle>(null);
+  const router = useRouter();
+
+  useKeyboardShortcuts([
+    { key: '/', action: () => toolbarRef.current?.focusSearch() },
+    { key: 'r', action: () => loadLogs() },
+    { key: 'ArrowRight', action: () => { if (page < totalPages) setPage(p => p + 1); } },
+    { key: 'ArrowLeft', action: () => { if (page > 1) setPage(p => p - 1); } },
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   useEffect(() => { loadStats(); }, []);
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
@@ -138,7 +156,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search auth logs..." />
+      <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder="Search auth logs..." />
 
       {logsLoading ? (
         <div className="mt-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>

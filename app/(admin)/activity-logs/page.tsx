@@ -1,12 +1,14 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { DataToolbar } from '@/components/ui/DataToolbar';
+import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Pagination } from '@/components/ui/Pagination';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
@@ -51,6 +53,22 @@ export default function ActivityLogsPage() {
   const [searchDebounce, setSearchDebounce] = useState('');
   const [viewing, setViewing] = useState<any | null>(null);
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; total: number; updated_at: string } | null>(null);
+
+
+  const toolbarRef = useRef<DataToolbarHandle>(null);
+  const router = useRouter();
+
+  useKeyboardShortcuts([
+    { key: '/', action: () => toolbarRef.current?.focusSearch() },
+    { key: 'r', action: () => load() },
+    { key: 'ArrowRight', action: () => { if (page < totalPages) setPage(p => p + 1); } },
+    { key: 'ArrowLeft', action: () => { if (page > 1) setPage(p => p - 1); } },
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchDebounce(search), 400);
@@ -138,7 +156,7 @@ export default function ActivityLogsPage() {
         })}
       </div>
 
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search logs...">
+      <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder="Search logs...">
         <div className="relative flex-1 max-w-md">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -50,6 +52,16 @@ function AutoVideoUploadContent() {
   const [rows, setRows] = useState<SubTopicVideoRow[]>([]);
   const [loadingSubTopics, setLoadingSubTopics] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
+
+  const router = useRouter();
+
+  useKeyboardShortcuts([
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   // Load subjects on mount; handle query param pre-selection
   useEffect(() => {

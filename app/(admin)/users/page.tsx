@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,7 +17,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
-import { DataToolbar } from '@/components/ui/DataToolbar';
+import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { api } from '@/lib/api';
 import { formatDate, initials } from '@/lib/utils';
 import { toast } from '@/components/ui/Toast';
@@ -69,6 +71,25 @@ export default function UsersPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({ resolver: zodResolver(createSchema) });
+
+
+  const toolbarRef = useRef<DataToolbarHandle>(null);
+  const router = useRouter();
+
+  useKeyboardShortcuts([
+    { key: '/', action: () => toolbarRef.current?.focusSearch() },
+    { key: 'n', action: () => { if (!showTrash) { setCreateKey(k => k + 1); setCreateOpen(true); }; } },
+    { key: 'r', action: () => load() },
+    { key: 't', action: () => setShowTrash(prev => !prev) },
+    { key: 'ctrl+a', action: () => toggleSelectAll() },
+    { key: 'ArrowRight', action: () => { if (page < totalPages) setPage(p => p + 1); } },
+    { key: 'ArrowLeft', action: () => { if (page > 1) setPage(p => p - 1); } },
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   useEffect(() => {
     const q = searchParams.get('search') || '';
@@ -322,7 +343,7 @@ export default function UsersPage() {
         </button>
       </div>
 
-      <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search by name, email, or mobile...'}>
+      <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search by name, email, or mobile...'}>
         {!showTrash && (
           <>
             <select className={selectClass} value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -12,7 +13,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
-import { DataToolbar } from '@/components/ui/DataToolbar';
+import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { AiProgressOverlay } from '@/components/ui/AiProgressOverlay';
 import { api } from '@/lib/api';
@@ -144,6 +146,25 @@ export default function SubTopicTranslationsPage() {
     setValue('structured_data', JSON.stringify(sd, null, 2));
     toast.success('Structured data generated');
   }
+
+
+  const toolbarRef = useRef<DataToolbarHandle>(null);
+  const router = useRouter();
+
+  useKeyboardShortcuts([
+    { key: '/', action: () => toolbarRef.current?.focusSearch() },
+    { key: 'n', action: () => { if (!showTrash) openCreate(); } },
+    { key: 'r', action: () => load() },
+    { key: 't', action: () => setShowTrash(prev => !prev) },
+    { key: 'ctrl+a', action: () => toggleSelectAll() },
+    { key: 'ArrowRight', action: () => { if (page < totalPages) setPage(p => p + 1); } },
+    { key: 'ArrowLeft', action: () => { if (page > 1) setPage(p => p - 1); } },
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   useEffect(() => {
     api.listSubTopics('?limit=500&is_active=true').then(res => { if (res.success) setSubTopics(res.data || []); });
@@ -473,7 +494,7 @@ export default function SubTopicTranslationsPage() {
       </div>
 
       <div className="mb-4">
-        <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
+        <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
           {!showTrash && (
             <>
               <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"

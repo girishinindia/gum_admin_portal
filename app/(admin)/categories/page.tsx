@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -11,12 +12,13 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { Pagination } from '@/components/ui/Pagination';
-import { DataToolbar } from '@/components/ui/DataToolbar';
+import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, LayoutGrid, Trash2, Edit2, Eye, Star, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Zap, Loader2, Check, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import type { Category } from '@/lib/types';
 
 type SortField = 'id' | 'code' | 'slug' | 'display_order' | 'is_active';
@@ -86,6 +88,9 @@ export default function CategoriesPage() {
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
 
+  const toolbarRef = useRef<DataToolbarHandle>(null);
+  const router = useRouter();
+
   const { register, handleSubmit, reset, setValue, watch } = useForm();
   const [slugManual, setSlugManual] = useState(false);
   const watchedCode = watch('code');
@@ -97,6 +102,23 @@ export default function CategoriesPage() {
       setValue('slug', slug);
     }
   }, [watchedCode, slugManual, setValue]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    { key: '/', action: () => toolbarRef.current?.focusSearch() },
+    { key: 'n', action: () => { if (!showTrash) openCreate(); } },
+    { key: 'r', action: () => load() },
+    { key: 't', action: () => setShowTrash(prev => !prev) },
+    { key: 'ctrl+a', action: () => toggleSelectAll() },
+    { key: 'ctrl+g', action: () => { if (!showTrash) setAiOpen(true); } },
+    { key: 'ArrowRight', action: () => { if (page < totalPages) setPage(p => p + 1); } },
+    { key: 'ArrowLeft', action: () => { if (page > 1) setPage(p => p - 1); } },
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   // Search debounce
   useEffect(() => {
@@ -417,6 +439,7 @@ export default function CategoriesPage() {
 
       {/* Toolbar: search + status filter (only in normal view) */}
       <DataToolbar
+        ref={toolbarRef}
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder={showTrash ? 'Search trash...' : 'Search categories...'}

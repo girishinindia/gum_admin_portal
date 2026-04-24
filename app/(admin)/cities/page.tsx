@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -9,7 +10,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
-import { DataToolbar } from '@/components/ui/DataToolbar';
+import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -60,6 +62,26 @@ export default function CitiesPage() {
   const [formStates, setFormStates] = useState<State[]>([]);
 
   const { register, handleSubmit, reset, setValue } = useForm();
+
+
+  const toolbarRef = useRef<DataToolbarHandle>(null);
+  const router = useRouter();
+
+  useKeyboardShortcuts([
+    { key: '/', action: () => toolbarRef.current?.focusSearch() },
+    { key: 'n', action: () => { if (!showTrash) openCreate(); } },
+    { key: 'r', action: () => load() },
+    { key: 't', action: () => setShowTrash(prev => !prev) },
+    { key: 'ctrl+a', action: () => toggleSelectAll() },
+    { key: 'ctrl+g', action: () => { if (!showTrash) setAiOpen(true); } },
+    { key: 'ArrowRight', action: () => { if (page < totalPages) setPage(p => p + 1); } },
+    { key: 'ArrowLeft', action: () => { if (page > 1) setPage(p => p - 1); } },
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   // Search debounce
   useEffect(() => {
@@ -384,6 +406,7 @@ export default function CitiesPage() {
 
       {/* Toolbar: search + filters (only in normal view) */}
       <DataToolbar
+        ref={toolbarRef}
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder={showTrash ? 'Search trash...' : 'Search cities...'}

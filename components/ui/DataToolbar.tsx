@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useImperativeHandle, forwardRef } from 'react';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -10,17 +11,28 @@ interface DataToolbarProps {
   children?: React.ReactNode;
 }
 
-export const DataToolbar = ({
+export interface DataToolbarHandle {
+  focusSearch: () => void;
+}
+
+export const DataToolbar = forwardRef<DataToolbarHandle, DataToolbarProps>(({
   search,
   onSearchChange,
   searchPlaceholder = 'Search...',
   children,
-}: DataToolbarProps) => {
+}, ref) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusSearch: () => inputRef.current?.focus(),
+  }));
+
   return (
     <div className="flex flex-col sm:flex-row gap-3">
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
         <input
+          ref={inputRef}
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -44,6 +56,6 @@ export const DataToolbar = ({
       {children}
     </div>
   );
-};
+});
 
 DataToolbar.displayName = 'DataToolbar';

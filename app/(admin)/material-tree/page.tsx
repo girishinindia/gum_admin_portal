@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -206,6 +208,17 @@ export default function MaterialTreePage() {
   const [scaffolding, setScaffolding] = useState(false);
   const [scaffoldTxt, setScaffoldTxt] = useState('');
   const [scaffoldResult, setScaffoldResult] = useState<ScaffoldResult | null>(null);
+
+  const router = useRouter();
+
+  useKeyboardShortcuts([
+    { key: 'r', action: () => loadTree() },
+    { key: 'g d', action: () => router.push('/dashboard') },
+    { key: 'g u', action: () => router.push('/users') },
+    { key: 'g c', action: () => router.push('/categories') },
+    { key: 'g s', action: () => router.push('/subjects') },
+    { key: 'g m', action: () => router.push('/material-tree') },
+  ]);
 
   async function loadTree() {
     setLoading(true);
