@@ -271,15 +271,23 @@ export default function SubjectsPage() {
     const sample = `Machine Learning
 \tIntroduction to ML
 \t\tWhat is Machine Learning
+\t\t\tDefinition and Overview
+\t\t\tHistory of ML
 \t\tTypes of Machine Learning
+\t\t\tSupervised vs Unsupervised
+\t\t\tReinforcement Learning
 \t\tML Applications in Real World
 \tSupervised Learning
 \t\tLinear Regression
+\t\t\tSimple Linear Regression
+\t\t\tMultiple Linear Regression
 \t\tLogistic Regression
 \t\tDecision Trees
 Web Development
 \tHTML Basics
 \t\tHTML Document Structure
+\t\t\tDoctype Declaration
+\t\t\tHead and Body Tags
 \t\tHTML Tags and Elements
 \tCSS Fundamentals
 \t\tCSS Selectors
@@ -296,6 +304,7 @@ Web Development
     const subjects: any[] = [];
     let currentSubject: any = null;
     let currentChapter: any = null;
+    let currentTopic: any = null;
 
     for (const raw of lines) {
       if (raw.trim() === '') continue;
@@ -305,7 +314,7 @@ Web Development
       if (tabs === 0 && raw[0] === ' ') {
         let spaces = 0; let k = 0;
         while (k < raw.length && raw[k] === ' ') { spaces++; k++; }
-        if (spaces >= 8) tabs = 2; else if (spaces >= 2) tabs = 1;
+        if (spaces >= 12) tabs = 3; else if (spaces >= 8) tabs = 2; else if (spaces >= 2) tabs = 1;
         j = k;
       }
       const name = raw.slice(j).trim();
@@ -314,12 +323,17 @@ Web Development
       if (tabs === 0) {
         currentSubject = { name, chapters: [] };
         currentChapter = null;
+        currentTopic = null;
         subjects.push(currentSubject);
       } else if (tabs === 1 && currentSubject) {
         currentChapter = { name, topics: [] };
+        currentTopic = null;
         currentSubject.chapters.push(currentChapter);
       } else if (tabs === 2 && currentChapter) {
-        currentChapter.topics.push({ name });
+        currentTopic = { name, subTopics: [] };
+        currentChapter.topics.push(currentTopic);
+      } else if (tabs === 3 && currentTopic) {
+        currentTopic.subTopics.push({ name });
       }
     }
     return subjects;
@@ -1027,7 +1041,7 @@ Web Development
         <div className="space-y-5 p-2">
           {/* Help button */}
           <div className="flex items-center justify-between gap-4">
-            <p className="text-sm text-slate-500">Upload a tab-indented .txt file to bulk-create subjects, chapters, and topics.</p>
+            <p className="text-sm text-slate-500">Upload a tab-indented .txt file to bulk-create subjects, chapters, topics, and sub-topics.</p>
             <div className="flex items-center gap-2 shrink-0">
               <button onClick={downloadSampleFile} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap border border-emerald-200 rounded-md px-2.5 py-1.5 hover:bg-emerald-50">
                 <Download className="w-4 h-4" /> Sample file
@@ -1065,7 +1079,7 @@ Web Development
                 <FolderTree className="w-4 h-4 text-slate-500" />
                 <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Preview</span>
                 <span className="text-xs text-slate-400">
-                  ({importPreview.length} subject{importPreview.length !== 1 ? 's' : ''}, {importPreview.reduce((a: number, s: any) => a + s.chapters.length, 0)} chapters, {importPreview.reduce((a: number, s: any) => a + s.chapters.reduce((b: number, c: any) => b + c.topics.length, 0), 0)} topics)
+                  ({importPreview.length} subject{importPreview.length !== 1 ? 's' : ''}, {importPreview.reduce((a: number, s: any) => a + s.chapters.length, 0)} chapters, {importPreview.reduce((a: number, s: any) => a + s.chapters.reduce((b: number, c: any) => b + c.topics.length, 0), 0)} topics, {importPreview.reduce((a: number, s: any) => a + s.chapters.reduce((b: number, c: any) => b + c.topics.reduce((d: number, t: any) => d + (t.subTopics?.length || 0), 0), 0), 0)} sub-topics)
                 </span>
               </div>
               {importPreview.map((subject: any, si: number) => (
@@ -1079,8 +1093,15 @@ Web Development
                         <ChevronRight className="w-3 h-3" /> {chapter.name}
                       </div>
                       {chapter.topics.map((topic: any, ti: number) => (
-                        <div key={ti} className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" /> {topic.name}
+                        <div key={ti}>
+                          <div className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-300" /> {topic.name}
+                          </div>
+                          {topic.subTopics?.map((st: any, sti: number) => (
+                            <div key={sti} className="ml-10 mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+                              <span className="w-1 h-1 rounded-full bg-slate-200" /> {st.name}
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>
@@ -1116,24 +1137,28 @@ Web Development
               <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
                 <CheckCircle2 className="w-4 h-4" /> Import Complete
               </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-4 gap-3 text-center">
                 <div className="bg-white rounded-lg p-2 border border-green-100">
                   <div className="text-lg font-bold text-green-700">{importResult.report?.created?.subjects || 0}</div>
-                  <div className="text-xs text-slate-500">Subjects created</div>
+                  <div className="text-xs text-slate-500">Subjects</div>
                 </div>
                 <div className="bg-white rounded-lg p-2 border border-green-100">
                   <div className="text-lg font-bold text-blue-700">{importResult.report?.created?.chapters || 0}</div>
-                  <div className="text-xs text-slate-500">Chapters created</div>
+                  <div className="text-xs text-slate-500">Chapters</div>
                 </div>
                 <div className="bg-white rounded-lg p-2 border border-green-100">
                   <div className="text-lg font-bold text-purple-700">{importResult.report?.created?.topics || 0}</div>
-                  <div className="text-xs text-slate-500">Topics created</div>
+                  <div className="text-xs text-slate-500">Topics</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 border border-green-100">
+                  <div className="text-lg font-bold text-indigo-700">{importResult.report?.created?.sub_topics || 0}</div>
+                  <div className="text-xs text-slate-500">Sub-Topics</div>
                 </div>
               </div>
-              {(importResult.report?.skipped?.subjects > 0 || importResult.report?.skipped?.chapters > 0 || importResult.report?.skipped?.topics > 0) && (
+              {(importResult.report?.skipped?.subjects > 0 || importResult.report?.skipped?.chapters > 0 || importResult.report?.skipped?.topics > 0 || importResult.report?.skipped?.sub_topics > 0) && (
                 <div className="text-xs text-amber-600 flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  Skipped (already exist): {importResult.report.skipped.subjects} subjects, {importResult.report.skipped.chapters} chapters, {importResult.report.skipped.topics} topics
+                  Skipped (already exist): {importResult.report.skipped.subjects} subjects, {importResult.report.skipped.chapters} chapters, {importResult.report.skipped.topics} topics, {importResult.report.skipped.sub_topics} sub-topics
                 </div>
               )}
               {importResult.report?.errors?.length > 0 && (
