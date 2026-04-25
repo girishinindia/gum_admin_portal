@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo, Suspense } from 'react';
+import { useEffect, useState, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -45,6 +45,8 @@ function AutoSubTopicsContent() {
   const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
   const [initialized, setInitialized] = useState(false);
+  // Store initial sub_topic_id from URL so the topic-change effect can use it once
+  const initialSubTopicIdRef = useRef<string | null>(null);
   const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
   const [aiPrompt, setAiPrompt] = useState('Analyze the content and generate a sub-topic for an educational platform. Keep SEO fields relevant and concise.');
 
@@ -94,6 +96,8 @@ function AutoSubTopicsContent() {
   // Load subjects and languages on mount; handle query param pre-selection
   useEffect(() => {
     const qTopic = searchParams.get('topic_id') || '';
+    const qSubTopic = searchParams.get('sub_topic_id') || '';
+    if (qSubTopic) initialSubTopicIdRef.current = qSubTopic;
 
     api.listLanguages('?for_material=true&limit=100').then(res => {
       if (res.success) {
@@ -158,7 +162,16 @@ function AutoSubTopicsContent() {
   useEffect(() => {
     resetResults();
     setAllPages({});
-    if (selectedTopic) loadExistingPages(selectedTopic);
+    if (selectedTopic) {
+      // On first load, use the sub_topic_id from URL to pre-select; then clear it
+      const initialStId = initialSubTopicIdRef.current;
+      if (initialStId) {
+        initialSubTopicIdRef.current = null; // consume it once
+        loadExistingPages(selectedTopic, initialStId);
+      } else {
+        loadExistingPages(selectedTopic);
+      }
+    }
   }, [selectedTopic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadExistingPages(topicId: string, preserveSubTopicId?: string) {
@@ -348,7 +361,9 @@ function AutoSubTopicsContent() {
 
         // Create a File object from the English HTML string
         const englishHtmlBlob = new Blob([reverseRes.data.english_html], { type: 'text/html' });
-        const baseName = primaryFile.name.replace(/\.(html|htm)$/i, '');
+        // Strip any existing language suffix (e.g. _hi, _gu) before adding _en
+        const rawBase = primaryFile.name.replace(/\.(html|htm)$/i, '');
+        const baseName = rawBase.replace(/_(?:en|hi|gu|mr|ta|te|kn|ml|bn|pa|ur|or|as|ne|si|sd|ks|mai|doi|kok|bho|sa|mni)$/i, '');
         effectiveEnglishFile = new File([englishHtmlBlob], `${baseName}_en.html`, { type: 'text/html' });
         toast.success(`Step 0: ${primaryLang.name} → English translation complete`);
       } catch (e: any) {
@@ -448,6 +463,7 @@ function AutoSubTopicsContent() {
           const transId = lookupRes.data[0].id;
           const pageFd = new FormData();
           pageFd.append('page_file', file, file.name);
+          pageFd.append('skip_cascade', 'true');
           const updRes = await api.updateSubTopicTranslation(transId, pageFd, true);
           if (updRes.success) uploaded++;
         }

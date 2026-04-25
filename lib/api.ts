@@ -451,8 +451,8 @@ export const api = {
     request('/ai/scan-cdn', { method: 'POST', body: JSON.stringify({}) }),
 
   // AI — Import from CDN (scan Bunny storage and create/sync DB records)
-  importFromCdn: (data: { provider?: string; generate_seo?: boolean; upload_videos?: boolean; sync_mode?: string; auto_delete?: boolean; selected_courses?: string[]; selected_items?: { course: string; chapters?: { name: string; topics?: string[] }[] }[] }) =>
-    request('/ai/import-from-cdn', { method: 'POST', body: JSON.stringify(data) }),
+  importFromCdn: (data: { provider?: string; generate_seo?: boolean; upload_videos?: boolean; sync_mode?: string; auto_delete?: boolean; selected_courses?: string[]; selected_items?: { course: string; chapters?: { name: string; topics?: { name: string; subTopics?: string[] }[] }[] }[] }, signal?: AbortSignal) =>
+    request('/ai/import-from-cdn', { method: 'POST', body: JSON.stringify(data), signal }),
 
   // AI — Scaffold CDN folder structure from .txt content
   scaffoldCdn: (data: { txt_content: string }) =>
@@ -686,6 +686,7 @@ export const api = {
   deleteMaterialFolder: (path: string) => request('/material-tree/folder', { method: 'DELETE', body: JSON.stringify({ path }) }),
   fixOrphanedSubtopicFolders: (dryRun = true) => request(`/material-tree/fix-orphaned-subtopic-folders?dry_run=${dryRun}`, { method: 'POST' }),
   reconcileFolderNames: (dryRun = true) => request(`/material-tree/reconcile-folder-names?dry_run=${dryRun}`, { method: 'POST' }),
+  cleanOrphanedCollections: (dryRun = true) => request(`/material-tree/clean-orphaned-collections?dry_run=${dryRun}`, { method: 'POST' }),
 
   // AI — Sample Data Generation
   generateSampleData: (data: { module: string; provider: string; target_user_id: number; count?: number }) =>

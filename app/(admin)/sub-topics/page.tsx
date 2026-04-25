@@ -18,7 +18,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, FileQuestion, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap, FileText, Video, Youtube } from 'lucide-react';
+import { Plus, FileQuestion, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap, FileText, Video, Youtube, ExternalLink } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import Link from 'next/link';
 import type { SubTopic, Topic, Subject, Chapter } from '@/lib/types';
@@ -591,7 +591,7 @@ export default function SubTopicsPage() {
                       {(() => {
                         const cov = coverage[t.id];
                         if (!cov) return <span className="text-slate-300 text-xs">{'\u2014'}</span>;
-                        const autoUrl = `/auto-sub-topics?topic_id=${t.topic_id}`;
+                        const autoUrl = `/auto-sub-topics?topic_id=${t.topic_id}&sub_topic_id=${t.id}`;
                         return (
                           <Link href={autoUrl} className="flex items-center gap-1.5 group" title="Upload page files">
                             <FileText className={cn('w-3.5 h-3.5', cov.pages_uploaded > 0 ? 'text-emerald-500' : 'text-slate-300')} />
@@ -608,17 +608,29 @@ export default function SubTopicsPage() {
                       {(() => {
                         const cov = coverage[t.id];
                         if (!cov) return <span className="text-slate-300 text-xs">{'\u2014'}</span>;
-                        if (!cov.has_video) return <span className="text-slate-300 text-xs">No video</span>;
+                        if (!cov.has_video) return (
+                          <Link href={`/auto-video-upload?topic_id=${t.topic_id}`} className="text-slate-400 text-xs hover:text-brand-500 transition-colors flex items-center gap-1">
+                            No video <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        );
+                        const videoHref = cov.video_source === 'youtube'
+                          ? (t as any).youtube_url
+                          : (t as any).video_url;
                         return (
                           <div className="flex items-center gap-1.5">
-                            {cov.video_source === 'youtube' ? (
-                              <Youtube className="w-3.5 h-3.5 text-red-500" />
-                            ) : (
-                              <Video className="w-3.5 h-3.5 text-brand-500" />
-                            )}
-                            <Badge variant={cov.video_source === 'youtube' ? 'warning' : 'info'}>
-                              {cov.video_source === 'youtube' ? 'YouTube' : 'Bunny'}
-                            </Badge>
+                            <a href={videoHref || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+                              {cov.video_source === 'youtube' ? (
+                                <Youtube className="w-3.5 h-3.5 text-red-500" />
+                              ) : (
+                                <Video className="w-3.5 h-3.5 text-brand-500" />
+                              )}
+                              <Badge variant={cov.video_source === 'youtube' ? 'warning' : 'info'}>
+                                {cov.video_source === 'youtube' ? 'YouTube' : 'Bunny'}
+                              </Badge>
+                            </a>
+                            <Link href={`/auto-video-upload?topic_id=${t.topic_id}`} className="p-0.5 rounded text-slate-400 hover:text-brand-500 transition-colors" title="Update video">
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
                           </div>
                         );
                       })()}

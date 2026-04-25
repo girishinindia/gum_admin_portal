@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive, CloudDownload, Sparkles, CheckCircle, AlertCircle, X, Upload, Video, FolderPlus, Search, Minus, Check, Square, CheckSquare } from 'lucide-react';
+import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive, CloudDownload, Sparkles, CheckCircle, AlertCircle, X, Upload, Video, FolderPlus, Search, Minus, Check, Square, CheckSquare, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TreeNode {
@@ -127,14 +127,28 @@ function TreeNodeItem({ node, depth, onDelete }: { node: TreeNode; depth: number
             {/* Video status badge for sub-topics */}
             {node.type === 'sub_topic' && (
               node.videoId ? (
-                <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium border flex items-center gap-1',
-                  node.videoStatus === 'ready' ? 'bg-green-50 text-green-700 border-green-200' :
-                  node.videoStatus === 'processing' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                  'bg-slate-50 text-slate-500 border-slate-200'
-                )}>
-                  <Video className="w-3 h-3" />
-                  {node.videoStatus || 'uploaded'}
-                </span>
+                node.videoUrl && node.videoStatus === 'ready' ? (
+                  <a
+                    href={node.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-[10px] px-1.5 py-0.5 rounded-full font-medium border flex items-center gap-1 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800 transition-colors cursor-pointer"
+                    title="Open video in new tab"
+                  >
+                    <Video className="w-3 h-3" />
+                    ready
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                ) : (
+                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium border flex items-center gap-1',
+                    node.videoStatus === 'processing' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                    'bg-slate-50 text-slate-500 border-slate-200'
+                  )}>
+                    <Video className="w-3 h-3" />
+                    {node.videoStatus || 'uploaded'}
+                  </span>
+                )
               ) : (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium border bg-slate-50 text-slate-400 border-slate-200 flex items-center gap-1">
                   <Video className="w-3 h-3" /> no video
@@ -185,10 +199,16 @@ function TreeNodeItem({ node, depth, onDelete }: { node: TreeNode; depth: number
       style={{ paddingLeft: `${depth * 20 + 12 + 18}px` }}
     >
       {getFileIcon(node.name)}
-      <span className="truncate">{node.name}</span>
-      {node.size > 0 && <span className="text-xs text-slate-400 ml-auto shrink-0">{formatBytes(node.size)}</span>}
+      {isFullUrl ? (
+        <a href={node.path} target="_blank" rel="noopener noreferrer" className="truncate text-blue-600 hover:text-blue-800 hover:underline" title="Open file in new tab">
+          {node.name}
+        </a>
+      ) : (
+        <span className="truncate">{node.name}</span>
+      )}
+      {node.size > 0 && <span className="text-xs text-slate-400 shrink-0">{formatBytes(node.size)}</span>}
       {isFullUrl && (
-        <a href={node.path} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto" title="Open file">
+        <a href={node.path} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0" title="Open file in new tab">
           <ExternalLink className="w-3.5 h-3.5 text-blue-500 hover:text-blue-700" />
         </a>
       )}
@@ -231,8 +251,9 @@ export default function MaterialTreePage() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importTab, setImportTab] = useState<'scaffold' | 'import'>('import');
   const [importing, setImporting] = useState(false);
+  const importAbortRef = useRef<AbortController | null>(null);
   const [importProvider, setImportProvider] = useState<string>('gemini');
-  const [importGenerateSeo, setImportGenerateSeo] = useState(false);
+  const [importGenerateSeo, setImportGenerateSeo] = useState(true);
   const [importUploadVideos, setImportUploadVideos] = useState(true);
   const [importSyncMode, setImportSyncMode] = useState<string>('create_only');
   const [importAutoDelete, setImportAutoDelete] = useState(false);
@@ -307,6 +328,11 @@ export default function MaterialTreePage() {
     const syncMode = mode || importSyncMode;
     setImporting(true);
     setImportReport(null);
+
+    // Create abort controller for this request
+    const abortController = new AbortController();
+    importAbortRef.current = abortController;
+
     try {
       const selectedItems = getSelectedItems();
       const res = await api.importFromCdn({
@@ -316,7 +342,7 @@ export default function MaterialTreePage() {
         sync_mode: syncMode,
         auto_delete: importAutoDelete,
         selected_items: selectedItems.length > 0 ? selectedItems : undefined,
-      });
+      }, abortController.signal);
       if (res.success && res.data?.report) {
         setImportReport(res.data.report);
         toast.success(syncMode === 'dry_run' ? 'Dry run completed — no changes made' : 'CDN import completed');
@@ -325,9 +351,20 @@ export default function MaterialTreePage() {
         toast.error(res.message || 'CDN import failed');
       }
     } catch (e: any) {
-      toast.error(e.message || 'CDN import failed');
+      if (e.name === 'AbortError') {
+        toast.info('Import cancelled');
+      } else {
+        toast.error(e.message || 'CDN import failed');
+      }
     }
+    importAbortRef.current = null;
     setImporting(false);
+  }
+
+  function handleCancelImport() {
+    if (importAbortRef.current) {
+      importAbortRef.current.abort();
+    }
   }
 
   async function handleCheckVideoStatus() {
@@ -465,7 +502,7 @@ export default function MaterialTreePage() {
   }
 
   // Get selected items with granular chapter + topic selection
-  function getSelectedItems(): { course: string; chapters?: { name: string; topics?: string[] }[] }[] {
+  function getSelectedItems(): { course: string; chapters?: { name: string; topics?: { name: string; subTopics?: string[] }[] }[] }[] {
     return cdnCourses
       .filter(c => {
         const ck = c.folderName;
@@ -499,7 +536,19 @@ export default function MaterialTreePage() {
                 const tpk = `${chk}/${tp.name}`;
                 return Object.keys(cdnSelection).some(k => (k === tpk || k.startsWith(tpk + '/')) && cdnSelection[k]);
               })
-              .map(tp => tp.name);
+              .map(tp => {
+                const tpk = `${chk}/${tp.name}`;
+                // Check if ALL sub-topics in this topic are selected
+                const allSTsSelected = tp.subTopics.length > 0 && tp.subTopics.every(st =>
+                  cdnSelection[`${tpk}/${st.name}`]
+                );
+                if (allSTsSelected || tp.subTopics.length === 0) return { name: tp.name };
+                // Partial: include only selected sub-topic names
+                const selectedSTs = tp.subTopics
+                  .filter(st => cdnSelection[`${tpk}/${st.name}`])
+                  .map(st => st.name);
+                return { name: tp.name, subTopics: selectedSTs };
+              });
             return { name: ch.name, topics: selectedTopics };
           });
         return { course: c.folderName, chapters: selectedChapters };
@@ -899,7 +948,14 @@ export default function MaterialTreePage() {
                       </div>
 
                       <div className="flex justify-end gap-2 pt-2">
-                        <Button variant="outline" onClick={() => { setShowImportDialog(false); setCdnCourses([]); }} disabled={importing}>Cancel</Button>
+                        {importing ? (
+                          <Button variant="outline" onClick={handleCancelImport} className="text-red-600 border-red-300 hover:bg-red-50">
+                            <XCircle className="w-4 h-4" />
+                            Stop
+                          </Button>
+                        ) : (
+                          <Button variant="outline" onClick={() => { setShowImportDialog(false); setCdnCourses([]); }}>Cancel</Button>
+                        )}
                         {importSyncMode !== 'dry_run' && (
                           <Button variant="outline" onClick={() => handleImportFromCdn('dry_run')} disabled={importing || getSelectedCourseCount() === 0}>
                             {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}

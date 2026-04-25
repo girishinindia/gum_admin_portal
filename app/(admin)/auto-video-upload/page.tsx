@@ -52,6 +52,7 @@ function AutoVideoUploadContent() {
   const [rows, setRows] = useState<SubTopicVideoRow[]>([]);
   const [loadingSubTopics, setLoadingSubTopics] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const router = useRouter();
 
@@ -151,7 +152,7 @@ function AutoVideoUploadContent() {
     setRows(prev => prev.map((r, i) => i === index ? { ...r, ...updates } : r));
   }
 
-  function handleFileSelect(index: number, file: File | null) {
+  async function handleFileSelect(index: number, file: File | null) {
     if (file) {
       const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
       if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
@@ -162,8 +163,43 @@ function AutoVideoUploadContent() {
         toast.error('File size must be under 500MB');
         return;
       }
+
+      // If sub-topic already has a video, delete the old one first (from Bunny CDN + DB)
+      const row = rows[index];
+      if (row && row.subTopic.video_source) {
+        try {
+          await api.deleteSubTopicVideo(row.subTopic.id);
+          updateRow(index, {
+            subTopic: { ...row.subTopic, video_source: null, video_url: null, video_thumbnail_url: null, video_status: null, youtube_url: null, video_id: null },
+            videoFile: file, videoType: 'upload', status: 'idle', errorMsg: '',
+          });
+        } catch (e: any) {
+          toast.error(`Failed to remove old video: ${e.message}`);
+          return;
+        }
+      } else {
+        updateRow(index, { videoFile: file, videoType: 'upload', status: 'idle', errorMsg: '' });
+      }
+
+      // Auto-start upload after a short tick so state updates
+      setTimeout(() => handleAutoUpload(index, file), 50);
+      return;
     }
     updateRow(index, { videoFile: file, status: 'idle', errorMsg: '' });
+  }
+
+  async function handleAutoUpload(index: number, file: File) {
+    updateRow(index, { uploading: true, progress: 0, status: 'uploading', errorMsg: '', videoFile: file });
+    try {
+      await api.uploadSubTopicVideo(rows[index].subTopic.id, file, (percent: number) => {
+        updateRow(index, { progress: percent });
+      });
+      updateRow(index, { uploading: false, status: 'success', videoFile: null, subTopic: { ...rows[index].subTopic, video_source: 'bunny', video_status: 'processing' } });
+      toast.success(`Video uploaded for "${rows[index].subTopic.slug}"`);
+    } catch (e: any) {
+      updateRow(index, { uploading: false, status: 'error', errorMsg: e.message || 'Upload failed' });
+      toast.error(`Failed for "${rows[index].subTopic.slug}": ${e.message || 'Unknown error'}`);
+    }
   }
 
   async function handleSingleUpload(index: number) {
@@ -403,6 +439,7 @@ function AutoVideoUploadContent() {
                             <div
                               className={cn(
                                 'border-2 border-dashed rounded-lg p-3 text-center transition-colors',
+                                dragOverIndex === index ? 'border-brand-400 bg-brand-50/60 scale-[1.01]' :
                                 row.videoFile ? 'border-brand-200 bg-brand-50/30' : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50',
                                 row.uploading ? 'opacity-50 pointer-events-none' : 'cursor-pointer'
                               )}
@@ -413,6 +450,15 @@ function AutoVideoUploadContent() {
                                 input.accept = 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.avi,.mkv';
                                 input.onchange = (e: any) => { const f = e.target?.files?.[0]; if (f) handleFileSelect(index, f); };
                                 input.click();
+                              }}
+                              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverIndex(index); }}
+                              onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverIndex(index); }}
+                              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverIndex(null); }}
+                              onDrop={(e) => {
+                                e.preventDefault(); e.stopPropagation(); setDragOverIndex(null);
+                                if (row.uploading) return;
+                                const file = e.dataTransfer.files?.[0];
+                                if (file) handleFileSelect(index, file);
                               }}
                             >
                               {row.videoFile ? (
@@ -429,7 +475,7 @@ function AutoVideoUploadContent() {
                               ) : (
                                 <div className="flex items-center justify-center gap-2">
                                   <Upload className="w-4 h-4 text-slate-300" />
-                                  <span className="text-xs text-slate-500">Click to select video file</span>
+                                  <span className="text-xs text-slate-500">{dragOverIndex === index ? 'Drop video here' : 'Drag & drop or click to select video'}</span>
                                   <span className="text-[10px] text-slate-400">(MP4, WebM, MOV — max 500MB)</span>
                                 </div>
                               )}
