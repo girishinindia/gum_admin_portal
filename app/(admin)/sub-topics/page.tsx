@@ -478,14 +478,14 @@ export default function SubTopicsPage() {
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || s.slug }))}
+              options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || '' }))}
               value={filterSubject}
               onChange={setFilterSubject}
               placeholder="All subjects"
               searchPlaceholder="Search subjects..."
             />
             <SearchableSelect
-              options={chapters.map(c => ({ value: String(c.id), label: (c as any).english_name || c.slug }))}
+              options={chapters.map(c => ({ value: String(c.id), label: (c as any).english_name || '' }))}
               value={filterChapter}
               onChange={setFilterChapter}
               placeholder={filterSubject ? 'All chapters' : 'Select subject first'}
@@ -493,7 +493,7 @@ export default function SubTopicsPage() {
               disabled={!filterSubject}
             />
             <SearchableSelect
-              options={filteredTopics.map(t => ({ value: String(t.id), label: (t as any).english_name || t.slug }))}
+              options={filteredTopics.map(t => ({ value: String(t.id), label: (t as any).english_name || '' }))}
               value={filterTopic}
               onChange={setFilterTopic}
               placeholder={filterChapter ? 'All topics' : 'Select chapter first'}
@@ -550,8 +550,7 @@ export default function SubTopicsPage() {
                 <TH className="w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
                 <TH>Topic</TH>
-                <TH><button onClick={() => handleSort('slug')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Slug <SortIcon field="slug" /></button></TH>
-                <TH><button onClick={() => handleSort('difficulty_level')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Difficulty <SortIcon field="difficulty_level" /></button></TH>
+                <TH>Name</TH>
                 {!showTrash && <TH>Translations</TH>}
                 {!showTrash && <TH>Pages</TH>}
                 {!showTrash && <TH>Video</TH>}
@@ -565,12 +564,9 @@ export default function SubTopicsPage() {
                 <TR key={t.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(t.id) && 'bg-brand-50/40')}>
                   <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(t.id)} onChange={() => toggleSelect(t.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{t.id}</span></TD>
-                  <TD className="py-2.5"><span className="text-slate-600">{t.topics?.slug || '\u2014'}</span></TD>
+                  <TD className="py-2.5"><span className="text-slate-600">{topics.find(tp => tp.id === t.topic_id)?.english_name || ''}</span></TD>
                   <TD className="py-2.5">
-                    <span className={cn('font-mono text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{t.slug}</span>
-                  </TD>
-                  <TD className="py-2.5">
-                    {t.difficulty_level ? <Badge variant="info">{t.difficulty_level.replace('_', ' ')}</Badge> : <span className="text-slate-300">{'\u2014'}</span>}
+                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{(t as any).english_name || ''}</span>
                   </TD>
                   {!showTrash && (
                     <TD className="py-2.5">
@@ -662,16 +658,15 @@ export default function SubTopicsPage() {
           <div className="p-6">
             <div className="flex items-center gap-4 mb-6">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900 font-mono">{viewing.slug}</h3>
+                <h3 className="text-lg font-semibold text-slate-900">{(viewing as any).english_name || viewing.slug}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  {viewing.topics?.slug && <Badge variant="info">{viewing.topics.slug}</Badge>}
-                  {viewing.difficulty_level && <Badge variant="muted">{viewing.difficulty_level.replace('_', ' ')}</Badge>}
+                  {viewing.topic_id && <Badge variant="info">{topics.find(tp => tp.id === viewing.topic_id)?.english_name || ''}</Badge>}
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-              <DetailRow label="Topic" value={viewing.topics?.slug} />
+              <DetailRow label="Topic" value={topics.find(tp => tp.id === viewing.topic_id)?.english_name || ''} />
               <DetailRow label="Slug" value={`/${viewing.slug}`} />
               <DetailRow label="Difficulty" value={viewing.difficulty_level?.replace('_', ' ')} />
               <DetailRow label="Est. Minutes" value={viewing.estimated_minutes ? String(viewing.estimated_minutes) : undefined} />
@@ -714,7 +709,7 @@ export default function SubTopicsPage() {
 
           <SearchableSelect
             label="Subject"
-            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code || s.slug }))}
+            options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || '' }))}
             value={dialogSubject}
             onChange={(val) => {
               setDialogSubject(val);
@@ -734,7 +729,7 @@ export default function SubTopicsPage() {
           />
           <SearchableSelect
             label="Chapter"
-            options={dialogChapters.map(c => ({ value: String(c.id), label: (c as any).english_name || c.slug }))}
+            options={dialogChapters.map(c => ({ value: String(c.id), label: (c as any).english_name || '' }))}
             value={dialogChapter}
             onChange={(val) => {
               setDialogChapter(val);
@@ -746,7 +741,7 @@ export default function SubTopicsPage() {
           />
           <SearchableSelect
             label="Topic"
-            options={dialogFilteredTopics.map(t => ({ value: String(t.id), label: (t as any).english_name || t.slug }))}
+            options={dialogFilteredTopics.map(t => ({ value: String(t.id), label: (t as any).english_name || '' }))}
             value={watch('topic_id') || ''}
             onChange={(val) => setValue('topic_id', val)}
             placeholder={dialogChapter ? 'Select a topic' : 'Select chapter first'}

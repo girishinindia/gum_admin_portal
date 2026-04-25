@@ -446,8 +446,12 @@ export const api = {
   importMaterialTree: (fd: FormData) =>
     request('/ai/import-material-tree', { method: 'POST', body: fd, isFormData: true }),
 
+  // AI — Scan CDN (read-only preview of course folders)
+  scanCdn: () =>
+    request('/ai/scan-cdn', { method: 'POST', body: JSON.stringify({}) }),
+
   // AI — Import from CDN (scan Bunny storage and create/sync DB records)
-  importFromCdn: (data: { provider?: string; generate_seo?: boolean; upload_videos?: boolean; sync_mode?: string; auto_delete?: boolean }) =>
+  importFromCdn: (data: { provider?: string; generate_seo?: boolean; upload_videos?: boolean; sync_mode?: string; auto_delete?: boolean; selected_courses?: string[]; selected_items?: { course: string; chapters?: { name: string; topics?: string[] }[] }[] }) =>
     request('/ai/import-from-cdn', { method: 'POST', body: JSON.stringify(data) }),
 
   // AI — Scaffold CDN folder structure from .txt content
@@ -457,6 +461,10 @@ export const api = {
   // AI — Check video transcoding status
   checkVideoStatus: () =>
     request('/ai/check-video-status', { method: 'POST', body: JSON.stringify({}) }),
+
+  // AI — Clean orphaned videos from Bunny Stream
+  cleanOrphanedVideos: (data: { dry_run?: boolean } = {}) =>
+    request('/ai/clean-orphaned-videos', { method: 'POST', body: JSON.stringify(data) }),
 
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),

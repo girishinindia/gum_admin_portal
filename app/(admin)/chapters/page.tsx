@@ -548,7 +548,7 @@ Unsupervised Learning
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code }))}
+              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
               value={filterSubject}
               onChange={setFilterSubject}
               placeholder="All subjects"
@@ -642,7 +642,7 @@ Unsupervised Learning
                   <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{c.id}</span></TD>
                   <TD className="py-2.5">
-                    <span className="text-slate-600">{subjects.find(s => s.id === c.subject_id)?.english_name || c.subjects?.code || '\u2014'}</span>
+                    <span className="text-slate-600">{subjects.find(s => s.id === c.subject_id)?.english_name || ''}</span>
                   </TD>
                   <TD className="py-2.5">
                     <div>
@@ -813,7 +813,7 @@ Unsupervised Learning
 
           <SearchableSelect
             label="Subject"
-            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code }))}
+            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
             value={watch('subject_id') || ''}
             onChange={(val) => setValue('subject_id', val)}
             placeholder="Select a subject"
@@ -969,7 +969,7 @@ Unsupervised Learning
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Parent Subject <span className="text-red-500">*</span></label>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code }))}
+              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
               value={importSubjectId}
               onChange={setImportSubjectId}
               placeholder="Select a subject..."

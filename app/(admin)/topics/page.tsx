@@ -571,14 +571,14 @@ Model Evaluation Metrics`;
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code }))}
+              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
               value={filterSubject}
               onChange={(val) => { setFilterSubject(val); setFilterChapter(''); }}
               placeholder="All subjects"
               searchPlaceholder="Search subjects..."
             />
             <SearchableSelect
-              options={filteredChaptersForToolbar.map(c => ({ value: String(c.id), label: c.english_name || c.slug }))}
+              options={filteredChaptersForToolbar.map(c => ({ value: String(c.id), label: c.english_name || '' }))}
               value={filterChapter}
               onChange={setFilterChapter}
               placeholder={filterSubject ? 'All chapters' : 'All chapters'}
@@ -672,7 +672,7 @@ Model Evaluation Metrics`;
                   <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(t.id)} onChange={() => toggleSelect(t.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{t.id}</span></TD>
                   <TD className="py-2.5">
-                    <span className="text-slate-600">{chapters.find(c => c.id === t.chapter_id)?.english_name || t.chapters?.slug || '\u2014'}</span>
+                    <span className="text-slate-600">{chapters.find(c => c.id === t.chapter_id)?.english_name || ''}</span>
                   </TD>
                   <TD className="py-2.5">
                     <div>
@@ -783,13 +783,13 @@ Model Evaluation Metrics`;
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 font-mono">{viewing.slug}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  {viewing.chapter_id && <Badge variant="info">{chapters.find(c => c.id === viewing.chapter_id)?.english_name || viewing.chapters?.slug || '—'}</Badge>}
+                  {viewing.chapter_id && <Badge variant="info">{chapters.find(c => c.id === viewing.chapter_id)?.english_name || ''}</Badge>}
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-              <DetailRow label="Chapter" value={chapters.find(c => c.id === viewing.chapter_id)?.english_name || viewing.chapters?.slug} />
+              <DetailRow label="Chapter" value={chapters.find(c => c.id === viewing.chapter_id)?.english_name || ''} />
               <DetailRow label="Slug" value={`/${viewing.slug}`} />
               <DetailRow label="Display Order" value={String(viewing.display_order)} />
               <DetailRow label="Sort Order" value={String(viewing.sort_order ?? 0)} />
@@ -843,7 +843,7 @@ Model Evaluation Metrics`;
 
           <SearchableSelect
             label="Subject"
-            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code }))}
+            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
             value={dialogSubject}
             onChange={(val) => {
               setDialogSubject(val);
@@ -862,7 +862,7 @@ Model Evaluation Metrics`;
           />
           <SearchableSelect
             label="Chapter"
-            options={dialogChapters.map(c => ({ value: String(c.id), label: c.english_name || c.slug }))}
+            options={dialogChapters.map(c => ({ value: String(c.id), label: c.english_name || '' }))}
             value={watch('chapter_id') || ''}
             onChange={(val) => setValue('chapter_id', val)}
             placeholder={dialogSubject ? 'Select a chapter' : 'Select subject first'}
@@ -1018,7 +1018,7 @@ Model Evaluation Metrics`;
           {/* Subject selector */}
           <SearchableSelect
             label="Parent Subject *"
-            options={importSubjects.map(s => ({ value: String(s.id), label: s.english_name || s.code }))}
+            options={importSubjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
             value={importSubjectId}
             onChange={(val) => { setImportSubjectId(val); setImportChapterId(''); }}
             placeholder="Select a subject..."
@@ -1029,7 +1029,7 @@ Model Evaluation Metrics`;
           {/* Chapter selector */}
           <SearchableSelect
             label="Parent Chapter *"
-            options={importFilteredChapters.map(c => ({ value: String(c.id), label: c.english_name || c.slug }))}
+            options={importFilteredChapters.map(c => ({ value: String(c.id), label: c.english_name || '' }))}
             value={importChapterId}
             onChange={(val) => setImportChapterId(val)}
             placeholder={importSubjectId ? 'Select a chapter...' : 'Select a subject first...'}

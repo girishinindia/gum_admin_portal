@@ -489,6 +489,7 @@ export interface Topic {
   updated_at: string;
   deleted_at?: string | null;
   chapters?: { slug: string; subject_id: number };
+  english_name?: string | null;
 }
 
 export interface SubjectTranslation {
@@ -574,6 +575,7 @@ export interface SubTopic {
   updated_at: string;
   // FK joins
   topics?: { slug: string; chapter_id: number };
+  english_name?: string | null;
 }
 
 export interface SubTopicTranslation {

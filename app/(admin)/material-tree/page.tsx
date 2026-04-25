@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive, CloudDownload, Sparkles, CheckCircle, AlertCircle, X, Upload, Video, FolderPlus } from 'lucide-react';
+import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive, CloudDownload, Sparkles, CheckCircle, AlertCircle, X, Upload, Video, FolderPlus, Search, Minus, Check, Square, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TreeNode {
@@ -176,6 +176,12 @@ interface ImportReport {
   errors: string[];
 }
 
+// CDN scan tree types
+interface CdnSubTopic { order: number; name: string }
+interface CdnTopic { order: number; name: string; subTopics: CdnSubTopic[] }
+interface CdnChapter { order: number; name: string; topics: CdnTopic[] }
+interface CdnCourse { folderName: string; name: string; chapters: CdnChapter[]; totalChapters: number; totalTopics: number; totalSubTopics: number }
+
 interface ScaffoldResult {
   course: string;
   folders_created: number;
@@ -201,8 +207,19 @@ export default function MaterialTreePage() {
   const [importAutoDelete, setImportAutoDelete] = useState(false);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
 
+  // CDN scan / course selection state
+  const [scanning, setScanning] = useState(false);
+  const [cdnCourses, setCdnCourses] = useState<CdnCourse[]>([]);
+  const [cdnScanErrors, setCdnScanErrors] = useState<string[]>([]);
+  const [cdnSelection, setCdnSelection] = useState<Record<string, boolean>>({});
+  const [cdnExpanded, setCdnExpanded] = useState<Record<string, boolean>>({});
+
   // Video status check
   const [checkingVideos, setCheckingVideos] = useState(false);
+
+  // Clean orphaned videos state
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanReport, setCleanReport] = useState<any>(null);
 
   // Scaffold CDN state
   const [scaffolding, setScaffolding] = useState(false);
@@ -260,12 +277,14 @@ export default function MaterialTreePage() {
     setImporting(true);
     setImportReport(null);
     try {
+      const selectedItems = getSelectedItems();
       const res = await api.importFromCdn({
         provider: importProvider,
         generate_seo: importGenerateSeo,
         upload_videos: importUploadVideos,
         sync_mode: syncMode,
         auto_delete: importAutoDelete,
+        selected_items: selectedItems.length > 0 ? selectedItems : undefined,
       });
       if (res.success && res.data?.report) {
         setImportReport(res.data.report);
@@ -296,6 +315,23 @@ export default function MaterialTreePage() {
     setCheckingVideos(false);
   }
 
+  async function handleCleanOrphanedVideos(dryRun: boolean) {
+    setCleaning(true);
+    setCleanReport(null);
+    try {
+      const res = await api.cleanOrphanedVideos({ dry_run: dryRun });
+      if (res.success && res.data?.report) {
+        setCleanReport(res.data.report);
+        toast.success(res.message || (dryRun ? 'Scan completed' : 'Cleanup completed'));
+      } else {
+        toast.error(res.message || 'Cleanup failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Cleanup failed');
+    }
+    setCleaning(false);
+  }
+
   async function handleScaffoldCdn() {
     if (!scaffoldTxt.trim()) { toast.error('Paste or upload the .txt course content'); return; }
     setScaffolding(true);
@@ -313,6 +349,167 @@ export default function MaterialTreePage() {
       toast.error(e.message || 'Scaffold failed');
     }
     setScaffolding(false);
+  }
+
+  // ─── CDN Scan + Selection Helpers ───
+  async function handleScanCdn() {
+    setScanning(true);
+    setCdnCourses([]);
+    setCdnScanErrors([]);
+    setCdnSelection({});
+    setCdnExpanded({});
+    try {
+      const res = await api.scanCdn();
+      if (res.success && res.data) {
+        const courses: CdnCourse[] = res.data.courses || [];
+        setCdnCourses(courses);
+        setCdnScanErrors(res.data.errors || []);
+        // Default: all courses selected, all expanded
+        const sel: Record<string, boolean> = {};
+        const exp: Record<string, boolean> = {};
+        for (const course of courses) {
+          const ck = course.folderName;
+          sel[ck] = true;
+          exp[ck] = false; // collapsed by default
+          for (const ch of course.chapters) {
+            const chk = `${ck}/${ch.name}`;
+            sel[chk] = true;
+            for (const tp of ch.topics) {
+              const tpk = `${chk}/${tp.name}`;
+              sel[tpk] = true;
+              for (const st of tp.subTopics) {
+                sel[`${tpk}/${st.name}`] = true;
+              }
+            }
+          }
+        }
+        setCdnSelection(sel);
+        setCdnExpanded(exp);
+        if (courses.length === 0) toast.error('No course folders found on CDN');
+      } else {
+        toast.error(res.message || 'CDN scan failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'CDN scan failed');
+    }
+    setScanning(false);
+  }
+
+  function toggleCdnExpand(key: string) {
+    setCdnExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  // Toggle selection of an item and cascade to all descendants
+  function toggleCdnSelect(key: string) {
+    setCdnSelection(prev => {
+      const next = { ...prev };
+      const newVal = !prev[key];
+      // Toggle this item and all children whose key starts with this key + "/"
+      for (const k of Object.keys(next)) {
+        if (k === key || k.startsWith(key + '/')) {
+          next[k] = newVal;
+        }
+      }
+      return next;
+    });
+  }
+
+  // Select all / deselect all
+  function selectAllCdn(val: boolean) {
+    setCdnSelection(prev => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) next[k] = val;
+      return next;
+    });
+  }
+
+  // Check state for a parent: true = all children checked, false = none, 'indeterminate' = some
+  function getCdnCheckState(key: string): boolean | 'indeterminate' {
+    const childKeys = Object.keys(cdnSelection).filter(k => k.startsWith(key + '/'));
+    if (childKeys.length === 0) return cdnSelection[key] ?? false;
+    const checkedCount = childKeys.filter(k => cdnSelection[k]).length;
+    if (checkedCount === 0) return false;
+    if (checkedCount === childKeys.length) return true;
+    return 'indeterminate';
+  }
+
+  // Get selected items with granular chapter + topic selection
+  function getSelectedItems(): { course: string; chapters?: { name: string; topics?: string[] }[] }[] {
+    return cdnCourses
+      .filter(c => {
+        const ck = c.folderName;
+        return Object.keys(cdnSelection).some(k => (k === ck || k.startsWith(ck + '/')) && cdnSelection[k]);
+      })
+      .map(c => {
+        const ck = c.folderName;
+        // Check if ALL chapters are fully selected (= import all)
+        const allChaptersSelected = c.chapters.length > 0 && c.chapters.every(ch => {
+          const chk = `${ck}/${ch.name}`;
+          return getCdnCheckState(chk) === true;
+        });
+        if (allChaptersSelected) return { course: c.folderName };
+        // Otherwise, find which chapters have any selection
+        const selectedChapters = c.chapters
+          .filter(ch => {
+            const chk = `${ck}/${ch.name}`;
+            return Object.keys(cdnSelection).some(k => (k === chk || k.startsWith(chk + '/')) && cdnSelection[k]);
+          })
+          .map(ch => {
+            const chk = `${ck}/${ch.name}`;
+            // Check if ALL topics in this chapter are selected (= import all)
+            const allTopicsSelected = ch.topics.length > 0 && ch.topics.every(tp => {
+              const tpk = `${chk}/${tp.name}`;
+              return getCdnCheckState(tpk) === true;
+            });
+            if (allTopicsSelected) return { name: ch.name };
+            // Otherwise, find which topics are selected (partial selection)
+            const selectedTopics = ch.topics
+              .filter(tp => {
+                const tpk = `${chk}/${tp.name}`;
+                return Object.keys(cdnSelection).some(k => (k === tpk || k.startsWith(tpk + '/')) && cdnSelection[k]);
+              })
+              .map(tp => tp.name);
+            return { name: ch.name, topics: selectedTopics };
+          });
+        return { course: c.folderName, chapters: selectedChapters };
+      });
+  }
+
+  // Backward compat helper for button count
+  function getSelectedCourseCount(): number {
+    return getSelectedItems().length;
+  }
+
+  // Get selection summary counts
+  function getSelectionSummary() {
+    let courses = 0, chapters = 0, topics = 0, subTopics = 0;
+    for (const course of cdnCourses) {
+      const ck = course.folderName;
+      let courseHasAny = false;
+      for (const ch of course.chapters) {
+        const chk = `${ck}/${ch.name}`;
+        let chapterHasAny = false;
+        for (const tp of ch.topics) {
+          const tpk = `${chk}/${tp.name}`;
+          let topicHasAny = false;
+          for (const st of tp.subTopics) {
+            if (cdnSelection[`${tpk}/${st.name}`]) { subTopics++; topicHasAny = true; }
+          }
+          // A topic counts if it's selected OR has selected sub-topics
+          if (cdnSelection[tpk] || topicHasAny) { topics++; chapterHasAny = true; }
+        }
+        if (cdnSelection[chk] || chapterHasAny) { chapters++; courseHasAny = true; }
+      }
+      if (cdnSelection[ck] || courseHasAny) courses++;
+    }
+    return { courses, chapters, topics, subTopics };
+  }
+
+  // Checkbox icon helper
+  function CheckboxIcon({ state }: { state: boolean | 'indeterminate' }) {
+    if (state === 'indeterminate') return <div className="w-4 h-4 rounded border-2 border-indigo-400 bg-indigo-100 flex items-center justify-center"><Minus className="w-3 h-3 text-indigo-600" /></div>;
+    if (state) return <div className="w-4 h-4 rounded border-2 border-indigo-600 bg-indigo-600 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>;
+    return <div className="w-4 h-4 rounded border-2 border-slate-300 bg-white" />;
   }
 
   function handleTxtFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -436,7 +633,7 @@ export default function MaterialTreePage() {
       {/* Import / Scaffold CDN Dialog */}
       {showImportDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <CloudDownload className="w-5 h-5 text-indigo-600" />
@@ -467,116 +664,224 @@ export default function MaterialTreePage() {
               {/* ─── Import Tab ─── */}
               {importTab === 'import' && !importReport && (
                 <>
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
-                    <p className="font-medium mb-1">How it works</p>
-                    <p>Scans the Bunny CDN root for course folders with <code className="bg-indigo-100 px-1 rounded">.txt</code> structure files. Parses the hierarchy and creates/syncs subjects, chapters, topics, sub-topics in the database.</p>
-                    <p className="mt-2 text-xs text-indigo-600">Expected: <code>CourseName/CourseName.txt</code> + <code>01_Chapter/01_Topic/en/01_SubTopic.html</code></p>
-                  </div>
-
-                  {/* Sync Mode Selector */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Import Mode</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { value: 'create_only', label: 'Create Only', desc: 'Only add new records' },
-                        { value: 'sync', label: 'Full Sync', desc: 'Create + update + delete' },
-                        { value: 'dry_run', label: 'Dry Run', desc: 'Preview, no changes' },
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setImportSyncMode(opt.value)}
-                          className={cn(
-                            'p-2.5 rounded-lg border text-left transition-colors',
-                            importSyncMode === opt.value
-                              ? 'border-indigo-300 bg-indigo-50 ring-1 ring-indigo-200'
-                              : 'border-slate-200 hover:bg-slate-50'
-                          )}
-                        >
-                          <div className="text-xs font-medium text-slate-700">{opt.label}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
-                        </button>
-                      ))}
+                  {/* Step 1: Scan CDN or show course picker */}
+                  {cdnCourses.length === 0 && !scanning ? (
+                    <>
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
+                        <p className="font-medium mb-1">How it works</p>
+                        <p>First, scan the CDN to discover course folders. Then select which courses to import. Only selected courses will be processed.</p>
+                        <p className="mt-2 text-xs text-indigo-600">Expected: <code>CourseName/CourseName.txt</code> + <code>01_Chapter/01_Topic/en/01_SubTopic.html</code></p>
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" onClick={() => setShowImportDialog(false)}>Cancel</Button>
+                        <Button onClick={handleScanCdn}>
+                          <Search className="w-4 h-4" />
+                          Scan CDN
+                        </Button>
+                      </div>
+                    </>
+                  ) : scanning ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                      <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                      <p className="text-sm text-slate-600">Scanning CDN for course folders...</p>
                     </div>
-                  </div>
-
-                  {(importSyncMode === 'sync' || importSyncMode === 'dry_run') && (
-                    <label className="flex items-center gap-3 p-3 border border-red-100 bg-red-50/50 rounded-lg cursor-pointer hover:bg-red-50">
-                      <input
-                        type="checkbox"
-                        checked={importAutoDelete}
-                        onChange={e => setImportAutoDelete(e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
-                      />
-                      <div>
-                        <div className="text-sm font-medium text-slate-700 flex items-center gap-1">
-                          <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                          Auto-delete removed items
+                  ) : (
+                    <>
+                      {/* Step 2: Course picker tree with checkboxes */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-slate-700">
+                          {cdnCourses.length} course{cdnCourses.length !== 1 ? 's' : ''} found on CDN
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => selectAllCdn(true)} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Select All</button>
+                          <span className="text-slate-300">|</span>
+                          <button onClick={() => selectAllCdn(false)} className="text-xs text-slate-500 hover:text-slate-700 font-medium">Deselect All</button>
+                          <span className="text-slate-300">|</span>
+                          <button onClick={handleScanCdn} className="text-xs text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1">
+                            <RefreshCcw className="w-3 h-3" /> Rescan
+                          </button>
                         </div>
-                        <div className="text-xs text-slate-500">Soft-delete chapters/topics/sub-topics not found in the .txt file. Off = only flagged in report.</div>
                       </div>
-                    </label>
+
+                      {/* Selection summary */}
+                      {(() => {
+                        const s = getSelectionSummary();
+                        return (
+                          <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-600 flex items-center gap-3">
+                            <span className="font-medium text-slate-700">Selected:</span>
+                            <span className="text-indigo-600 font-medium">{s.courses} courses</span>
+                            <span>{s.chapters} chapters</span>
+                            <span>{s.topics} topics</span>
+                            <span>{s.subTopics} sub-topics</span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Course tree with checkboxes */}
+                      <div className="border border-slate-200 rounded-xl max-h-[320px] overflow-y-auto divide-y divide-slate-100">
+                        {cdnCourses.map(course => {
+                          const ck = course.folderName;
+                          const courseState = getCdnCheckState(ck);
+                          const isExpanded = cdnExpanded[ck];
+                          return (
+                            <div key={ck}>
+                              {/* Course row */}
+                              <div className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 cursor-pointer" onClick={() => toggleCdnExpand(ck)}>
+                                <button onClick={(e) => { e.stopPropagation(); toggleCdnSelect(ck); }} className="shrink-0">
+                                  <CheckboxIcon state={courseState} />
+                                </button>
+                                {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
+                                <BookOpen className="w-4 h-4 text-indigo-500 shrink-0" />
+                                <span className="text-sm font-medium text-slate-800 truncate">{course.name}</span>
+                                <span className="ml-auto text-[10px] text-slate-400 shrink-0">
+                                  {course.totalChapters} ch · {course.totalTopics} tp · {course.totalSubTopics} st
+                                </span>
+                              </div>
+
+                              {/* Chapters */}
+                              {isExpanded && course.chapters.map(ch => {
+                                const chk = `${ck}/${ch.name}`;
+                                const chState = getCdnCheckState(chk);
+                                const chExpanded = cdnExpanded[chk];
+                                return (
+                                  <div key={chk}>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer" style={{ paddingLeft: 36 }} onClick={() => toggleCdnExpand(chk)}>
+                                      <button onClick={(e) => { e.stopPropagation(); toggleCdnSelect(chk); }} className="shrink-0">
+                                        <CheckboxIcon state={chState} />
+                                      </button>
+                                      {ch.topics.length > 0 ? (cdnExpanded[chk] ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />) : <span className="w-3.5" />}
+                                      <Layers className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                      <span className="text-sm text-slate-700 truncate">{ch.order}. {ch.name}</span>
+                                      <span className="ml-auto text-[10px] text-slate-400 shrink-0">{ch.topics.length} tp</span>
+                                    </div>
+
+                                    {/* Topics */}
+                                    {chExpanded && ch.topics.map(tp => {
+                                      const tpk = `${chk}/${tp.name}`;
+                                      const tpState = getCdnCheckState(tpk);
+                                      const tpExpanded = cdnExpanded[tpk];
+                                      return (
+                                        <div key={tpk}>
+                                          <div className="flex items-center gap-2 px-3 py-1 hover:bg-slate-50 cursor-pointer" style={{ paddingLeft: 60 }} onClick={() => tp.subTopics.length > 0 && toggleCdnExpand(tpk)}>
+                                            <button onClick={(e) => { e.stopPropagation(); toggleCdnSelect(tpk); }} className="shrink-0">
+                                              <CheckboxIcon state={tpState} />
+                                            </button>
+                                            {tp.subTopics.length > 0 ? (tpExpanded ? <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" /> : <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />) : <span className="w-3" />}
+                                            <Hash className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                                            <span className="text-xs text-slate-600 truncate">{tp.order}. {tp.name}</span>
+                                            {tp.subTopics.length > 0 && <span className="ml-auto text-[10px] text-slate-400 shrink-0">{tp.subTopics.length} st</span>}
+                                          </div>
+
+                                          {/* Sub-Topics */}
+                                          {tpExpanded && tp.subTopics.map(st => {
+                                            const stk = `${tpk}/${st.name}`;
+                                            return (
+                                              <div key={stk} className="flex items-center gap-2 px-3 py-0.5 hover:bg-slate-50" style={{ paddingLeft: 84 }}>
+                                                <button onClick={() => toggleCdnSelect(stk)} className="shrink-0">
+                                                  <CheckboxIcon state={cdnSelection[stk] ?? false} />
+                                                </button>
+                                                <span className="w-3" />
+                                                <FileText className="w-3 h-3 text-slate-400 shrink-0" />
+                                                <span className="text-xs text-slate-500 truncate">{st.order}. {st.name}</span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {cdnScanErrors.length > 0 && (
+                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                          <p className="text-xs font-medium text-amber-800 mb-1">Scan Warnings ({cdnScanErrors.length})</p>
+                          <div className="max-h-20 overflow-y-auto space-y-0.5">
+                            {cdnScanErrors.map((e, i) => <p key={i} className="text-[10px] text-amber-600">{e}</p>)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Import options */}
+                      <div className="border-t border-slate-100 pt-4 space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1.5">Import Mode</label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { value: 'create_only', label: 'Create Only', desc: 'Only add new records' },
+                              { value: 'sync', label: 'Full Sync', desc: 'Create + update + delete' },
+                              { value: 'dry_run', label: 'Dry Run', desc: 'Preview, no changes' },
+                            ].map(opt => (
+                              <button
+                                key={opt.value}
+                                onClick={() => setImportSyncMode(opt.value)}
+                                className={cn(
+                                  'p-2.5 rounded-lg border text-left transition-colors',
+                                  importSyncMode === opt.value
+                                    ? 'border-indigo-300 bg-indigo-50 ring-1 ring-indigo-200'
+                                    : 'border-slate-200 hover:bg-slate-50'
+                                )}
+                              >
+                                <div className="text-xs font-medium text-slate-700">{opt.label}</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {(importSyncMode === 'sync' || importSyncMode === 'dry_run') && (
+                          <label className="flex items-center gap-3 p-3 border border-red-100 bg-red-50/50 rounded-lg cursor-pointer hover:bg-red-50">
+                            <input type="checkbox" checked={importAutoDelete} onChange={e => setImportAutoDelete(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500" />
+                            <div>
+                              <div className="text-sm font-medium text-slate-700 flex items-center gap-1"><Trash2 className="w-3.5 h-3.5 text-red-500" />Auto-delete removed items</div>
+                              <div className="text-xs text-slate-500">Soft-delete items not found in the .txt file.</div>
+                            </div>
+                          </label>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="flex items-center gap-2 p-2.5 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" checked={importUploadVideos} onChange={e => setImportUploadVideos(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <div>
+                              <div className="text-xs font-medium text-slate-700 flex items-center gap-1"><Video className="w-3.5 h-3.5 text-purple-500" />Upload videos</div>
+                            </div>
+                          </label>
+                          <label className="flex items-center gap-2 p-2.5 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" checked={importGenerateSeo} onChange={e => setImportGenerateSeo(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <div>
+                              <div className="text-xs font-medium text-slate-700 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-amber-500" />AI SEO</div>
+                            </div>
+                          </label>
+                        </div>
+
+                        {importGenerateSeo && (
+                          <select value={importProvider} onChange={e => setImportProvider(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="gemini">Google Gemini</option>
+                            <option value="anthropic">Anthropic Claude</option>
+                            <option value="openai">OpenAI GPT</option>
+                          </select>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" onClick={() => { setShowImportDialog(false); setCdnCourses([]); }} disabled={importing}>Cancel</Button>
+                        {importSyncMode !== 'dry_run' && (
+                          <Button variant="outline" onClick={() => handleImportFromCdn('dry_run')} disabled={importing || getSelectedCourseCount() === 0}>
+                            {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                            Dry Run
+                          </Button>
+                        )}
+                        <Button onClick={() => handleImportFromCdn()} disabled={importing || getSelectedCourseCount() === 0}>
+                          {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
+                          {importing ? 'Processing...' : `Import ${getSelectedCourseCount()} Course${getSelectedCourseCount() !== 1 ? 's' : ''}`}
+                        </Button>
+                      </div>
+                    </>
                   )}
-
-                  <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                    <input
-                      type="checkbox"
-                      checked={importUploadVideos}
-                      onChange={e => setImportUploadVideos(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <div>
-                      <div className="text-sm font-medium text-slate-700 flex items-center gap-1">
-                        <Video className="w-3.5 h-3.5 text-purple-500" />
-                        Upload videos to Bunny Stream
-                      </div>
-                      <div className="text-xs text-slate-500">Fetches videos from CDN storage into Bunny Stream. Matches video filenames to sub-topics automatically.</div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                    <input
-                      type="checkbox"
-                      checked={importGenerateSeo}
-                      onChange={e => setImportGenerateSeo(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <div>
-                      <div className="text-sm font-medium text-slate-700 flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        AI-generate SEO metadata
-                      </div>
-                      <div className="text-xs text-slate-500">Uses AI to generate titles, descriptions, and keywords for new sub-topics.</div>
-                    </div>
-                  </label>
-
-                  {importGenerateSeo && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">AI Provider</label>
-                      <select
-                        value={importProvider}
-                        onChange={e => setImportProvider(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="gemini">Google Gemini</option>
-                        <option value="anthropic">Anthropic Claude</option>
-                        <option value="openai">OpenAI GPT</option>
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>Cancel</Button>
-                    {importSyncMode !== 'dry_run' && (
-                      <Button variant="outline" onClick={() => handleImportFromCdn('dry_run')} disabled={importing}>
-                        {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                        Dry Run
-                      </Button>
-                    )}
-                    <Button onClick={() => handleImportFromCdn()} disabled={importing}>
-                      {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
-                      {importing ? 'Processing...' : importSyncMode === 'dry_run' ? 'Run Preview' : importSyncMode === 'sync' ? 'Start Sync' : 'Start Import'}
-                    </Button>
-                  </div>
                 </>
               )}
 
@@ -737,6 +1042,68 @@ export default function MaterialTreePage() {
                   </div>
                 </>
               )}
+
+              {/* ─── Clean Orphaned Videos (always visible) ─── */}
+              <div className="border-t border-slate-200 pt-4 mt-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-700 flex items-center gap-1.5"><Trash2 className="w-4 h-4 text-red-500" /> Clean Orphaned Videos</div>
+                    <p className="text-xs text-slate-500 mt-0.5">Remove Bunny Stream videos not linked to any sub-topic.</p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button size="sm" variant="outline" onClick={() => handleCleanOrphanedVideos(true)} disabled={cleaning}>
+                      {cleaning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                      <span className="whitespace-nowrap">Scan</span>
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => handleCleanOrphanedVideos(false)} disabled={cleaning}>
+                      {cleaning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      <span className="whitespace-nowrap">Clean Now</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {cleanReport && (
+                  <div className="mt-3 space-y-2">
+                    <div className={cn(
+                      'border rounded-lg p-3 text-sm',
+                      cleanReport.dry_run ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'
+                    )}>
+                      <p className={cn('font-medium', cleanReport.dry_run ? 'text-amber-800' : 'text-green-800')}>
+                        {cleanReport.dry_run ? 'Scan Results (no changes made)' : 'Cleanup Complete'}
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
+                        <span className="text-slate-600">Total Stream videos:</span><span className="font-medium">{cleanReport.total_stream_videos}</span>
+                        <span className="text-slate-600">Linked in DB:</span><span className="font-medium">{cleanReport.db_video_ids}</span>
+                        <span className="text-red-600">Orphaned videos:</span><span className="font-medium text-red-600">{cleanReport.orphaned_found}</span>
+                        <span className="text-slate-600">Empty collections:</span><span className="font-medium">{cleanReport.empty_collections_found}</span>
+                        {!cleanReport.dry_run && <>
+                          <span className="text-green-600">Videos deleted:</span><span className="font-medium text-green-600">{cleanReport.videos_deleted}</span>
+                          <span className="text-green-600">Collections deleted:</span><span className="font-medium text-green-600">{cleanReport.collections_deleted}</span>
+                        </>}
+                      </div>
+                    </div>
+
+                    {cleanReport.orphaned_videos.length > 0 && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-slate-500 hover:text-slate-700">Orphaned videos ({cleanReport.orphaned_videos.length})</summary>
+                        <div className="mt-1 max-h-32 overflow-y-auto bg-slate-50 rounded-lg p-2 space-y-0.5 font-mono">
+                          {cleanReport.orphaned_videos.map((v: any, i: number) => (
+                            <div key={i} className="text-slate-600">{v.title} <span className="text-slate-400">({v.sizeMB} MB)</span></div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+
+                    {cleanReport.dry_run && cleanReport.orphaned_found > 0 && (
+                      <div className="flex justify-end">
+                        <Button size="sm" variant="danger" onClick={() => handleCleanOrphanedVideos(false)} disabled={cleaning}>
+                          <Trash2 className="w-3.5 h-3.5" /> Delete {cleanReport.orphaned_found} Orphaned Videos
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
