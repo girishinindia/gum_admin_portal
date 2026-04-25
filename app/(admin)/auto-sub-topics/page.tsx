@@ -354,6 +354,8 @@ function AutoSubTopicsContent() {
     fd.append('provider', aiProvider);
     fd.append('prompt', aiPrompt);
     fd.append('file', effectiveEnglishFile, effectiveEnglishFile.name);
+    // Pass existing sub_topic_id so backend can update instead of creating a duplicate
+    if (selectedSubTopicId) fd.append('sub_topic_id', selectedSubTopicId);
 
     let subTopicId: number;
     try {
@@ -417,6 +419,8 @@ function AutoSubTopicsContent() {
       let uploaded = 0;
       for (const [langIdStr, file] of filesToUpload) {
         const langId = Number(langIdStr);
+        // Skip files that were already auto-uploaded on drop (prevents duplicate upload)
+        if (cardUploadStatus[langId] === 'success') continue;
         const lookupRes = await api.listSubTopicTranslations(`?sub_topic_id=${subTopicId}&language_id=${langId}&limit=1`);
         if (lookupRes.success && lookupRes.data && lookupRes.data.length > 0) {
           const transId = lookupRes.data[0].id;

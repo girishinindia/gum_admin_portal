@@ -20,6 +20,10 @@ interface TreeNode {
   children?: TreeNode[];
   dbId?: number;
   type?: 'subject' | 'chapter' | 'topic' | 'sub_topic' | 'language' | 'resources' | 'file';
+  videoId?: string;
+  videoStatus?: string;
+  videoUrl?: string;
+  fileCount?: number;
 }
 
 interface TreeStats {
@@ -55,6 +59,7 @@ function getTypeColor(type?: string, depth?: number) {
     subject:   { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200', label: 'Subject' },
     chapter:   { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', label: 'Chapter' },
     topic:     { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', label: 'Topic' },
+    sub_topic: { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', border: 'border-fuchsia-200', label: 'Sub-Topic' },
     language:  { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Language' },
     resources: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', label: 'Resources' },
   };
@@ -111,15 +116,41 @@ function TreeNodeItem({ node, depth, onDelete }: { node: TreeNode; depth: number
             ) : (
               <span className="w-3.5 shrink-0" />
             )}
-            {node.type === 'language' ? <Languages className={cn('w-4 h-4 shrink-0', color.text)} /> :
+            {node.type === 'sub_topic' ? <BookOpen className={cn('w-4 h-4 shrink-0', color.text)} /> :
+             node.type === 'language' ? <Languages className={cn('w-4 h-4 shrink-0', color.text)} /> :
              node.type === 'resources' ? <FolderArchive className={cn('w-4 h-4 shrink-0', color.text)} /> :
              <FolderOpen className={cn('w-4 h-4 shrink-0', color.text)} />}
             <span className={cn('font-medium', color.text)}>{node.name}</span>
             <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', color.bg, color.text, color.border, 'border')}>
               {color.label}
             </span>
+            {/* Video status badge for sub-topics */}
+            {node.type === 'sub_topic' && (
+              node.videoId ? (
+                <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium border flex items-center gap-1',
+                  node.videoStatus === 'ready' ? 'bg-green-50 text-green-700 border-green-200' :
+                  node.videoStatus === 'processing' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                  'bg-slate-50 text-slate-500 border-slate-200'
+                )}>
+                  <Video className="w-3 h-3" />
+                  {node.videoStatus || 'uploaded'}
+                </span>
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium border bg-slate-50 text-slate-400 border-slate-200 flex items-center gap-1">
+                  <Video className="w-3 h-3" /> no video
+                </span>
+              )
+            )}
+            {/* File count for language folders */}
+            {node.type === 'language' && typeof node.fileCount === 'number' && (
+              <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium border',
+                node.fileCount > 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-50 text-slate-400 border-slate-200'
+              )}>
+                {node.fileCount} file{node.fileCount !== 1 ? 's' : ''}
+              </span>
+            )}
             <span className="text-xs text-slate-400 ml-auto flex items-center gap-2">
-              {directFolders > 0 && <span>{directFolders} {node.type === 'subject' ? 'ch' : node.type === 'chapter' ? 'tp' : node.type === 'topic' ? 'folder' : node.type === 'language' ? 'file' : 'item'}{directFolders !== 1 ? 's' : ''}</span>}
+              {directFolders > 0 && <span>{directFolders} {node.type === 'subject' ? 'ch' : node.type === 'chapter' ? 'tp' : node.type === 'topic' ? 'sub' : node.type === 'sub_topic' ? 'lang' : node.type === 'language' ? 'file' : 'item'}{directFolders !== 1 ? 's' : ''}</span>}
               {directFiles > 0 && <span>{directFiles} file{directFiles !== 1 ? 's' : ''}</span>}
               {desc.files > 0 && depth < 2 && <span className="text-slate-300">({desc.files} total files)</span>}
               {isEmpty && <span className="text-amber-500 italic">empty</span>}
