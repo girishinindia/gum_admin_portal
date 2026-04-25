@@ -174,7 +174,7 @@ function AutoSubTopicsContent() {
       }
 
       // Store existing sub-topics for "Upload Pages Only" mode
-      const subTopicsList = stRes.data.map((st: any) => ({ id: st.id, slug: st.slug, name: st.name || st.slug }));
+      const subTopicsList = stRes.data.map((st: any) => ({ id: st.id, slug: st.slug, name: st.english_name || st.name || st.slug }));
       setExistingSubTopics(subTopicsList);
       // If a specific sub-topic ID was requested (e.g. after processing), keep it; otherwise auto-select last
       if (preserveSubTopicId && subTopicsList.some((st: any) => String(st.id) === preserveSubTopicId)) {
@@ -267,8 +267,8 @@ function AutoSubTopicsContent() {
         setCardUploadStatus(prev => ({ ...prev, [langId]: 'success' }));
         const lang = languages.find(l => l.id === langId);
         toast.success(`${lang?.name || 'Language'} page uploaded`);
-        // Refresh existing pages to show the new file
-        if (selectedTopic) loadExistingPages(selectedTopic);
+        // Refresh existing pages to show the new file — preserve current sub-topic selection
+        if (selectedTopic) loadExistingPages(selectedTopic, String(subTopicId));
       } else {
         setCardUploadStatus(prev => ({ ...prev, [langId]: 'error' }));
         toast.error(`Upload failed: ${updRes.error || 'Unknown error'}`);
@@ -616,7 +616,7 @@ function AutoSubTopicsContent() {
                 >
                   <option value="">Select a sub-topic...</option>
                   {existingSubTopics.map(st => (
-                    <option key={st.id} value={st.id}>{st.slug}</option>
+                    <option key={st.id} value={st.id}>{st.name || st.slug}</option>
                   ))}
                 </select>
               </div>
