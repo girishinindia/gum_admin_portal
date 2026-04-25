@@ -242,14 +242,21 @@ function AutoSubTopicsContent() {
   }
 
   // Immediately upload a page file for a specific language to an existing sub-topic
+  // If no translation record exists yet, silently skip — file stays in langFiles for the Process flow
   async function autoUploadPage(langId: number, file: File, subTopicId: number) {
     setCardUploadStatus(prev => ({ ...prev, [langId]: 'uploading' }));
     try {
       const lookupRes = await api.listSubTopicTranslations(`?sub_topic_id=${subTopicId}&language_id=${langId}&limit=1`);
       if (!lookupRes.success || !lookupRes.data || lookupRes.data.length === 0) {
+        // No translation record yet — that's OK, file is stored in langFiles and will be
+        // uploaded during Step 3 of the Process flow (or used as source in Step 0)
+        setCardUploadStatus(prev => {
+          const next = { ...prev };
+          delete next[langId]; // clear uploading state, no error
+          return next;
+        });
         const lang = languages.find(l => l.id === langId);
-        toast.error(`No translation found for ${lang?.name || 'language'} on this sub-topic`);
-        setCardUploadStatus(prev => ({ ...prev, [langId]: 'error' }));
+        toast.info(`${lang?.name || 'Language'} file ready — click Process to create translations and upload`);
         return;
       }
       const transId = lookupRes.data[0].id;
