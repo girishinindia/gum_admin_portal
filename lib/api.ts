@@ -684,6 +684,8 @@ export const api = {
   getMaterialTree: (path?: string) => request(`/material-tree${path ? `?path=${encodeURIComponent(path)}` : ''}`),
   getFullMaterialTree: () => request('/material-tree/full'),
   deleteMaterialFolder: (path: string) => request('/material-tree/folder', { method: 'DELETE', body: JSON.stringify({ path }) }),
+  fixOrphanedSubtopicFolders: (dryRun = true) => request(`/material-tree/fix-orphaned-subtopic-folders?dry_run=${dryRun}`, { method: 'POST' }),
+  reconcileFolderNames: (dryRun = true) => request(`/material-tree/reconcile-folder-names?dry_run=${dryRun}`, { method: 'POST' }),
 
   // AI — Sample Data Generation
   generateSampleData: (data: { module: string; provider: string; target_user_id: number; count?: number }) =>
