@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -20,9 +20,9 @@ const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
   { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
 ];
 
-interface Subject { id: number; slug: string; is_active: boolean }
-interface Chapter { id: number; slug: string; subject_id: number; is_active: boolean }
-interface Topic { id: number; slug: string; chapter_id: number; is_active: boolean }
+interface Subject { id: number; slug: string; is_active: boolean; english_name?: string }
+interface Chapter { id: number; slug: string; subject_id: number; is_active: boolean; english_name?: string }
+interface Topic { id: number; slug: string; chapter_id: number; is_active: boolean; english_name?: string }
 
 type Step = 'idle' | 'step0_reverse' | 'step1_english' | 'step2_translate' | 'step3_pages' | 'step4_translate_pages' | 'done' | 'error';
 
@@ -52,12 +52,19 @@ function AutoSubTopicsContent() {
   const [langFiles, setLangFiles] = useState<Record<number, File>>({});
 
   // Existing page files from DB { [languageId]: { url, fileName, subTopicName, subTopicSlug, translationId } }
-  const [existingPages, setExistingPages] = useState<Record<number, { url: string; fileName: string; subTopicName: string; subTopicSlug: string; translationId: number }>>({});
+  // All pages indexed by sub_topic_id → language_id → page info
+  const [allPages, setAllPages] = useState<Record<number, Record<number, { url: string; fileName: string; subTopicName: string; subTopicSlug: string; translationId: number }>>>({});
   const [loadingExisting, setLoadingExisting] = useState(false);
 
   // Existing sub-topics for "Upload Pages Only" mode
   const [existingSubTopics, setExistingSubTopics] = useState<{ id: number; slug: string; name?: string }[]>([]);
   const [selectedSubTopicId, setSelectedSubTopicId] = useState<string>('');
+
+  // Derive displayed pages from allPages filtered by selected sub-topic
+  const existingPages = useMemo(() => {
+    if (!selectedSubTopicId) return {} as Record<number, { url: string; fileName: string; subTopicName: string; subTopicSlug: string; translationId: number }>;
+    return allPages[Number(selectedSubTopicId)] || {};
+  }, [allPages, selectedSubTopicId]);
 
   // Per-card upload status: 'uploading' | 'success' | 'error'
   const [cardUploadStatus, setCardUploadStatus] = useState<Record<number, 'uploading' | 'success' | 'error'>>({});
@@ -150,11 +157,11 @@ function AutoSubTopicsContent() {
   // Reset & load existing pages when topic changes
   useEffect(() => {
     resetResults();
-    setExistingPages({});
+    setAllPages({});
     if (selectedTopic) loadExistingPages(selectedTopic);
   }, [selectedTopic]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function loadExistingPages(topicId: string) {
+  async function loadExistingPages(topicId: string, preserveSubTopicId?: string) {
     setLoadingExisting(true);
     try {
       // Get all sub-topics for this topic
@@ -169,10 +176,15 @@ function AutoSubTopicsContent() {
       // Store existing sub-topics for "Upload Pages Only" mode
       const subTopicsList = stRes.data.map((st: any) => ({ id: st.id, slug: st.slug, name: st.name || st.slug }));
       setExistingSubTopics(subTopicsList);
-      // Auto-select the most recent sub-topic
-      if (subTopicsList.length > 0) setSelectedSubTopicId(String(subTopicsList[subTopicsList.length - 1].id));
+      // If a specific sub-topic ID was requested (e.g. after processing), keep it; otherwise auto-select last
+      if (preserveSubTopicId && subTopicsList.some((st: any) => String(st.id) === preserveSubTopicId)) {
+        setSelectedSubTopicId(preserveSubTopicId);
+      } else if (subTopicsList.length > 0) {
+        setSelectedSubTopicId(String(subTopicsList[subTopicsList.length - 1].id));
+      }
 
-      const pages: Record<number, { url: string; fileName: string; subTopicName: string; subTopicSlug: string; translationId: number }> = {};
+      // Store pages indexed by sub_topic_id → language_id → page info
+      const pagesMap: Record<number, Record<number, { url: string; fileName: string; subTopicName: string; subTopicSlug: string; translationId: number }>> = {};
 
       // For each sub-topic, get its translations that have page files
       for (const st of stRes.data) {
@@ -183,10 +195,11 @@ function AutoSubTopicsContent() {
               // Extract filename from URL
               const urlParts = (tr.page as string).split('/');
               const fileName = urlParts[urlParts.length - 1] || 'page.html';
-              pages[tr.language_id] = {
+              if (!pagesMap[st.id]) pagesMap[st.id] = {};
+              pagesMap[st.id][tr.language_id] = {
                 url: tr.page,
                 fileName,
-                subTopicName: st.slug || tr.name || '',
+                subTopicName: st.name || st.slug || '',
                 subTopicSlug: st.slug || '',
                 translationId: tr.id,
               };
@@ -194,7 +207,7 @@ function AutoSubTopicsContent() {
           }
         }
       }
-      setExistingPages(pages);
+      setAllPages(pagesMap);
     } catch (e) {
       console.error('Failed to load existing pages:', e);
     }
@@ -365,6 +378,8 @@ function AutoSubTopicsContent() {
       if (!st) { setStep('error'); setErrorMsg('No sub-topic was generated'); return; }
       subTopicId = st.sub_topic_id;
       setResultSubTopic({ sub_topic_id: st.sub_topic_id, slug: st.slug, name: st.name, is_new: st.is_new });
+      // Keep UI in sync: always point to the sub-topic we just processed
+      setSelectedSubTopicId(String(st.sub_topic_id));
       toast.success(`Step 1: Sub-topic "${st.name}" ${st.is_new ? 'created' : 'updated'} with English translation`);
     } catch (e: any) {
       setStep('error'); setErrorMsg(e.message || 'Failed to process English file'); return;
@@ -474,7 +489,8 @@ function AutoSubTopicsContent() {
 
     setStep('done');
     toast.success('All done!');
-    if (selectedTopic) loadExistingPages(selectedTopic);
+    // Refresh pages and keep focus on the sub-topic we just processed
+    if (selectedTopic) loadExistingPages(selectedTopic, String(subTopicId));
   }
 
   const isProcessing = step === 'step0_reverse' || step === 'step1_english' || step === 'step2_translate' || step === 'step3_pages' || step === 'step4_translate_pages';
@@ -498,9 +514,9 @@ function AutoSubTopicsContent() {
         <h3 className="text-sm font-semibold text-slate-700 mb-3">Select Material Hierarchy</h3>
         {(selectedSubjectObj || selectedChapterObj || selectedTopicObj) && (
           <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
-            {selectedSubjectObj && <Badge variant="muted">{selectedSubjectObj.slug}</Badge>}
-            {selectedChapterObj && <><ChevronRight className="w-3 h-3" /><Badge variant="muted">{selectedChapterObj.slug}</Badge></>}
-            {selectedTopicObj && <><ChevronRight className="w-3 h-3" /><Badge variant="info">{selectedTopicObj.slug}</Badge></>}
+            {selectedSubjectObj && <Badge variant="muted">{selectedSubjectObj.english_name || selectedSubjectObj.slug}</Badge>}
+            {selectedChapterObj && <><ChevronRight className="w-3 h-3" /><Badge variant="muted">{selectedChapterObj.english_name || selectedChapterObj.slug}</Badge></>}
+            {selectedTopicObj && <><ChevronRight className="w-3 h-3" /><Badge variant="info">{selectedTopicObj.english_name || selectedTopicObj.slug}</Badge></>}
           </div>
         )}
         <div className="grid grid-cols-3 gap-4">
@@ -509,7 +525,7 @@ function AutoSubTopicsContent() {
             <select className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
               value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)} disabled={isProcessing}>
               <option value="">Select a subject...</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.slug}</option>)}
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.english_name || s.slug}</option>)}
             </select>
           </div>
           <div>
@@ -517,7 +533,7 @@ function AutoSubTopicsContent() {
             <select className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
               value={selectedChapter} onChange={e => setSelectedChapter(e.target.value)} disabled={!selectedSubject || isProcessing}>
               <option value="">{selectedSubject ? 'Select a chapter...' : 'Select subject first'}</option>
-              {chapters.map(c => <option key={c.id} value={c.id}>{(c as any).english_name || c.slug}</option>)}
+              {chapters.map(c => <option key={c.id} value={c.id}>{c.english_name || c.slug}</option>)}
             </select>
           </div>
           <div>
@@ -525,7 +541,7 @@ function AutoSubTopicsContent() {
             <select className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
               value={selectedTopic} onChange={e => setSelectedTopic(e.target.value)} disabled={!selectedChapter || isProcessing}>
               <option value="">{selectedChapter ? 'Select a topic...' : 'Select chapter first'}</option>
-              {topics.map(t => <option key={t.id} value={t.id}>{(t as any).english_name || t.slug}</option>)}
+              {topics.map(t => <option key={t.id} value={t.id}>{t.english_name || t.slug}</option>)}
             </select>
           </div>
         </div>
