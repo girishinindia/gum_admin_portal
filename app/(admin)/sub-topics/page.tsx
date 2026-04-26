@@ -18,7 +18,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, FileQuestion, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap, FileText, Video, Youtube, ExternalLink } from 'lucide-react';
+import { Plus, FileQuestion, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Zap, FileText, Video, Youtube, ExternalLink, Copy, ClipboardCheck } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import Link from 'next/link';
 import type { SubTopic, Topic, Subject, Chapter } from '@/lib/types';
@@ -92,6 +92,12 @@ export default function SubTopicsPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
+
+  // YT Description states
+  const [ytDescViewing, setYtDescViewing] = useState<{ id: number; video_title: string; description: string; sub_topic_slug: string } | null>(null);
+  const [ytDescLoading, setYtDescLoading] = useState<number | null>(null);
+  const [ytDescCopied, setYtDescCopied] = useState<number | null>(null);
+  const [ytDescGenerating, setYtDescGenerating] = useState<Set<number>>(new Set());
 
   // Dialog: cascading subject > chapter > topic filters
   const [dialogSubject, setDialogSubject] = useState('');
@@ -424,6 +430,47 @@ export default function SubTopicsPage() {
     toast.success(`${ok} item(s) permanently deleted`); setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
   }
 
+  async function handleViewYtDesc(subTopicId: number, subTopicSlug: string) {
+    setYtDescLoading(subTopicId);
+    try {
+      const res = await api.getYoutubeDescriptionBySubTopic(subTopicId);
+      if (res.success && res.data) {
+        setYtDescViewing({ id: res.data.id, video_title: res.data.video_title || '', description: res.data.description || '', sub_topic_slug: subTopicSlug });
+      } else {
+        toast.error('No description found');
+      }
+    } catch { toast.error('Failed to load description'); }
+    setYtDescLoading(null);
+  }
+
+  async function handleCopyYtDesc(subTopicId: number) {
+    try {
+      const res = await api.getYoutubeDescriptionBySubTopic(subTopicId);
+      if (res.success && res.data?.description) {
+        await navigator.clipboard.writeText(res.data.description);
+        setYtDescCopied(subTopicId);
+        toast.success('Description copied!');
+        setTimeout(() => setYtDescCopied(null), 2000);
+      } else {
+        toast.error('No description to copy');
+      }
+    } catch { toast.error('Failed to copy description'); }
+  }
+
+  async function handleGenerateYtDesc(subTopicIds: number[]) {
+    setYtDescGenerating(prev => { const next = new Set(prev); subTopicIds.forEach(id => next.add(id)); return next; });
+    try {
+      const res = await api.generateYoutubeDescription({ sub_topic_ids: subTopicIds, provider: 'gemini' });
+      if (res.success) {
+        toast.success(`Generated ${res.data?.generated || subTopicIds.length} description(s)`);
+        load();
+      } else {
+        toast.error(res.error || 'Generation failed');
+      }
+    } catch { toast.error('Generation failed'); }
+    setYtDescGenerating(prev => { const next = new Set(prev); subTopicIds.forEach(id => next.delete(id)); return next; });
+  }
+
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
 
   return (
@@ -433,6 +480,7 @@ export default function SubTopicsPage() {
         description="Manage topic sub-topics"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Link href="/youtube-descriptions"><Button variant="outline"><Youtube className="w-4 h-4" /> YouTube Descriptions</Button></Link>}
             {!showTrash && <Link href="/auto-sub-topics"><Button variant="outline"><Sparkles className="w-4 h-4" /> Auto Sub-Topics</Button></Link>}
             {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-topic</Button>}
@@ -554,6 +602,7 @@ export default function SubTopicsPage() {
                 {!showTrash && <TH>Translations</TH>}
                 {!showTrash && <TH>Pages</TH>}
                 {!showTrash && <TH>Video</TH>}
+                {!showTrash && <TH>YT Desc</TH>}
                 {showTrash && <TH>Deleted</TH>}
                 <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="is_active" /></button></TH>
                 <TH className="text-right">Actions</TH>
@@ -632,6 +681,43 @@ export default function SubTopicsPage() {
                             <Link href={`/auto-video-upload?topic_id=${t.topic_id}`} className="p-0.5 rounded text-slate-400 hover:text-brand-500 transition-colors" title="Update video">
                               <ExternalLink className="w-3 h-3" />
                             </Link>
+                          </div>
+                        );
+                      })()}
+                    </TD>
+                  )}
+                  {!showTrash && (
+                    <TD className="py-2.5">
+                      {(() => {
+                        const hasDesc = (t as any).has_yt_description;
+                        const descId = (t as any).yt_description_id;
+                        const isGenerating = ytDescGenerating.has(t.id);
+                        if (isGenerating) return (
+                          <div className="flex items-center gap-1.5">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-500" />
+                            <span className="text-xs text-violet-600">Generating...</span>
+                          </div>
+                        );
+                        if (hasDesc) return (
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="success">Generated</Badge>
+                            <button onClick={() => handleCopyYtDesc(t.id)} className="p-1 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Copy description">
+                              {ytDescCopied === t.id ? <ClipboardCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                            <button onClick={() => handleViewYtDesc(t.id, t.slug || '')} className="p-1 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View description">
+                              {ytDescLoading === t.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                            <Link href={`/youtube-descriptions?sub_topic_id=${t.id}`} className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Go to YouTube Descriptions">
+                              <Youtube className="w-3.5 h-3.5" />
+                            </Link>
+                          </div>
+                        );
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="muted">None</Badge>
+                            <button onClick={() => handleGenerateYtDesc([t.id])} className="p-1 rounded-md text-violet-500 hover:text-violet-700 hover:bg-violet-50 transition-colors" title="Generate YouTube description">
+                              <Sparkles className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         );
                       })()}
@@ -868,6 +954,39 @@ export default function SubTopicsPage() {
       </Dialog>
 
       <AiMasterDialog module="sub_topics" moduleLabel="Sub-Topics" open={aiOpen} onClose={() => setAiOpen(false)} createFn={(item) => api.createSubTopic(item)} updateFn={(id, item) => api.updateSubTopic(id, item)} listFn={(qs) => api.listSubTopics(qs)} onSaved={() => { load(); refreshSummary(); loadCoverage(); }} />
+
+      {/* View YouTube Description Dialog */}
+      <Dialog open={!!ytDescViewing} onClose={() => setYtDescViewing(null)} title="YouTube Description" size="md">
+        {ytDescViewing && (
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-3 bg-slate-50 rounded-lg px-4 py-3">
+              <Youtube className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-900 text-sm">{ytDescViewing.video_title || 'Untitled'}</div>
+                <div className="text-xs text-slate-500 mt-0.5">/{ytDescViewing.sub_topic_slug}</div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-4 text-sm text-slate-700 whitespace-pre-wrap max-h-80 overflow-y-auto leading-relaxed">
+                {ytDescViewing.description || 'No description'}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button variant="outline" onClick={async () => {
+                if (ytDescViewing.description) {
+                  await navigator.clipboard.writeText(ytDescViewing.description);
+                  toast.success('Description copied!');
+                }
+              }}><Copy className="w-4 h-4" /> Copy</Button>
+              <Link href={`/youtube-descriptions?sub_topic_id=${ytDescViewing.id}`}>
+                <Button variant="outline"><ExternalLink className="w-4 h-4" /> Open in YT Descriptions</Button>
+              </Link>
+              <Button variant="outline" onClick={() => setYtDescViewing(null)}>Close</Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
 
       {/* Bulk AI Generate Translations Dialog */}
       <Dialog open={bulkOpen} onClose={() => !bulkLoading && setBulkOpen(false)} title="AI Generate Translations" size="lg">
