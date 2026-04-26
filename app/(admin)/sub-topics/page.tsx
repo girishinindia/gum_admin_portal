@@ -94,7 +94,7 @@ export default function SubTopicsPage() {
   const [bulkDone, setBulkDone] = useState(false);
 
   // YT Description states
-  const [ytDescViewing, setYtDescViewing] = useState<{ id: number; video_title: string; description: string; sub_topic_slug: string } | null>(null);
+  const [ytDescViewing, setYtDescViewing] = useState<{ id: number; sub_topic_id: number; video_title: string; description: string; sub_topic_slug: string } | null>(null);
   const [ytDescLoading, setYtDescLoading] = useState<number | null>(null);
   const [ytDescCopied, setYtDescCopied] = useState<number | null>(null);
   const [ytDescGenerating, setYtDescGenerating] = useState<Set<number>>(new Set());
@@ -435,7 +435,7 @@ export default function SubTopicsPage() {
     try {
       const res = await api.getYoutubeDescriptionBySubTopic(subTopicId);
       if (res.success && res.data) {
-        setYtDescViewing({ id: res.data.id, video_title: res.data.video_title || '', description: res.data.description || '', sub_topic_slug: subTopicSlug });
+        setYtDescViewing({ id: res.data.id, sub_topic_id: subTopicId, video_title: res.data.video_title || '', description: res.data.description || '', sub_topic_slug: subTopicSlug });
       } else {
         toast.error('No description found');
       }
@@ -979,7 +979,7 @@ export default function SubTopicsPage() {
                   toast.success('Description copied!');
                 }
               }}><Copy className="w-4 h-4" /> Copy</Button>
-              <Link href={`/youtube-descriptions?sub_topic_id=${ytDescViewing.id}`}>
+              <Link href={`/youtube-descriptions?sub_topic_id=${ytDescViewing.sub_topic_id}`}>
                 <Button variant="outline"><ExternalLink className="w-4 h-4" /> Open in YT Descriptions</Button>
               </Link>
               <Button variant="outline" onClick={() => setYtDescViewing(null)}>Close</Button>

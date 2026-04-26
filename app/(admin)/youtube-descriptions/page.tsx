@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, Fragment, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -155,9 +156,13 @@ export default function YoutubeDescriptionsPage() {
   const [loading, setLoading] = useState(false);
 
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [autoSelectDone, setAutoSelectDone] = useState(false);
+  const skipCascadeRef = useRef(false);
 
   // Progress
   const [progressSteps, setProgressSteps] = useState<AiProgressStep[]>([]);
+
+  const searchParams = useSearchParams();
 
   // Load subjects
   useEffect(() => {
@@ -166,8 +171,59 @@ export default function YoutubeDescriptionsPage() {
     });
   }, []);
 
+  // Auto-select filters when sub_topic_id is in URL
+  useEffect(() => {
+    if (autoSelectDone) return;
+    const subTopicIdParam = searchParams.get('sub_topic_id');
+    if (!subTopicIdParam || subjects.length === 0) return;
+
+    const subTopicId = Number(subTopicIdParam);
+    if (!subTopicId) return;
+
+    setAutoSelectDone(true);
+
+    // Look up the sub-topic to get topic_id, then resolve the full hierarchy
+    (async () => {
+      try {
+        const stRes = await api.getSubTopic(subTopicId);
+        if (!stRes.success || !stRes.data) return;
+        const topicId = stRes.data.topic_id;
+
+        // Get the topic to find chapter_id
+        const tRes = await api.listTopics(`?limit=200&is_active=true`);
+        const allTopics = (tRes as any).success ? (tRes as any).data || [] : [];
+        const topic = allTopics.find((t: any) => t.id === topicId);
+        if (!topic) return;
+        const chapterId = topic.chapter_id;
+
+        // Get the chapter to find subject_id
+        const cRes = await api.listChapters(`?limit=200&is_active=true`);
+        const allChapters = (cRes as any).success ? (cRes as any).data || [] : [];
+        const chapter = allChapters.find((c: any) => c.id === chapterId);
+        if (!chapter) return;
+        const subjectId = chapter.subject_id;
+
+        // Now set filters in cascade order — chapters for this subject, topics for this chapter
+        const subjectChapters = allChapters.filter((c: any) => c.subject_id === subjectId);
+        const chapterTopics = allTopics.filter((t: any) => t.chapter_id === chapterId);
+
+        skipCascadeRef.current = true;
+        setSelectedSubjects([subjectId]);
+        setChapters(subjectChapters);
+        setSelectedChapters([chapterId]);
+        setTopics(chapterTopics);
+        setSelectedTopics([topicId]);
+        // Reset skipCascade after React processes the state updates
+        setTimeout(() => { skipCascadeRef.current = false; }, 500);
+      } catch {
+        // Silently fail — user can still select manually
+      }
+    })();
+  }, [searchParams, subjects, autoSelectDone]);
+
   // Load chapters when subjects change
   useEffect(() => {
+    if (skipCascadeRef.current) return;
     setChapters([]);
     setTopics([]);
     setSubTopics([]);
@@ -191,6 +247,7 @@ export default function YoutubeDescriptionsPage() {
 
   // Load topics when chapters change
   useEffect(() => {
+    if (skipCascadeRef.current) return;
     setTopics([]);
     setSubTopics([]);
     setSelectedTopics([]);
