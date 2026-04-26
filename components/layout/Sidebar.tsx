@@ -115,6 +115,11 @@ const navGroups: NavGroup[] = [
         icon: Video,
       },
       {
+        href: '/youtube-descriptions',
+        label: 'YouTube Descriptions',
+        icon: Video,
+      },
+      {
         href: '/material-tree',
         label: 'Material Tree',
         icon: FolderOpen,

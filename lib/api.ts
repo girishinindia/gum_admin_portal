@@ -466,6 +466,20 @@ export const api = {
   cleanOrphanedVideos: (data: { dry_run?: boolean } = {}) =>
     request('/ai/clean-orphaned-videos', { method: 'POST', body: JSON.stringify(data) }),
 
+  // AI — YouTube Description Generation
+  generateYoutubeDescription: (data: { sub_topic_ids?: number[]; subject_id?: number; chapter_id?: number; topic_id?: number; subject_ids?: number[]; chapter_ids?: number[]; topic_ids?: number[]; provider?: string }) =>
+    request('/ai/generate-youtube-description', { method: 'POST', body: JSON.stringify(data) }),
+
+  // YouTube Descriptions CRUD
+  listYoutubeDescriptions: (qs = '') => request(`/youtube-descriptions${qs}`),
+  getYoutubeDescription: (id: number) => request(`/youtube-descriptions/${id}`),
+  getYoutubeDescriptionBySubTopic: (subTopicId: number) => request(`/youtube-descriptions/sub-topic/${subTopicId}`),
+  updateYoutubeDescription: (id: number, data: { video_title?: string; description?: string }) =>
+    request(`/youtube-descriptions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteYoutubeDescription: (id: number) => request(`/youtube-descriptions/${id}`, { method: 'DELETE' }),
+  bulkDeleteYoutubeDescriptions: (ids: number[]) =>
+    request(`/youtube-descriptions/bulk-delete`, { method: 'POST', body: JSON.stringify({ ids }) }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),

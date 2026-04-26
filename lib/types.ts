@@ -622,6 +622,35 @@ export interface SubTopicTranslation {
   languages?: { name: string; native_name: string; iso_code: string };
 }
 
+export interface YoutubeDescription {
+  id: number;
+  sub_topic_id: number;
+  video_title: string | null;
+  description: string | null;
+  source_file_path: string | null;
+  generated_by: number | null;
+  created_at: string;
+  updated_at: string;
+  // FK joins
+  sub_topics?: {
+    id: number;
+    slug: string;
+    display_order: number;
+    topic_id: number;
+    topics?: {
+      id: number;
+      slug: string;
+      chapter_id: number;
+      chapters?: {
+        id: number;
+        slug: string;
+        subject_id: number;
+        subjects?: { id: number; slug: string; code: string };
+      };
+    };
+  };
+}
+
 export interface AuthTokens {
   access_token: string;
   refresh_token: string;
