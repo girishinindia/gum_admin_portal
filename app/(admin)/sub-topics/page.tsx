@@ -606,26 +606,27 @@ export default function SubTopicsPage() {
                   {!showTrash && (
                     <TD className="py-2.5">
                       {(() => {
-                        const cov = coverage[t.id];
-                        if (!cov) return <span className="text-slate-300 text-xs">{'\u2014'}</span>;
-                        if (!cov.has_video) return (
+                        // Use list data directly for video display (more reliable than coverage endpoint)
+                        const hasVideo = !!((t as any).video_id || (t as any).video_url || (t as any).youtube_url);
+                        const isYoutube = (t as any).video_source === 'youtube';
+                        if (!hasVideo) return (
                           <Link href={`/auto-video-upload?topic_id=${t.topic_id}`} className="text-slate-400 text-xs hover:text-brand-500 transition-colors flex items-center gap-1">
                             No video <ExternalLink className="w-3 h-3" />
                           </Link>
                         );
-                        const videoHref = cov.video_source === 'youtube'
+                        const videoHref = isYoutube
                           ? (t as any).youtube_url
                           : (t as any).video_url;
                         return (
                           <div className="flex items-center gap-1.5">
                             <a href={videoHref || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-                              {cov.video_source === 'youtube' ? (
+                              {isYoutube ? (
                                 <Youtube className="w-3.5 h-3.5 text-red-500" />
                               ) : (
                                 <Video className="w-3.5 h-3.5 text-brand-500" />
                               )}
-                              <Badge variant={cov.video_source === 'youtube' ? 'warning' : 'info'}>
-                                {cov.video_source === 'youtube' ? 'YouTube' : 'Bunny'}
+                              <Badge variant={isYoutube ? 'warning' : 'info'}>
+                                {isYoutube ? 'YouTube' : 'Bunny'}
                               </Badge>
                             </a>
                             <Link href={`/auto-video-upload?topic_id=${t.topic_id}`} className="p-0.5 rounded text-slate-400 hover:text-brand-500 transition-colors" title="Update video">
