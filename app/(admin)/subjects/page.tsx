@@ -14,6 +14,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { AiProgressOverlay, useAiProgress } from '@/components/ui/AiProgressOverlay';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { usePageSize } from '@/hooks/usePageSize';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -70,7 +71,7 @@ export default function SubjectsPage() {
 
   // Pagination, search, sort, filter
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = usePageSize();
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -531,6 +532,31 @@ Web Development
     setBulkProgress({ done: 0, total: 0 });
   }
 
+  async function handleBulkGenerateContent() {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: selectedIds.size });
+    try {
+      const res = await api.bulkGenerateMissingContent({
+        entity_type: 'subject',
+        entity_ids: Array.from(selectedIds),
+        provider: 'gemini',
+      });
+      if (res.success && res.data) {
+        const { summary } = res.data;
+        toast.success(`Generated content for ${summary.success} item(s), ${summary.skipped} already complete`);
+        loadCoverage();
+        load();
+      } else {
+        toast.error(res.error || 'Bulk generation failed');
+      }
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
 
   return (
@@ -655,9 +681,14 @@ Web Development
                     </Button>
                   </>
                 ) : (
-                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>
-                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected
-                  </Button>
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkGenerateContent} disabled={bulkActionLoading}>
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} AI Generate Content
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected
+                    </Button>
+                  </>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
                   <X className="w-3.5 h-3.5" /> Clear

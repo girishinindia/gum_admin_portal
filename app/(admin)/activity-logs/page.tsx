@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { usePageSize } from '@/hooks/usePageSize';
 import { Pagination } from '@/components/ui/Pagination';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
@@ -45,7 +46,7 @@ export default function ActivityLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = usePageSize(20);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [filter, setFilter] = useState('');

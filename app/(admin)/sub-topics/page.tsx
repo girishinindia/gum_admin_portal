@@ -15,6 +15,7 @@ import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { AiProgressOverlay, useAiProgress } from '@/components/ui/AiProgressOverlay';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { usePageSize } from '@/hooks/usePageSize';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -62,7 +63,7 @@ export default function SubTopicsPage() {
   const [viewing, setViewing] = useState<SubTopic | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = usePageSize();
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -430,6 +431,31 @@ export default function SubTopicsPage() {
     toast.success(`${ok} item(s) permanently deleted`); setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
   }
 
+  async function handleBulkGenerateContent() {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: selectedIds.size });
+    try {
+      const res = await api.bulkGenerateMissingContent({
+        entity_type: 'sub_topic',
+        entity_ids: Array.from(selectedIds),
+        provider: 'gemini',
+      });
+      if (res.success && res.data) {
+        const { summary } = res.data;
+        toast.success(`Generated content for ${summary.success} item(s), ${summary.skipped} already complete`);
+        loadCoverage();
+        load();
+      } else {
+        toast.error(res.error || 'Bulk generation failed');
+      }
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
   async function handleViewYtDesc(subTopicId: number, subTopicSlug: string) {
     setYtDescLoading(subTopicId);
     try {
@@ -586,7 +612,10 @@ export default function SubTopicsPage() {
                     <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
                   </>
                 ) : (
-                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkGenerateContent} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} AI Generate Content</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                  </>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
               </div>
@@ -642,12 +671,19 @@ export default function SubTopicsPage() {
                         if (!cov) return <span className="text-slate-300 text-xs">{'\u2014'}</span>;
                         const autoUrl = `/auto-sub-topics?topic_id=${t.topic_id}&sub_topic_id=${t.id}`;
                         return (
-                          <Link href={autoUrl} className="flex items-center gap-1.5 group" title="Upload page files">
-                            <FileText className={cn('w-3.5 h-3.5', cov.pages_uploaded > 0 ? 'text-emerald-500' : 'text-slate-300')} />
-                            <Badge variant={cov.pages_uploaded === cov.total_languages ? 'success' : cov.pages_uploaded > 0 ? 'warning' : 'muted'}>
-                              <span className="group-hover:underline">{cov.pages_uploaded}/{cov.total_languages}</span>
-                            </Badge>
-                          </Link>
+                          <div className="flex items-center gap-1.5">
+                            <Link href={autoUrl} className="flex items-center gap-1.5 group" title="Upload page files">
+                              <FileText className={cn('w-3.5 h-3.5', cov.pages_uploaded > 0 ? 'text-emerald-500' : 'text-slate-300')} />
+                              <Badge variant={cov.pages_uploaded === cov.total_languages ? 'success' : cov.pages_uploaded > 0 ? 'warning' : 'muted'}>
+                                <span className="group-hover:underline">{cov.pages_uploaded}/{cov.total_languages}</span>
+                              </Badge>
+                            </Link>
+                            {cov.pages_uploaded < cov.total_languages && (
+                              <Link href={autoUrl} className="p-1 rounded-md text-violet-500 hover:text-violet-700 hover:bg-violet-50 transition-colors" title="Generate missing pages with AI">
+                                <Sparkles className="w-3.5 h-3.5" />
+                              </Link>
+                            )}
+                          </div>
                         );
                       })()}
                     </TD>

@@ -15,6 +15,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { usePageSize } from '@/hooks/usePageSize';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { AiProgressOverlay } from '@/components/ui/AiProgressOverlay';
 import { api } from '@/lib/api';
@@ -75,7 +76,7 @@ export default function SubTopicTranslationsPage() {
   const [searchDebounce, setSearchDebounce] = useState('');
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = usePageSize();
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number } | null>(null);
   const [showTrash, setShowTrash] = useState(false);
 
@@ -432,6 +433,31 @@ export default function SubTopicTranslationsPage() {
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
   }
+  async function handleBulkGenerateContent() {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    try {
+      const parentIds = new Set<number>();
+      items.filter(i => selectedIds.has(i.id)).forEach(i => {
+        if (i.sub_topic_id) parentIds.add(i.sub_topic_id);
+      });
+      const res = await api.bulkGenerateMissingContent({
+        entity_type: 'sub_topic',
+        entity_ids: Array.from(parentIds),
+        provider: 'gemini',
+      });
+      if (res.success && res.data) {
+        const { summary } = res.data;
+        toast.success(`Generated content for ${summary.success} item(s), ${summary.skipped} already complete`);
+        load();
+      } else {
+        toast.error(res.error || 'Bulk generation failed');
+      }
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkActionLoading(false);
+  }
 
   function handleSort(field: SortField) {
     if (sortField === field) setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -544,7 +570,10 @@ export default function SubTopicTranslationsPage() {
                       <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
                     </>
                   ) : (
-                    <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                    <>
+                      <Button size="sm" variant="outline" onClick={handleBulkGenerateContent} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} AI Generate Content</Button>
+                      <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                    </>
                   )}
                   <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
                 </div>
@@ -558,6 +587,7 @@ export default function SubTopicTranslationsPage() {
                   <TH><button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Name <SortIcon field="name" /></button></TH>
                   <TH>Sub-Topic</TH>
                   <TH>Language</TH>
+                  {!showTrash && <TH>Content</TH>}
                   {showTrash && <TH>Deleted</TH>}
                   <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="is_active" /></button></TH>
                   <TH className="text-right">Actions</TH>
@@ -574,6 +604,17 @@ export default function SubTopicTranslationsPage() {
                       {(item as any).sub_topics?.topics?.slug && <div className="text-xs text-slate-400 mt-0.5">{(item as any).sub_topics.topics.slug}</div>}
                     </TD>
                     <TD className="py-2.5">{(item as any).languages?.name ? <Badge variant="muted">{(item as any).languages.name}{(item as any).languages.iso_code ? ` (${(item as any).languages.iso_code})` : ''}</Badge> : <span className="text-slate-300">—</span>}</TD>
+                    {!showTrash && (
+                      <TD className="py-2.5">
+                        {item.short_intro ? (
+                          <Badge variant="success">Filled</Badge>
+                        ) : (
+                          <button onClick={() => openEdit(item)} className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors" title="Generate content with AI">
+                            <Sparkles className="w-3 h-3" /> Empty
+                          </button>
+                        )}
+                      </TD>
+                    )}
                     {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{(item as any).deleted_at ? fromNow((item as any).deleted_at) : '—'}</span></TD>}
                     <TD className="py-2.5">
                       {showTrash ? <Badge variant="warning">Deleted</Badge> : <Badge variant={item.is_active ? 'success' : 'danger'}>{item.is_active ? 'Active' : 'Inactive'}</Badge>}

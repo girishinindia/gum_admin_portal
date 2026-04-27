@@ -19,6 +19,7 @@ import { toast } from '@/components/ui/Toast';
 import { Plus, LayoutGrid, Trash2, Edit2, Eye, Star, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Zap, Loader2, Check, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { usePageSize } from '@/hooks/usePageSize';
 import type { Category } from '@/lib/types';
 
 type SortField = 'id' | 'code' | 'slug' | 'display_order' | 'is_active';
@@ -56,7 +57,7 @@ export default function CategoriesPage() {
 
   // Pagination, search, sort, filter
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = usePageSize();
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');

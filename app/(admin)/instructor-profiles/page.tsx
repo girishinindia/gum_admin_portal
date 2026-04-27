@@ -16,6 +16,7 @@ import { toast } from '@/components/ui/Toast';
 import { Plus, UserCheck, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2, Star } from 'lucide-react';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
+import { usePageSize } from '@/hooks/usePageSize';
 
 const INSTRUCTOR_TYPES = ['internal', 'external', 'guest', 'visiting', 'corporate', 'community', 'other'];
 const TEACHING_MODES = ['online', 'offline', 'hybrid', 'recorded_only'];
@@ -46,7 +47,7 @@ export default function InstructorProfilesPage() {
   const [filterApprovalStatus, setFilterApprovalStatus] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = usePageSize();
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');

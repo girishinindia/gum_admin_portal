@@ -16,6 +16,7 @@ import { toast } from '@/components/ui/Toast';
 import { Plus, GraduationCap, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, X, Sparkles, Loader2 } from 'lucide-react';
 import { AiMasterDialog } from '@/components/ui/AiMasterDialog';
 import { cn, fromNow } from '@/lib/utils';
+import { usePageSize } from '@/hooks/usePageSize';
 
 const ENROLLMENT_TYPES = ['self', 'corporate', 'scholarship', 'referral', 'trial', 'other'];
 const LEARNING_MODES = ['self_paced', 'instructor_led', 'hybrid', 'cohort_based', 'mentored'];
@@ -43,7 +44,7 @@ export default function StudentProfilesPage() {
   const [filterDifficulty, setFilterDifficulty] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = usePageSize();
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
