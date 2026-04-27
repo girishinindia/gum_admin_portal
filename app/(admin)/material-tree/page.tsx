@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive, CloudDownload, Sparkles, CheckCircle, AlertCircle, X, Upload, Video, FolderPlus, Search, Minus, Check, Square, CheckSquare, XCircle } from 'lucide-react';
+import { FolderOpen, File, ChevronRight, ChevronDown, RefreshCcw, Loader2, FolderTree, HardDrive, FileText, Image, FileCode, ExternalLink, Trash2, BookOpen, Layers, Hash, Languages, FolderArchive, CloudDownload, Sparkles, CheckCircle, AlertCircle, X, Upload, Video, Youtube, FolderPlus, Search, Minus, Check, Square, CheckSquare, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TreeNode {
@@ -23,6 +23,8 @@ interface TreeNode {
   videoId?: string;
   videoStatus?: string;
   videoUrl?: string;
+  videoSource?: string;
+  youtubeUrl?: string;
   fileCount?: number;
 }
 
@@ -149,6 +151,19 @@ function TreeNodeItem({ node, depth, onDelete }: { node: TreeNode; depth: number
                     {node.videoStatus || 'uploaded'}
                   </span>
                 )
+              ) : node.youtubeUrl ? (
+                <a
+                  href={node.youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[10px] px-1.5 py-0.5 rounded-full font-medium border flex items-center gap-1 bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700 transition-colors cursor-pointer"
+                  title="Open YouTube video"
+                >
+                  <Youtube className="w-3 h-3" />
+                  YouTube
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
               ) : (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium border bg-slate-50 text-slate-400 border-slate-200 flex items-center gap-1">
                   <Video className="w-3 h-3" /> no video
