@@ -494,6 +494,31 @@ Unsupervised Learning
     setBulkProgress({ done: 0, total: 0 });
   }
 
+  async function handleFillAllMissing() {
+    if (!confirm('This will generate AI content for ALL entities with missing or empty translations. This may take several minutes. Continue?')) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: 0 });
+    try {
+      const res = await api.bulkGenerateMissingContent({
+        entity_type: 'chapter',
+        generate_all: true,
+        provider: 'gemini',
+      });
+      if (res.success && res.data) {
+        const { summary } = res.data;
+        toast.success(`Generated content for ${summary.success} item(s), ${summary.skipped} already complete, ${summary.errors} error(s)`);
+        load();
+        if (typeof loadCoverage === 'function') loadCoverage();
+      } else {
+        toast.error(res.error || 'Bulk generation failed');
+      }
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -502,6 +527,7 @@ Unsupervised Learning
         actions={
           <div className="flex items-center gap-2">
             {!showTrash && <Button variant="outline" onClick={() => { setImportOpen(true); setImportFile(null); setImportPreview(null); setImportResult(null); setImportSubjectId(filterSubject || ''); }}><Upload className="w-4 h-4" /> Import</Button>}
+            {!showTrash && <Button variant="outline" onClick={handleFillAllMissing} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI Fill All Missing</Button>}
             {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add chapter</Button>}
           </div>

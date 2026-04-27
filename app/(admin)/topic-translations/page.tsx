@@ -366,6 +366,30 @@ export default function TopicTranslationsPage() {
     setBulkActionLoading(false);
   }
 
+  async function handleFillAllMissing() {
+    if (!confirm('This will generate AI content for ALL entities with missing or empty translations. This may take several minutes. Continue?')) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: 0 });
+    try {
+      const res = await api.bulkGenerateMissingContent({
+        entity_type: 'topic',
+        generate_all: true,
+        provider: 'gemini',
+      });
+      if (res.success && res.data) {
+        const { summary } = res.data;
+        toast.success(`Generated content for ${summary.success} item(s), ${summary.skipped} already complete, ${summary.errors} error(s)`);
+        load();
+      } else {
+        toast.error(res.error || 'Bulk generation failed');
+      }
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
   function handleSort(field: SortField) {
     if (sortField === field) setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortOrder('asc'); } setPage(1);
@@ -384,7 +408,7 @@ export default function TopicTranslationsPage() {
       <link rel="stylesheet" href="/css/multi-lang-input.css" />
 
       <PageHeader title="Topic Translations" description="Manage multi-language translations for topics"
-        actions={!showTrash ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button> : undefined} />
+        actions={!showTrash ? <div className="flex items-center gap-2"><Button variant="outline" onClick={handleFillAllMissing} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI Fill All Missing</Button><Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button></div> : undefined} />
 
       {summary && (
         <div className="grid grid-cols-4 gap-4 mb-5">

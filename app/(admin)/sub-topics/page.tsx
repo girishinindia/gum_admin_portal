@@ -456,6 +456,31 @@ export default function SubTopicsPage() {
     setBulkProgress({ done: 0, total: 0 });
   }
 
+  async function handleFillAllMissing() {
+    if (!confirm('This will generate AI content for ALL entities with missing or empty translations. This may take several minutes. Continue?')) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: 0 });
+    try {
+      const res = await api.bulkGenerateMissingContent({
+        entity_type: 'sub_topic',
+        generate_all: true,
+        provider: 'gemini',
+      });
+      if (res.success && res.data) {
+        const { summary } = res.data;
+        toast.success(`Generated content for ${summary.success} item(s), ${summary.skipped} already complete, ${summary.errors} error(s)`);
+        load();
+        if (typeof loadCoverage === 'function') loadCoverage();
+      } else {
+        toast.error(res.error || 'Bulk generation failed');
+      }
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
   async function handleViewYtDesc(subTopicId: number, subTopicSlug: string) {
     setYtDescLoading(subTopicId);
     try {
@@ -508,6 +533,7 @@ export default function SubTopicsPage() {
           <div className="flex items-center gap-2">
             {!showTrash && <Link href="/youtube-descriptions"><Button variant="outline"><Youtube className="w-4 h-4" /> YouTube Descriptions</Button></Link>}
             {!showTrash && <Link href="/auto-sub-topics"><Button variant="outline"><Sparkles className="w-4 h-4" /> Auto Sub-Topics</Button></Link>}
+            {!showTrash && <Button variant="outline" onClick={handleFillAllMissing} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI Fill All Missing</Button>}
             {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-topic</Button>}
           </div>

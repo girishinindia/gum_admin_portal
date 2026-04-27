@@ -557,6 +557,31 @@ Web Development
     setBulkProgress({ done: 0, total: 0 });
   }
 
+  async function handleFillAllMissing() {
+    if (!confirm('This will generate AI content for ALL entities with missing or empty translations. This may take several minutes. Continue?')) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: 0 });
+    try {
+      const res = await api.bulkGenerateMissingContent({
+        entity_type: 'subject',
+        generate_all: true,
+        provider: 'gemini',
+      });
+      if (res.success && res.data) {
+        const { summary } = res.data;
+        toast.success(`Generated content for ${summary.success} item(s), ${summary.skipped} already complete, ${summary.errors} error(s)`);
+        load();
+        if (typeof loadCoverage === 'function') loadCoverage();
+      } else {
+        toast.error(res.error || 'Bulk generation failed');
+      }
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
   const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
 
   return (
@@ -567,6 +592,7 @@ Web Development
         actions={
           <div className="flex items-center gap-2">
             {!showTrash && <Button variant="outline" onClick={() => { setImportOpen(true); setImportFile(null); setImportPreview(null); setImportResult(null); }}><Upload className="w-4 h-4" /> Import</Button>}
+            {!showTrash && <Button variant="outline" onClick={handleFillAllMissing} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI Fill All Missing</Button>}
             {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add subject</Button>}
           </div>
