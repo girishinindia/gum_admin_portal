@@ -702,7 +702,7 @@ Unsupervised Learning
                   <TD className="py-2.5">
                     <div>
                       <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>
-                        {(c as any).english_name || ''}
+                        {(c as any).english_name || c.name || c.slug || ''}
                       </span>
                     </div>
                   </TD>

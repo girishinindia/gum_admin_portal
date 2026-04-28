@@ -761,7 +761,7 @@ Web Development
                   <TD className="py-2.5">
                     <div>
                       <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>
-                        {s.english_name || ''}
+                        {s.english_name || s.name || s.slug || ''}
                       </span>
                     </div>
                   </TD>

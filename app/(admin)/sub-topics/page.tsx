@@ -670,7 +670,7 @@ export default function SubTopicsPage() {
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{t.id}</span></TD>
                   <TD className="py-2.5"><span className="text-slate-600">{topics.find(tp => tp.id === t.topic_id)?.english_name || ''}</span></TD>
                   <TD className="py-2.5">
-                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{(t as any).english_name || ''}</span>
+                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{(t as any).english_name || t.name || t.slug || ''}</span>
                   </TD>
                   {!showTrash && (
                     <TD className="py-2.5">

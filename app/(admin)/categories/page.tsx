@@ -540,7 +540,7 @@ export default function CategoriesPage() {
                     </TD>
                   )}
                   <TD className="py-2.5">
-                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.english_name || ''}</span>
+                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.english_name || c.name || c.slug || ''}</span>
                   </TD>
                   <TD className="py-2.5">
                     <span className="text-slate-600">{c.display_order}</span>

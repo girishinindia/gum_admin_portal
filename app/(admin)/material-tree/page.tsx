@@ -33,10 +33,13 @@ interface TreeStats {
   totalFiles: number;
   totalSize: number;
   totalTranslations: number;
+  expectedTranslations: number;
+  expectedFiles: number;
   subjects: number;
   chapters: number;
   topics: number;
   subTopics: number;
+  materialLanguages: number;
 }
 
 function formatBytes(bytes: number): string {
@@ -680,8 +683,13 @@ export default function MaterialTreePage() {
               <Languages className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <div className="text-xs text-slate-500">Translations / Pages</div>
-              <div className="text-xl font-bold text-slate-800">{stats.totalTranslations} / {stats.totalFiles}</div>
+              <div className="text-xs text-slate-500">Translations / Pages ({stats.materialLanguages || 0} langs)</div>
+              <div className="text-xl font-bold text-slate-800">
+                {stats.totalTranslations} / {stats.expectedTranslations || '?'}
+                <span className="text-sm font-medium text-slate-400 ml-2">
+                  ({stats.expectedTranslations ? Math.round((stats.totalFiles / stats.expectedTranslations) * 100) : 0}% pages)
+                </span>
+              </div>
             </div>
           </div>
         </div>

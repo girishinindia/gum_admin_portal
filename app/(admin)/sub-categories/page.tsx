@@ -533,7 +533,7 @@ export default function SubCategoriesPage() {
                     </TD>
                   )}
                   <TD className="py-2.5">
-                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{sc.english_name || ''}</span>
+                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{sc.english_name || sc.name || sc.slug || ''}</span>
                   </TD>
                   <TD className="py-2.5">
                     <span className="text-slate-600">{categories.find(cat => cat.id === sc.category_id)?.english_name || sc.categories?.code || '—'}</span>

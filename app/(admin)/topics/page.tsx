@@ -732,7 +732,7 @@ Model Evaluation Metrics`;
                   <TD className="py-2.5">
                     <div>
                       <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>
-                        {(t as any).english_name || ''}
+                        {(t as any).english_name || t.name || t.slug || ''}
                       </span>
                     </div>
                   </TD>
