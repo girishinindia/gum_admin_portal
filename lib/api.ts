@@ -484,6 +484,82 @@ export const api = {
   bulkDeleteYoutubeDescriptions: (ids: number[]) =>
     request(`/youtube-descriptions/bulk-delete`, { method: 'POST', body: JSON.stringify({ ids }) }),
 
+  // Courses
+  listCourses: (qs = '') => request(`/courses${qs}`, { auth: false }),
+  getCourse: (id: number) => request(`/courses/${id}`, { auth: false }),
+  createCourse: (data: any) => request('/courses', { method: 'POST', body: JSON.stringify(data) }),
+  updateCourse: (id: number, data: any) => request(`/courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCourse: (id: number) => request(`/courses/${id}`, { method: 'DELETE' }),
+  restoreCourse: (id: number) => request(`/courses/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCourse: (id: number) => request(`/courses/${id}/permanent`, { method: 'DELETE' }),
+  previewCourseImport: (content: string) => request('/courses/import/preview', { method: 'POST', body: JSON.stringify({ content }) }),
+  importCourseFromTxt: (content: string, overwrite = false) => request('/courses/import', { method: 'POST', body: JSON.stringify({ content, overwrite }) }),
+
+  // Course Translations
+  listCourseTranslations: (qs = '') => request(`/course-translations${qs}`, { auth: false }),
+  getCourseTranslation: (id: number) => request(`/course-translations/${id}`, { auth: false }),
+  createCourseTranslation: (data: any, isFormData = false) => request('/course-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateCourseTranslation: (id: number, data: any, isFormData = false) => request(`/course-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteCourseTranslation: (id: number) => request(`/course-translations/${id}`, { method: 'DELETE' }),
+  restoreCourseTranslation: (id: number) => request(`/course-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCourseTranslation: (id: number) => request(`/course-translations/${id}/permanent`, { method: 'DELETE' }),
+  getCourseTranslationCoverage: () => request('/course-translations/coverage', { auth: false }),
+
+  // Course Sub-Categories (junction)
+  listCourseSubCategories: (qs = '') => request(`/course-sub-categories${qs}`, { auth: false }),
+  getCourseSubCategory: (id: number) => request(`/course-sub-categories/${id}`, { auth: false }),
+  createCourseSubCategory: (data: any) => request('/course-sub-categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateCourseSubCategory: (id: number, data: any) => request(`/course-sub-categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCourseSubCategory: (id: number) => request(`/course-sub-categories/${id}`, { method: 'DELETE' }),
+  restoreCourseSubCategory: (id: number) => request(`/course-sub-categories/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCourseSubCategory: (id: number) => request(`/course-sub-categories/${id}/permanent`, { method: 'DELETE' }),
+
+  // Course Modules
+  listCourseModules: (qs = '') => request(`/course-modules${qs}`, { auth: false }),
+  getCourseModule: (id: number) => request(`/course-modules/${id}`, { auth: false }),
+  createCourseModule: (data: any) => request('/course-modules', { method: 'POST', body: JSON.stringify(data) }),
+  updateCourseModule: (id: number, data: any) => request(`/course-modules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCourseModule: (id: number) => request(`/course-modules/${id}`, { method: 'DELETE' }),
+  restoreCourseModule: (id: number) => request(`/course-modules/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCourseModule: (id: number) => request(`/course-modules/${id}/permanent`, { method: 'DELETE' }),
+
+  // Course Module Translations
+  listCourseModuleTranslations: (qs = '') => request(`/course-module-translations${qs}`, { auth: false }),
+  getCourseModuleTranslation: (id: number) => request(`/course-module-translations/${id}`, { auth: false }),
+  createCourseModuleTranslation: (data: any, isFormData = false) => request('/course-module-translations', { method: 'POST', body: isFormData ? data : JSON.stringify(data), isFormData }),
+  updateCourseModuleTranslation: (id: number, data: any, isFormData = false) => request(`/course-module-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteCourseModuleTranslation: (id: number) => request(`/course-module-translations/${id}`, { method: 'DELETE' }),
+  restoreCourseModuleTranslation: (id: number) => request(`/course-module-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCourseModuleTranslation: (id: number) => request(`/course-module-translations/${id}/permanent`, { method: 'DELETE' }),
+  getCourseModuleTranslationCoverage: () => request('/course-module-translations/coverage', { auth: false }),
+
+  // Course Module Subjects (junction: module → subject)
+  listCourseModuleSubjects: (qs = '') => request(`/course-module-subjects${qs}`, { auth: false }),
+  getCourseModuleSubject: (id: number) => request(`/course-module-subjects/${id}`, { auth: false }),
+  createCourseModuleSubject: (data: any) => request('/course-module-subjects', { method: 'POST', body: JSON.stringify(data) }),
+  updateCourseModuleSubject: (id: number, data: any) => request(`/course-module-subjects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCourseModuleSubject: (id: number) => request(`/course-module-subjects/${id}`, { method: 'DELETE' }),
+  restoreCourseModuleSubject: (id: number) => request(`/course-module-subjects/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCourseModuleSubject: (id: number) => request(`/course-module-subjects/${id}/permanent`, { method: 'DELETE' }),
+
+  // Course Chapters (junction: module-subject → chapter)
+  listCourseChapters: (qs = '') => request(`/course-chapters${qs}`, { auth: false }),
+  getCourseChapter: (id: number) => request(`/course-chapters/${id}`, { auth: false }),
+  createCourseChapter: (data: any) => request('/course-chapters', { method: 'POST', body: JSON.stringify(data) }),
+  updateCourseChapter: (id: number, data: any) => request(`/course-chapters/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCourseChapter: (id: number) => request(`/course-chapters/${id}`, { method: 'DELETE' }),
+  restoreCourseChapter: (id: number) => request(`/course-chapters/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCourseChapter: (id: number) => request(`/course-chapters/${id}/permanent`, { method: 'DELETE' }),
+
+  // Course Chapter Topics (junction: chapter → topic)
+  listCourseChapterTopics: (qs = '') => request(`/course-chapter-topics${qs}`, { auth: false }),
+  getCourseChapterTopic: (id: number) => request(`/course-chapter-topics/${id}`, { auth: false }),
+  createCourseChapterTopic: (data: any) => request('/course-chapter-topics', { method: 'POST', body: JSON.stringify(data) }),
+  updateCourseChapterTopic: (id: number, data: any) => request(`/course-chapter-topics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCourseChapterTopic: (id: number) => request(`/course-chapter-topics/${id}`, { method: 'DELETE' }),
+  restoreCourseChapterTopic: (id: number) => request(`/course-chapter-topics/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCourseChapterTopic: (id: number) => request(`/course-chapter-topics/${id}/permanent`, { method: 'DELETE' }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),

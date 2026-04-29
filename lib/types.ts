@@ -651,6 +651,23 @@ export interface YoutubeDescription {
   };
 }
 
+export interface CourseSubCategory {
+  id: number;
+  course_id: number;
+  sub_category_id: number;
+  is_primary: boolean;
+  display_order: number;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  created_by?: number | null;
+  updated_by?: number | null;
+  courses?: { code: string; slug: string; name: string };
+  sub_categories?: { code: string; slug: string; name: string; category_id: number; categories?: { name: string; code: string } };
+}
+
 export interface AuthTokens {
   access_token: string;
   refresh_token: string;

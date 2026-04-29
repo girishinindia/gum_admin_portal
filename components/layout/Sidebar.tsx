@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, BookOpen, BookMarked, FileQuestion, Video } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -123,6 +123,34 @@ const navGroups: NavGroup[] = [
         href: '/material-tree',
         label: 'Material Tree',
         icon: FolderOpen,
+      },
+    ],
+  },
+  {
+    key: 'course',
+    title: 'Course Management',
+    items: [
+      {
+        href: '/courses',
+        label: 'Courses',
+        icon: Library,
+        subLinks: [{ href: '/course-translations', label: 'Translations' }],
+      },
+      {
+        href: '/course-sub-categories',
+        label: 'Course Categories',
+        icon: Tags,
+      },
+      {
+        href: '/course-modules',
+        label: 'Course Modules',
+        icon: Package,
+        subLinks: [{ href: '/course-module-translations', label: 'Translations' }],
+      },
+      {
+        href: '/course-structure',
+        label: 'Course Structure',
+        icon: FolderTree,
       },
     ],
   },

@@ -89,6 +89,13 @@ export default function SubCategoriesPage() {
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
   const [bulkDone, setBulkDone] = useState(false);
 
+  // Fill All Missing dialog state
+  const [fillAllOpen, setFillAllOpen] = useState(false);
+  const [fillAllPrompt, setFillAllPrompt] = useState(DEFAULT_BULK_PROMPT);
+  const [fillAllProvider, setFillAllProvider] = useState<AIProvider>('gemini');
+  const [fillAllResults, setFillAllResults] = useState<{ name: string; status: 'success' | 'error'; error?: string }[]>([]);
+  const [fillAllDone, setFillAllDone] = useState(false);
+
   const { register, handleSubmit, reset, setValue, watch } = useForm();
   const [slugManual, setSlugManual] = useState(false);
   const watchedCode = watch('code');
@@ -212,6 +219,65 @@ export default function SubCategoriesPage() {
     }
     setBulkLoading(false);
     setBulkDone(true);
+  }
+
+  function openFillAllMissing() {
+    setFillAllPrompt(DEFAULT_BULK_PROMPT);
+    setFillAllProvider('gemini');
+    setFillAllResults([]);
+    setFillAllDone(false);
+    setFillAllOpen(true);
+  }
+
+  async function handleFillAllMissing() {
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: 0 });
+    setFillAllResults([]);
+    setFillAllDone(false);
+    try {
+      // Fetch ALL sub-categories (not just current page)
+      const allRes = await api.listSubCategories('?limit=200&sort=id&order=asc');
+      const allItems: SubCategory[] = allRes.success ? (allRes.data || []) : items;
+      // Get all sub-categories that need translations
+      const incomplete = allItems.filter(sc => {
+        const cov = coverage[sc.id];
+        return !cov || !cov.is_complete;
+      });
+      if (incomplete.length === 0) {
+        toast.success('All sub-categories already have complete translations!');
+        setBulkActionLoading(false);
+        setFillAllDone(true);
+        return;
+      }
+      setBulkProgress({ done: 0, total: incomplete.length });
+      const results: { name: string; status: 'success' | 'error'; error?: string }[] = [];
+      for (let i = 0; i < incomplete.length; i++) {
+        const sc = incomplete[i];
+        const scName = sc.english_name || sc.code || `ID ${sc.id}`;
+        try {
+          const res = await api.bulkGenerateSubCategoryTranslations({
+            sub_category_id: sc.id,
+            prompt: fillAllPrompt,
+            provider: fillAllProvider,
+          });
+          results.push({ name: scName, status: res.success ? 'success' : 'error', error: res.success ? undefined : (res.error || 'Failed') });
+        } catch (e: any) {
+          results.push({ name: scName, status: 'error', error: e.message || 'Failed' });
+        }
+        setFillAllResults([...results]);
+        setBulkProgress({ done: i + 1, total: incomplete.length });
+      }
+      const successCount = results.filter(r => r.status === 'success').length;
+      const errorCount = results.filter(r => r.status === 'error').length;
+      toast.success(`Generated translations for ${successCount} sub-categories${errorCount > 0 ? `, ${errorCount} errors` : ''}`);
+      loadCoverage();
+      load();
+    } catch {
+      toast.error('Bulk generation failed');
+    }
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+    setFillAllDone(true);
   }
 
   function handleSort(field: SortField) {
@@ -362,6 +428,7 @@ export default function SubCategoriesPage() {
         description="Manage sub-categories within categories"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={openFillAllMissing} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI Fill All Missing</Button>}
             {!showTrash && <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="w-4 h-4" /> AI Generate</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add sub-category</Button>}
           </div>
@@ -453,6 +520,22 @@ export default function SubCategoriesPage() {
           </>
         )}
       </DataToolbar>
+
+      {/* Bulk AI Fill progress banner */}
+      {bulkActionLoading && selectedIds.size === 0 && bulkProgress.total > 0 && (
+        <div className="mt-3 mb-1 flex items-center gap-3 px-4 py-2.5 bg-violet-50 border border-violet-200 rounded-lg text-sm text-violet-800">
+          <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span>Generating translations... {bulkProgress.done}/{bulkProgress.total}</span>
+              <span className="text-xs text-violet-600">{Math.round((bulkProgress.done / bulkProgress.total) * 100)}%</span>
+            </div>
+            <div className="w-full bg-violet-200 rounded-full h-1.5">
+              <div className="bg-violet-600 h-1.5 rounded-full transition-all" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Trash banner */}
       {showTrash && (
@@ -550,7 +633,18 @@ export default function SubCategoriesPage() {
                     <TD className="py-2.5">
                       {(() => {
                         const cov = coverage[sc.id];
-                        if (!cov) return <span className="text-slate-300 text-xs">—</span>;
+                        if (!cov) return (
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="danger">0/?</Badge>
+                            <button
+                              onClick={() => openBulkGenerate(sc)}
+                              className="p-1 rounded-md text-amber-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+                              title="Generate all translations"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
                         const complete = cov.is_complete;
                         return (
                           <div className="flex items-center gap-1.5">
@@ -779,6 +873,111 @@ export default function SubCategoriesPage() {
             </div>
           </div>
         )}
+      </Dialog>
+
+      {/* ── Fill All Missing Dialog ── */}
+      <Dialog open={fillAllOpen} onClose={() => !bulkActionLoading && setFillAllOpen(false)} title="AI Fill All Missing Translations" size="md">
+        <div className="p-6 space-y-4">
+          {/* Info banner */}
+          <div className="flex items-start gap-3 bg-violet-50 rounded-lg px-4 py-3">
+            <Sparkles className="w-5 h-5 text-violet-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="font-semibold text-violet-900 text-sm">Bulk Translation Generator</div>
+              <div className="text-xs text-violet-700 mt-0.5">This will generate AI translations for all sub-categories that have missing or incomplete translations across all languages.</div>
+            </div>
+          </div>
+
+          {/* AI Provider selector */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">AI Provider</label>
+            <div className="grid grid-cols-3 gap-2">
+              {AI_PROVIDERS.map(p => (
+                <button
+                  key={p.value}
+                  type="button"
+                  disabled={bulkActionLoading}
+                  onClick={() => setFillAllProvider(p.value)}
+                  className={cn(
+                    'px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-left',
+                    fillAllProvider === p.value
+                      ? 'border-violet-500 bg-violet-50 text-violet-700 ring-1 ring-violet-500/20'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                  )}
+                >
+                  <div className="font-semibold">{p.label}</div>
+                  <div className="text-xs opacity-70 mt-0.5">{p.model}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Prompt */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Prompt / Instructions</label>
+            <textarea
+              value={fillAllPrompt}
+              onChange={e => setFillAllPrompt(e.target.value)}
+              disabled={bulkActionLoading}
+              rows={5}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 disabled:opacity-50 resize-none"
+            />
+          </div>
+
+          {/* Progress */}
+          {bulkActionLoading && bulkProgress.total > 0 && (
+            <div className="bg-violet-50 rounded-lg px-4 py-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-violet-800 flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Processing {bulkProgress.done}/{bulkProgress.total}...
+                </span>
+                <span className="text-xs text-violet-600 font-medium">{Math.round((bulkProgress.done / bulkProgress.total) * 100)}%</span>
+              </div>
+              <div className="w-full bg-violet-200 rounded-full h-2">
+                <div className="bg-violet-600 h-2 rounded-full transition-all" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
+              </div>
+            </div>
+          )}
+
+          {/* Results */}
+          {fillAllResults.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Results ({fillAllResults.filter(r => r.status === 'success').length} success, {fillAllResults.filter(r => r.status === 'error').length} errors)
+              </label>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {fillAllResults.map((r, i) => (
+                  <div key={i} className={cn(
+                    'flex items-center justify-between px-3 py-2 rounded-lg text-sm',
+                    r.status === 'success' ? 'bg-emerald-50' : 'bg-red-50'
+                  )}>
+                    <span className="font-medium text-slate-700">{r.name}</span>
+                    <span className={cn('flex items-center gap-1 text-xs font-medium', r.status === 'success' ? 'text-emerald-600' : 'text-red-600')}>
+                      {r.status === 'success' ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                      {r.status === 'success' ? 'Done' : r.error || 'Error'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button variant="outline" onClick={() => setFillAllOpen(false)} disabled={bulkActionLoading}>
+              {fillAllDone ? 'Close' : 'Cancel'}
+            </Button>
+            {!fillAllDone && (
+              <Button onClick={handleFillAllMissing} disabled={bulkActionLoading || !fillAllPrompt.trim()}>
+                {bulkActionLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+                ) : (
+                  <><Zap className="w-4 h-4" /> Generate All Missing</>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
       </Dialog>
 
       {/* ── Create / Edit Dialog ── */}
