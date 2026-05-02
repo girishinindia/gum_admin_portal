@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -151,6 +151,15 @@ const navGroups: NavGroup[] = [
         href: '/course-structure',
         label: 'Course Structure',
         icon: FolderTree,
+      },
+      {
+        href: '/bundles',
+        label: 'Bundles',
+        icon: Boxes,
+        subLinks: [
+          { href: '/bundle-translations', label: 'Translations' },
+          { href: '/bundle-courses', label: 'Courses' },
+        ],
       },
     ],
   },

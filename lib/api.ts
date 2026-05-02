@@ -560,6 +560,34 @@ export const api = {
   restoreCourseChapterTopic: (id: number) => request(`/course-chapter-topics/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteCourseChapterTopic: (id: number) => request(`/course-chapter-topics/${id}/permanent`, { method: 'DELETE' }),
 
+  // Bundles
+  listBundles: (qs = '') => request(`/bundles${qs}`, { auth: false }),
+  getBundle: (id: number) => request(`/bundles/${id}`, { auth: false }),
+  createBundle: (data: any) => request('/bundles', { method: 'POST', body: JSON.stringify(data) }),
+  updateBundle: (id: number, data: any) => request(`/bundles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteBundle: (id: number) => request(`/bundles/${id}`, { method: 'DELETE' }),
+  restoreBundle: (id: number) => request(`/bundles/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteBundle: (id: number) => request(`/bundles/${id}/permanent`, { method: 'DELETE' }),
+
+  // Bundle Translations
+  listBundleTranslations: (qs = '') => request(`/bundle-translations${qs}`, { auth: false }),
+  getBundleTranslation: (id: number) => request(`/bundle-translations/${id}`, { auth: false }),
+  createBundleTranslation: (data: any, isFormData = false) => request('/bundle-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateBundleTranslation: (id: number, data: any, isFormData = false) => request(`/bundle-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteBundleTranslation: (id: number) => request(`/bundle-translations/${id}`, { method: 'DELETE' }),
+  restoreBundleTranslation: (id: number) => request(`/bundle-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteBundleTranslation: (id: number) => request(`/bundle-translations/${id}/permanent`, { method: 'DELETE' }),
+  getBundleTranslationCoverage: () => request('/bundle-translations/coverage', { auth: false }),
+
+  // Bundle Courses
+  listBundleCourses: (qs = '') => request(`/bundle-courses${qs}`, { auth: false }),
+  getBundleCourse: (id: number) => request(`/bundle-courses/${id}`, { auth: false }),
+  createBundleCourse: (data: any) => request('/bundle-courses', { method: 'POST', body: JSON.stringify(data) }),
+  updateBundleCourse: (id: number, data: any) => request(`/bundle-courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteBundleCourse: (id: number) => request(`/bundle-courses/${id}`, { method: 'DELETE' }),
+  restoreBundleCourse: (id: number) => request(`/bundle-courses/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteBundleCourse: (id: number) => request(`/bundle-courses/${id}/permanent`, { method: 'DELETE' }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),
