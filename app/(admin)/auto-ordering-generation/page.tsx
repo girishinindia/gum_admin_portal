@@ -19,11 +19,6 @@ const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
   { value: 'openai', label: 'OpenAI', model: 'GPT-4o Mini' },
 ];
 
-const DESC_TYPES = [
-  { value: 'short_answer', label: 'Short Answer' },
-  { value: 'long_answer', label: 'Long Answer' },
-];
-
 const DIFFICULTY_OPTIONS = [
   { value: 'auto', label: 'Auto (AI decides based on content)' },
   { value: 'mixed', label: 'Mixed (30% Easy / 50% Medium / 20% Hard)' },
@@ -38,29 +33,35 @@ interface Topic { id: number; slug: string; chapter_id: number; is_active: boole
 interface SubTopic { id: number; slug: string; topic_id: number; is_active: boolean; english_name?: string; display_order?: number }
 interface MaterialLang { id: number; name: string; iso_code: string }
 
-interface GeneratedQuestion {
-  descriptive_question_id: number;
-  code: string;
-  slug: string;
-  answer_type: string;
-  difficulty_level: string;
-  points: number;
-  question_text: string;
-  answer_text: string;
-  hint_text?: string;
-  explanation_text?: string;
-  translations_created?: string[];
+interface OrderingItem {
+  id: number;
+  item_text: string;
+  correct_position: number;
 }
 
-export default function AutoDescGenerationPage() {
+interface GeneratedQuestion {
+  ordering_question_id: number;
+  code: string;
+  slug: string;
+  difficulty_level: string;
+  points: number;
+  partial_scoring: boolean;
+  question_text: string;
+  hint: string;
+  explanation: string;
+  items: OrderingItem[];
+  translations_created: string[];
+}
+
+export default function AutoOrderingGenerationPage() {
   return (
     <Suspense fallback={<div className="animate-fade-in p-8 text-center text-slate-400">Loading...</div>}>
-      <AutoDescGenerationContent />
+      <AutoOrderingGenerationContent />
     </Suspense>
   );
 }
 
-function AutoDescGenerationContent() {
+function AutoOrderingGenerationContent() {
   const router = useRouter();
   const pageSize = usePageSize();
 
@@ -78,14 +79,13 @@ function AutoDescGenerationContent() {
   // Material languages (dynamic)
   const [materialLangs, setMaterialLangs] = useState<MaterialLang[]>([]);
 
-  // Per-topic Desc counts (to show badges)
-  const [topicDescCounts, setTopicDescCounts] = useState<Record<number, number>>({});
+  // Per-topic ordering counts (to show badges)
+  const [topicOrderingCounts, setTopicOrderingCounts] = useState<Record<number, number>>({});
 
   // Config
   const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
   const [numQuestions, setNumQuestions] = useState(0); // 0 = auto
   const [difficultyMix, setDifficultyMix] = useState('auto');
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(['short_answer', 'long_answer']);
   const [autoTranslate, setAutoTranslate] = useState(true);
 
   // State
@@ -103,7 +103,7 @@ function AutoDescGenerationContent() {
 
   useKeyboardShortcuts([
     { key: 'g d', action: () => router.push('/dashboard') },
-    { key: 'g q', action: () => router.push('/desc-questions') },
+    { key: 'g m', action: () => router.push('/ordering-questions') },
   ]);
 
   // Current topic/chapter position for navigation
@@ -133,7 +133,7 @@ function AutoDescGenerationContent() {
     if (!initialized) return;
     setSelectedChapter(''); setSelectedTopic(''); setSelectedSubTopic('');
     setChapters([]); setTopics([]); setSubTopics([]);
-    setTopicDescCounts({});
+    setTopicOrderingCounts({});
     if (selectedSubject) {
       api.listChapters(`?limit=500&is_active=true&subject_id=${selectedSubject}&sort=display_order&ascending=true`).then(res => {
         if (res.success) setChapters(res.data || []);
@@ -141,25 +141,25 @@ function AutoDescGenerationContent() {
     }
   }, [selectedSubject]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cascade: chapter -> topics + load Desc counts
+  // Cascade: chapter -> topics + load ordering counts
   useEffect(() => {
     if (!initialized) return;
     setSelectedTopic(''); setSelectedSubTopic('');
     setTopics([]); setSubTopics([]);
-    setTopicDescCounts({});
+    setTopicOrderingCounts({});
     if (selectedChapter) {
       api.listTopics(`?limit=500&is_active=true&chapter_id=${selectedChapter}&sort=display_order&ascending=true`).then(async (res) => {
         if (res.success) {
           const topicList = res.data || [];
           setTopics(topicList);
 
-          // Load Desc counts per topic for badges
+          // Load ordering counts per topic for badges
           const counts: Record<number, number> = {};
           for (const t of topicList) {
-            const descRes = await api.listDescQuestions(`?topic_id=${t.id}&limit=1`);
-            if (descRes.success) counts[t.id] = descRes.pagination?.total || 0;
+            const orderRes = await api.listOrderingQuestions(`?topic_id=${t.id}&limit=1`);
+            if (orderRes.success) counts[t.id] = orderRes.pagination?.total || 0;
           }
-          setTopicDescCounts(counts);
+          setTopicOrderingCounts(counts);
         }
       });
     }
@@ -185,12 +185,6 @@ function AutoDescGenerationContent() {
     setErrorMsg('');
     setExpandedQ(new Set());
   }, [selectedTopic]);
-
-  function toggleType(type: string) {
-    setSelectedTypes(prev =>
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
-  }
 
   function toggleExpanded(qId: number) {
     setExpandedQ(prev => {
@@ -226,7 +220,6 @@ function AutoDescGenerationContent() {
 
   async function handleGenerate() {
     if (!selectedTopic) { toast.error('Please select a topic first'); return; }
-    if (selectedTypes.length === 0) { toast.error('Please select at least one answer type'); return; }
 
     setGenerating(true);
     setErrorMsg('');
@@ -237,8 +230,8 @@ function AutoDescGenerationContent() {
     const langNames = materialLangs.map(l => l.name).join(', ');
     const steps: AiProgressStep[] = [
       { label: 'Finding sub-topic tutorial files', status: 'active' },
-      { label: 'Generating Descriptive questions with AI', status: 'pending' },
-      { label: 'Saving questions & translations', status: 'pending' },
+      { label: 'Generating Ordering questions with AI', status: 'pending' },
+      { label: 'Saving questions, items & translations', status: 'pending' },
     ];
     if (autoTranslate && materialLangs.length > 0) {
       steps.push({ label: `Translating to ${langNames}`, status: 'pending' });
@@ -264,7 +257,6 @@ function AutoDescGenerationContent() {
         topic_id: topicId,
         num_questions: numQuestions, // 0 = auto
         difficulty_mix: difficultyMix,
-        answer_types: selectedTypes,
         provider: aiProvider,
         auto_translate: autoTranslate && materialLangs.length > 0,
       };
@@ -272,7 +264,7 @@ function AutoDescGenerationContent() {
         requestBody.sub_topic_id = parseInt(selectedSubTopic);
       }
 
-      const res = await api.autoGenerateDesc(requestBody);
+      const res = await api.autoGenerateOrdering(requestBody);
 
       if (res.success) {
         const data = res.data;
@@ -284,10 +276,10 @@ function AutoDescGenerationContent() {
         setTimeout(() => setShowProgress(false), 1500);
 
         const qCount = data.questions?.length || 0;
-        toast.success(`Generated ${qCount} Descriptive question${qCount !== 1 ? 's' : ''} successfully!`);
+        toast.success(`Generated ${qCount} Ordering question${qCount !== 1 ? 's' : ''} successfully!`);
 
-        // Update Desc count for this topic
-        setTopicDescCounts(prev => ({
+        // Update ordering count for this topic
+        setTopicOrderingCounts(prev => ({
           ...prev,
           [topicId]: (prev[topicId] || 0) + qCount,
         }));
@@ -311,7 +303,7 @@ function AutoDescGenerationContent() {
     setTranslateResults(null);
 
     try {
-      const res = await api.autoTranslateDesc({
+      const res = await api.autoTranslateOrdering({
         topic_id: parseInt(selectedTopic),
         provider: aiProvider,
       });
@@ -330,30 +322,14 @@ function AutoDescGenerationContent() {
     }
   }
 
-  function getAnswerTypeBadgeVariant(type: string): 'success' | 'info' | 'warning' {
-    switch (type) {
-      case 'short_answer': return 'success';
-      case 'long_answer': return 'info';
-      default: return 'info';
-    }
-  }
-
-  function formatAnswerType(type: string): string {
-    switch (type) {
-      case 'short_answer': return 'short answer';
-      case 'long_answer': return 'long answer';
-      default: return type.replace(/_/g, ' ');
-    }
-  }
-
   const selectedTopicName = topics.find(t => String(t.id) === selectedTopic)?.english_name || '';
   const selectedChapterName = chapters.find(c => String(c.id) === selectedChapter)?.english_name || '';
 
   return (
     <div className="animate-fade-in space-y-6">
-      <PageHeader title="Auto Descriptive Generation" description="Generate descriptive questions from topic tutorials using AI" />
+      <PageHeader title="Auto Ordering Generation" description="Generate Ordering questions automatically from sub-topic tutorials using AI" />
 
-      {showProgress && <AiProgressOverlay active={generating} steps={progressSteps} title="Generating Descriptive Questions..." />}
+      {showProgress && <AiProgressOverlay active={generating} steps={progressSteps} title="Generating Ordering Questions..." />}
 
       {/* Configuration Panel */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -420,7 +396,7 @@ function AutoDescGenerationContent() {
                 {topics.map((t, ti) => (
                   <option key={t.id} value={t.id}>
                     {ti + 1}. {t.english_name || t.slug}
-                    {topicDescCounts[t.id] ? ` (${topicDescCounts[t.id]} Descs)` : ''}
+                    {topicOrderingCounts[t.id] ? ` (${topicOrderingCounts[t.id]} ordering)` : ''}
                   </option>
                 ))}
               </select>
@@ -508,40 +484,17 @@ function AutoDescGenerationContent() {
             </div>
           </div>
 
-          {/* Answer Types */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Answer Types</label>
-            <div className="flex flex-wrap gap-3">
-              {DESC_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => toggleType(t.value)}
-                  className={cn(
-                    'px-4 py-2 rounded-lg text-sm font-medium border transition-all',
-                    selectedTypes.includes(t.value)
-                      ? 'bg-violet-100 border-violet-300 text-violet-700'
-                      : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                  )}
-                >
-                  {selectedTypes.includes(t.value) && <CheckCircle2 className="w-4 h-4 inline mr-1.5 -mt-0.5" />}
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Action Buttons */}
           <div className="flex items-center gap-3 pt-2">
             <Button
               onClick={handleGenerate}
-              disabled={generating || !selectedTopic || selectedTypes.length === 0}
+              disabled={generating || !selectedTopic}
               className="bg-violet-600 hover:bg-violet-700 text-white px-6"
             >
               {generating ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
               ) : (
-                <><Sparkles className="w-4 h-4 mr-2" /> Generate Descriptive Questions</>
+                <><Sparkles className="w-4 h-4 mr-2" /> Generate Ordering Questions</>
               )}
             </Button>
 
@@ -554,15 +507,15 @@ function AutoDescGenerationContent() {
               {translating ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Translating...</>
               ) : (
-                <><Languages className="w-4 h-4 mr-2" /> Translate Existing Desc Questions</>
+                <><Languages className="w-4 h-4 mr-2" /> Translate Existing Ordering Questions</>
               )}
             </Button>
 
             {selectedTopic && (
               <span className="text-sm text-slate-500 ml-2">
                 Topic: <strong>{selectedTopicName}</strong>
-                {topicDescCounts[parseInt(selectedTopic)] > 0 && (
-                  <Badge variant="info" className="ml-2 text-xs">{topicDescCounts[parseInt(selectedTopic)]} existing Descs</Badge>
+                {topicOrderingCounts[parseInt(selectedTopic)] > 0 && (
+                  <Badge variant="info" className="ml-2 text-xs">{topicOrderingCounts[parseInt(selectedTopic)]} existing ordering</Badge>
                 )}
               </span>
             )}
@@ -610,12 +563,12 @@ function AutoDescGenerationContent() {
         <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
             <div className="bg-white rounded-lg p-3 border border-violet-100">
-              <span className="text-slate-500">Sub-topics processed</span>
-              <p className="text-lg font-semibold text-slate-800">{resultSummary.sub_topics_processed || 0}</p>
-            </div>
-            <div className="bg-white rounded-lg p-3 border border-violet-100">
               <span className="text-slate-500">Questions created</span>
               <p className="text-lg font-semibold text-green-600">{resultSummary.total_questions_created || 0}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-violet-100">
+              <span className="text-slate-500">Items created</span>
+              <p className="text-lg font-semibold text-slate-800">{resultSummary.total_items_created || 0}</p>
             </div>
             <div className="bg-white rounded-lg p-3 border border-violet-100">
               <span className="text-slate-500">Translations</span>
@@ -623,7 +576,7 @@ function AutoDescGenerationContent() {
             </div>
             <div className="bg-white rounded-lg p-3 border border-violet-100">
               <span className="text-slate-500">Errors</span>
-              <p className="text-lg font-semibold text-red-600">{resultSummary.sub_topics_error || 0}</p>
+              <p className="text-lg font-semibold text-red-600">{resultSummary.errors || 0}</p>
             </div>
           </div>
         </div>
@@ -635,14 +588,14 @@ function AutoDescGenerationContent() {
           <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-green-50 to-emerald-50 flex items-center justify-between">
             <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-green-500" />
-              Generated {results.length} Question{results.length !== 1 ? 's' : ''}
+              Generated {results.length} Ordering Question{results.length !== 1 ? 's' : ''}
             </h2>
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 if (expandedQ.size === results.length) setExpandedQ(new Set());
-                else setExpandedQ(new Set(results.map(q => q.descriptive_question_id)));
+                else setExpandedQ(new Set(results.map(q => q.ordering_question_id)));
               }}
               className="text-xs"
             >
@@ -652,12 +605,12 @@ function AutoDescGenerationContent() {
 
           <div className="divide-y divide-slate-100">
             {results.map((q, idx) => (
-              <div key={q.descriptive_question_id} className="group">
+              <div key={q.ordering_question_id} className="group">
                 <button
-                  onClick={() => toggleExpanded(q.descriptive_question_id)}
+                  onClick={() => toggleExpanded(q.ordering_question_id)}
                   className="w-full px-6 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors text-left"
                 >
-                  {expandedQ.has(q.descriptive_question_id) ? (
+                  {expandedQ.has(q.ordering_question_id) ? (
                     <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
                   ) : (
                     <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
@@ -665,14 +618,14 @@ function AutoDescGenerationContent() {
                   <span className="text-xs font-mono text-slate-400 shrink-0 w-8">#{idx + 1}</span>
                   <span className="text-sm text-slate-800 flex-1 truncate">{q.question_text}</span>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 max-w-[200px] truncate">
-                      {q.answer_text}
-                    </span>
-                    <Badge variant={getAnswerTypeBadgeVariant(q.answer_type)} className="text-xs">
-                      {formatAnswerType(q.answer_type)}
+                    <Badge variant="info" className="text-xs">
+                      {q.items?.length || 0} items
                     </Badge>
                     <Badge variant={q.difficulty_level === 'hard' ? 'danger' : q.difficulty_level === 'medium' ? 'warning' : 'success'} className="text-xs">
                       {q.difficulty_level}
+                    </Badge>
+                    <Badge variant={q.partial_scoring ? 'success' : 'default'} className="text-xs">
+                      {q.partial_scoring ? 'Partial' : 'All-or-nothing'}
                     </Badge>
                     {q.translations_created && q.translations_created.length > 0 && (
                       <Badge variant="info" className="text-xs">
@@ -683,38 +636,42 @@ function AutoDescGenerationContent() {
                   </div>
                 </button>
 
-                {expandedQ.has(q.descriptive_question_id) && (
+                {expandedQ.has(q.ordering_question_id) && (
                   <div className="px-6 pb-4 pl-16 space-y-3">
-                    {/* Answer Text */}
+                    {/* Ordering Items */}
                     <div>
-                      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Answer</span>
-                      <div className="mt-1">
-                        <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 whitespace-pre-wrap">
-                          {q.answer_text}
-                        </p>
+                      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Ordering Items</span>
+                      <div className="mt-2 space-y-2">
+                        {q.items?.sort((a, b) => a.correct_position - b.correct_position).map((item) => (
+                          <div key={item.id} className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5">
+                            <span className="text-xs font-mono text-slate-400 shrink-0 w-6">{item.correct_position}.</span>
+                            <span className="text-sm text-slate-800 font-medium flex-1">{item.item_text}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
                     {/* Hint */}
-                    {q.hint_text && (
+                    {q.hint && (
                       <div>
                         <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Hint</span>
-                        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-1">{q.hint_text}</p>
+                        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-1">{q.hint}</p>
                       </div>
                     )}
 
                     {/* Explanation */}
-                    {q.explanation_text && (
+                    {q.explanation && (
                       <div>
                         <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Explanation</span>
-                        <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mt-1">{q.explanation_text}</p>
+                        <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mt-1">{q.explanation}</p>
                       </div>
                     )}
 
                     <div className="flex items-center gap-4 text-xs text-slate-400">
                       <span>Code: {q.code}</span>
                       <span>Points: {q.points}</span>
-                      <span>ID: {q.descriptive_question_id}</span>
+                      <span>Partial scoring: {q.partial_scoring ? 'Yes' : 'No'}</span>
+                      <span>ID: {q.ordering_question_id}</span>
                       {q.translations_created && q.translations_created.length > 0 && (
                         <span className="text-blue-500">Translated: {q.translations_created.join(', ')}</span>
                       )}
@@ -770,8 +727,8 @@ function AutoDescGenerationContent() {
       {!generating && results.length === 0 && !errorMsg && selectedTopic && (
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-8 text-center">
           <HelpCircle className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Click &quot;Generate Descriptive Questions&quot; to create questions from this topic&apos;s tutorial files.</p>
-          <p className="text-xs text-slate-400 mt-1">The system will find English sub-topic HTML files, extract content, and generate short answer / long answer descriptive questions.</p>
+          <p className="text-sm text-slate-500">Click &quot;Generate Ordering Questions&quot; to create questions from this topic&apos;s tutorial files.</p>
+          <p className="text-xs text-slate-400 mt-1">The system will find English sub-topic HTML files, extract content, and generate ordering questions with sequenced items.</p>
         </div>
       )}
     </div>

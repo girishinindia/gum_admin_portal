@@ -22,7 +22,7 @@ import { usePageSize } from '@/hooks/usePageSize';
 type SortField = 'id' | 'code' | 'slug' | 'display_order' | 'answer_type' | 'difficulty_level' | 'points' | 'is_active';
 
 interface CoverageItem {
-  desc_question_id: number;
+  descriptive_question_id: number;
   total_languages: number;
   translated_count: number;
   missing_count: number;
@@ -248,7 +248,7 @@ export default function DescQuestionsPage() {
     const res = await api.getDescQuestionTranslationCoverage();
     if (res.success && Array.isArray(res.data)) {
       const map: Record<number, CoverageItem> = {};
-      res.data.forEach((c: CoverageItem) => { map[c.desc_question_id] = c; });
+      res.data.forEach((c: CoverageItem) => { map[c.descriptive_question_id] = c; });
       setCoverage(map);
     }
   }
@@ -685,7 +685,7 @@ export default function DescQuestionsPage() {
                         const cov = coverage[c.id];
                         if (!cov) return (
                           <button
-                            onClick={() => router.push(`/desc-question-translations?desc_question_id=${c.id}`)}
+                            onClick={() => router.push(`/desc-question-translations?descriptive_question_id=${c.id}`)}
                             className="text-slate-300 text-xs hover:text-brand-600 hover:underline cursor-pointer"
                           >
                             --
@@ -695,7 +695,7 @@ export default function DescQuestionsPage() {
                         return (
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => router.push(`/desc-question-translations?desc_question_id=${c.id}`)}
+                              onClick={() => router.push(`/desc-question-translations?descriptive_question_id=${c.id}`)}
                               className={cn(
                                 'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full hover:opacity-80 cursor-pointer',
                                 complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'

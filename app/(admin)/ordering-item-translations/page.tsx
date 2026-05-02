@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -9,7 +9,6 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -17,41 +16,34 @@ import { usePageSize } from '@/hooks/usePageSize';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Languages, Trash2, Edit2, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Eye, Loader2, X, Image as ImageIcon } from 'lucide-react';
+import { Plus, Languages, Trash2, Edit2, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Eye, Loader2, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Language } from '@/lib/types';
 
 /* -- Local types -- */
-interface DescQuestion {
+interface OrderingItem {
   id: number;
-  code: string;
-  slug: string;
-  is_active: boolean;
   [key: string]: any;
 }
 
-interface DescQuestionTranslation {
+interface OrderingItemTranslation {
   id: number;
-  descriptive_question_id: number;
+  ordering_item_id: number;
   language_id: number;
-  question_text: string;
-  answer_text: string;
-  hint_text?: string | null;
-  explanation_text?: string | null;
-  image_1_url?: string | null;
-  image_2_url?: string | null;
+  item_text: string;
+  image?: string | null;
   is_active: boolean;
   deleted_at?: string | null;
   created_by?: number | null;
   updated_by?: number | null;
   created_at: string;
   updated_at: string;
-  descriptive_questions?: { code: string; slug?: string } | null;
+  ordering_items?: { id: number } | null;
   languages?: { name: string; native_name?: string; iso_code?: string } | null;
 }
 
 interface CoverageItem {
-  descriptive_question_id: number;
+  ordering_item_id: number;
   total_languages: number;
   translated_count: number;
   missing_count: number;
@@ -60,7 +52,7 @@ interface CoverageItem {
   missing_languages: { id: number; name: string; iso_code: string }[];
 }
 
-type SortField = 'id' | 'created_at' | 'descriptive_question_id' | 'language_id';
+type SortField = 'id' | 'created_at' | 'ordering_item_id' | 'language_id';
 
 function ViewField({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   return (
@@ -75,15 +67,17 @@ function ViewField({ label, value, mono }: { label: string; value?: string | nul
   );
 }
 
-export default function DescQuestionTranslationsPage() {
-  const [items, setItems] = useState<DescQuestionTranslation[]>([]);
-  const [descQuestions, setDescQuestions] = useState<DescQuestion[]>([]);
+export default function OrderingItemTranslationsPage() {
+  const searchParams = useSearchParams();
+  const [items, setItems] = useState<OrderingItemTranslation[]>([]);
+  const [orderingItems, setOrderingItems] = useState<OrderingItem[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
+  const [coverage, setCoverage] = useState<CoverageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<DescQuestionTranslation | null>(null);
+  const [editing, setEditing] = useState<OrderingItemTranslation | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
-  const [filterQuestion, setFilterQuestion] = useState('');
+  const [filterItemId, setFilterItemId] = useState(searchParams.get('ordering_item_id') || '');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [page, setPage] = useState(1);
@@ -97,12 +91,6 @@ export default function DescQuestionTranslationsPage() {
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number } | null>(null);
   const [showTrash, setShowTrash] = useState(false);
 
-  // Image files
-  const [image1File, setImage1File] = useState<File | null>(null);
-  const [image1Preview, setImage1Preview] = useState<string | null>(null);
-  const [image2File, setImage2File] = useState<File | null>(null);
-  const [image2Preview, setImage2Preview] = useState<string | null>(null);
-
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
@@ -113,22 +101,13 @@ export default function DescQuestionTranslationsPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [formMode, setFormMode] = useState<'new' | 'existing'>('new');
   const [viewOpen, setViewOpen] = useState(false);
-  const [viewItem, setViewItem] = useState<DescQuestionTranslation | null>(null);
+  const [viewItem, setViewItem] = useState<OrderingItemTranslation | null>(null);
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  // --- Read descriptive_question_id from URL search params to pre-filter ---
-  useEffect(() => {
-    const urlDescQuestionId = searchParams.get('descriptive_question_id');
-    if (urlDescQuestionId) {
-      setFilterQuestion(urlDescQuestionId);
-    }
-  }, [searchParams]);
-
-  // --- Auto-fetch translation when question or language changes ---
-  const watchedQuestionId = watch('descriptive_question_id');
+  // Auto-fetch translation when item or language changes
+  const watchedItemId = watch('ordering_item_id');
   const watchedLangId = watch('language_id');
   const skipAutoFetchRef = useRef(false);
 
@@ -151,17 +130,17 @@ export default function DescQuestionTranslationsPage() {
       skipAutoFetchRef.current = false;
       return;
     }
-    if (!watchedQuestionId || !watchedLangId) return;
+    if (!watchedItemId || !watchedLangId) return;
 
     let cancelled = false;
     const fetchTranslation = async () => {
       setFormLoading(true);
-      const qs = `?descriptive_question_id=${watchedQuestionId}&language_id=${watchedLangId}&limit=1`;
-      const res = await api.listDescQuestionTranslations(qs);
+      const qs = `?ordering_item_id=${watchedItemId}&language_id=${watchedLangId}&limit=1`;
+      const res = await api.listOrderingItemTranslations(qs);
       if (cancelled) return;
 
       if (res.success && res.data && res.data.length > 0) {
-        const item = res.data[0] as DescQuestionTranslation;
+        const item = res.data[0] as OrderingItemTranslation;
         setEditing(item);
         setFormMode('existing');
         populateForm(item);
@@ -176,12 +155,13 @@ export default function DescQuestionTranslationsPage() {
 
     const timer = setTimeout(fetchTranslation, 150);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [watchedQuestionId, watchedLangId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [watchedItemId, watchedLangId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    api.listDescQuestions('?limit=999&sort=code&order=asc').then(res => { if (res.success) setDescQuestions(res.data || []); });
+    api.listOrderingItems('?limit=999&sort=id&order=asc').then(res => { if (res.success) setOrderingItems(res.data || []); });
     api.listLanguages('?limit=999&sort=name&order=asc').then(res => { if (res.success) setLanguages(res.data || []); });
     refreshSummary();
+    loadCoverage();
   }, []);
 
   useEffect(() => {
@@ -189,12 +169,17 @@ export default function DescQuestionTranslationsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterQuestion, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterQuestion, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterItemId, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterItemId, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function refreshSummary() {
-    const res = await api.getTableSummary('descriptive_question_translations');
+    const res = await api.getTableSummary('ordering_item_translations');
     if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
+  }
+
+  async function loadCoverage() {
+    const res = await api.getOrderingItemTranslationCoverage();
+    if (res.success && Array.isArray(res.data)) setCoverage(res.data);
   }
 
   async function load() {
@@ -204,13 +189,13 @@ export default function DescQuestionTranslationsPage() {
     if (showTrash) {
       qs.set('show_deleted', 'true');
     } else {
-      if (filterQuestion) qs.set('descriptive_question_id', filterQuestion);
+      if (filterItemId) qs.set('ordering_item_id', filterItemId);
       if (filterLanguage) qs.set('language_id', filterLanguage);
       if (filterStatus) qs.set('is_active', filterStatus);
     }
     qs.set('sort', sortField);
     qs.set('order', sortOrder);
-    const res = await api.listDescQuestionTranslations('?' + qs.toString());
+    const res = await api.listOrderingItemTranslations('?' + qs.toString());
     if (res.success) {
       setItems(res.data || []);
       setTotalPages(res.pagination?.totalPages || 1);
@@ -219,121 +204,104 @@ export default function DescQuestionTranslationsPage() {
     setLoading(false);
   }
 
-  function resetImageState() {
-    setImage1File(null); setImage1Preview(null);
-    setImage2File(null); setImage2Preview(null);
-  }
-
   const defaultFormValues = {
-    descriptive_question_id: '', language_id: '',
-    question_text: '', answer_text: '', hint_text: '', explanation_text: '',
+    ordering_item_id: '',
+    language_id: '',
+    item_text: '',
+    image: '',
     is_active: true,
-    image_1_url: '', image_2_url: '',
   };
 
   function clearFormFields() {
-    const qid = getValues('descriptive_question_id');
+    const pid = getValues('ordering_item_id');
     const lid = getValues('language_id');
     Object.entries(defaultFormValues).forEach(([k, v]) => setValue(k, v));
-    setValue('descriptive_question_id', qid);
+    setValue('ordering_item_id', pid);
     setValue('language_id', lid);
-    resetImageState();
   }
 
-  function populateForm(item: DescQuestionTranslation) {
-    setValue('question_text', item.question_text || '');
-    setValue('answer_text', item.answer_text || '');
-    setValue('explanation_text', item.explanation_text || '');
-    setValue('hint_text', item.hint_text || '');
+  function populateForm(item: OrderingItemTranslation) {
+    setValue('item_text', item.item_text || '');
+    setValue('image', item.image || '');
     setValue('is_active', item.is_active ?? true);
-    setValue('image_1_url', item.image_1_url || '');
-    setValue('image_2_url', item.image_2_url || '');
-    resetImageState();
   }
 
   function openCreate() {
     skipAutoFetchRef.current = true;
-    setEditing(null); setFormMode('new'); resetImageState(); setDialogKey(k => k + 1);
-    reset({ ...defaultFormValues, descriptive_question_id: descQuestions[0]?.id || '', language_id: languages[0]?.id || '' });
+    setEditing(null); setFormMode('new'); setDialogKey(k => k + 1);
+    reset({ ...defaultFormValues, ordering_item_id: orderingItems[0]?.id || '', language_id: languages[0]?.id || '' });
     setDialogOpen(true);
   }
 
-  function openEdit(item: DescQuestionTranslation) {
+  function openEdit(item: OrderingItemTranslation) {
     skipAutoFetchRef.current = true;
-    setEditing(item); setFormMode('existing'); resetImageState(); setDialogKey(k => k + 1);
+    setEditing(item); setFormMode('existing'); setDialogKey(k => k + 1);
     reset({
-      descriptive_question_id: item.descriptive_question_id, language_id: item.language_id,
-      question_text: item.question_text || '', answer_text: item.answer_text || '',
-      hint_text: item.hint_text || '', explanation_text: item.explanation_text || '',
+      ordering_item_id: item.ordering_item_id,
+      language_id: item.language_id,
+      item_text: item.item_text || '',
+      image: item.image || '',
       is_active: item.is_active ?? true,
-      image_1_url: item.image_1_url || '', image_2_url: item.image_2_url || '',
     });
     setDialogOpen(true);
   }
 
   async function onSubmit(data: any) {
-    const fd = new FormData();
+    const payload: Record<string, any> = {};
 
-    // Scalar text fields
-    const scalarFields = [
-      'descriptive_question_id', 'language_id', 'question_text', 'answer_text',
-      'hint_text', 'explanation_text', 'image_1_url', 'image_2_url',
-    ];
+    // Scalar fields
+    const scalarFields = ['ordering_item_id', 'language_id', 'item_text', 'image'];
     scalarFields.forEach(k => {
-      if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
+      if (data[k] !== undefined && data[k] !== null && data[k] !== '') {
+        payload[k] = ['ordering_item_id', 'language_id'].includes(k) ? Number(data[k]) : data[k];
+      }
     });
 
     // Boolean
-    fd.append('is_active', String(data.is_active === true || data.is_active === 'true'));
-
-    // Image files
-    if (image1File) fd.append('image_1_file', image1File, image1File.name);
-    if (image2File) fd.append('image_2_file', image2File, image2File.name);
+    payload.is_active = data.is_active === true || data.is_active === 'true';
 
     const res = editing
-      ? await api.updateDescQuestionTranslation(editing.id, fd, true)
-      : await api.createDescQuestionTranslation(fd, true);
+      ? await api.updateOrderingItemTranslation(editing.id, payload)
+      : await api.createOrderingItemTranslation(payload);
     if (res.success) {
       toast.success(editing ? 'Translation updated' : 'Translation created');
-      setDialogOpen(false); load(); refreshSummary();
+      setDialogOpen(false); load(); refreshSummary(); loadCoverage();
     } else toast.error(res.error || 'Failed');
   }
 
-  async function onSoftDelete(item: DescQuestionTranslation) {
+  async function onSoftDelete(item: OrderingItemTranslation) {
     if (!confirm(`Move translation #${item.id} to trash? You can restore it later.`)) return;
     setActionLoadingId(item.id);
-    const res = await api.deleteDescQuestionTranslation(item.id);
+    const res = await api.deleteOrderingItemTranslation(item.id);
     setActionLoadingId(null);
     if (res.success) { toast.success('Translation moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
-  async function onRestore(item: DescQuestionTranslation) {
+  async function onRestore(item: OrderingItemTranslation) {
     setActionLoadingId(item.id);
-    const res = await api.restoreDescQuestionTranslation(item.id);
+    const res = await api.restoreOrderingItemTranslation(item.id);
     setActionLoadingId(null);
     if (res.success) { toast.success(`Translation #${item.id} restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
-  async function onPermanentDelete(item: DescQuestionTranslation) {
+  async function onPermanentDelete(item: OrderingItemTranslation) {
     if (!confirm(`PERMANENTLY delete translation #${item.id}? This cannot be undone.`)) return;
     setActionLoadingId(item.id);
-    const res = await api.permanentDeleteDescQuestionTranslation(item.id);
+    const res = await api.permanentDeleteOrderingItemTranslation(item.id);
     setActionLoadingId(null);
     if (res.success) { toast.success('Translation permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
-  async function onToggleActive(item: DescQuestionTranslation) {
-    const fd = new FormData();
-    fd.append('is_active', String(!item.is_active));
-    const res = await api.updateDescQuestionTranslation(item.id, fd, true);
+  async function onToggleActive(item: OrderingItemTranslation) {
+    const res = await api.updateOrderingItemTranslation(item.id, { is_active: !item.is_active });
     if (res.success) { toast.success(`${!item.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
-  function openView(item: DescQuestionTranslation) {
+  function openView(item: OrderingItemTranslation) {
     setViewItem(item);
     setViewOpen(true);
   }
@@ -351,7 +319,7 @@ export default function DescQuestionTranslationsPage() {
     const ids = Array.from(selectedIds);
     setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (let i = 0; i < ids.length; i++) { const res = await api.deleteDescQuestionTranslation(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    for (let i = 0; i < ids.length; i++) { const res = await api.deleteOrderingItemTranslation(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
     toast.success(`${ok} translation(s) moved to trash`);
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
@@ -362,7 +330,7 @@ export default function DescQuestionTranslationsPage() {
     const ids = Array.from(selectedIds);
     setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (let i = 0; i < ids.length; i++) { const res = await api.restoreDescQuestionTranslation(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    for (let i = 0; i < ids.length; i++) { const res = await api.restoreOrderingItemTranslation(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
     toast.success(`${ok} translation(s) restored`);
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
@@ -373,7 +341,7 @@ export default function DescQuestionTranslationsPage() {
     const ids = Array.from(selectedIds);
     setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
-    for (let i = 0; i < ids.length; i++) { const res = await api.permanentDeleteDescQuestionTranslation(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    for (let i = 0; i < ids.length; i++) { const res = await api.permanentDeleteOrderingItemTranslation(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
     toast.success(`${ok} translation(s) permanently deleted`);
     setSelectedIds(new Set()); load(); refreshSummary(); setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
@@ -390,12 +358,16 @@ export default function DescQuestionTranslationsPage() {
     return sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-brand-600" /> : <ArrowDown className="w-3.5 h-3.5 text-brand-600" />;
   }
 
+  function getItemLabel(itemId: number): string {
+    return `Item #${itemId}`;
+  }
+
   /* -- Shared select class -- */
   const selectClass = "px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500";
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Descriptive Question Translations" description="Manage translations for descriptive questions"
+      <PageHeader title="Ordering Item Translations" description="Manage translations for ordering items"
         actions={!showTrash ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button> : undefined} />
 
       {summary && (
@@ -445,9 +417,9 @@ export default function DescQuestionTranslationsPage() {
       <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
         {!showTrash && (
           <>
-            <select className={selectClass} value={filterQuestion} onChange={e => setFilterQuestion(e.target.value)}>
-              <option value="">All questions</option>
-              {descQuestions.map(q => <option key={q.id} value={q.id}>{q.code}{q.slug ? ` (${q.slug})` : ''}</option>)}
+            <select className={selectClass} value={filterItemId} onChange={e => setFilterItemId(e.target.value)}>
+              <option value="">All Items</option>
+              {orderingItems.map(p => <option key={p.id} value={p.id}>Item #{p.id}</option>)}
             </select>
             <select className={selectClass} value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
               <option value="">All languages</option>
@@ -473,7 +445,7 @@ export default function DescQuestionTranslationsPage() {
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
       ) : items.length === 0 ? (
-        <EmptyState icon={showTrash ? Trash2 : Languages} title={showTrash ? 'Trash is empty' : 'No translations yet'} description={showTrash ? 'Deleted translations will appear here' : 'Add your first descriptive question translation'}
+        <EmptyState icon={showTrash ? Trash2 : Languages} title={showTrash ? 'Trash is empty' : 'No translations yet'} description={showTrash ? 'Deleted translations will appear here' : 'Add your first ordering item translation'}
           action={!showTrash ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button> : undefined} />
       ) : (
         <>
@@ -500,12 +472,12 @@ export default function DescQuestionTranslationsPage() {
                 <TR className="hover:bg-transparent">
                   <TH className="w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                   <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
-                  <TH><button onClick={() => handleSort('descriptive_question_id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Question <SortIcon field="descriptive_question_id" /></button></TH>
+                  <TH><button onClick={() => handleSort('ordering_item_id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Item <SortIcon field="ordering_item_id" /></button></TH>
                   <TH><button onClick={() => handleSort('language_id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Language <SortIcon field="language_id" /></button></TH>
-                  <TH>Question Text</TH>
-                  <TH>Answer Text</TH>
+                  <TH>Item Text</TH>
+                  <TH>Image</TH>
                   {showTrash && <TH>Deleted</TH>}
-                  <TH>Active</TH>
+                  <TH>Status</TH>
                   <TH className="text-right">Actions</TH>
                 </TR>
               </THead>
@@ -515,26 +487,11 @@ export default function DescQuestionTranslationsPage() {
                     <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                     <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{item.id}</span></TD>
                     <TD className="py-2.5">
-                      {item.descriptive_questions?.code ? (
-                        <div>
-                          <Badge variant="info">{item.descriptive_questions.code}</Badge>
-                          {item.descriptive_questions.slug && <span className="block text-xs text-slate-400 mt-0.5">{item.descriptive_questions.slug}</span>}
-                        </div>
-                      ) : <span className="text-slate-300">--</span>}
+                      <Badge variant="info">Item #{item.ordering_item_id}</Badge>
                     </TD>
                     <TD className="py-2.5">{item.languages?.name ? <Badge variant="muted">{item.languages.name}{item.languages.iso_code ? ` (${item.languages.iso_code})` : ''}</Badge> : <span className="text-slate-300">--</span>}</TD>
-                    <TD className="py-2.5">
-                      <span className={cn('text-sm', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>
-                        {item.question_text ? (item.question_text.length > 50 ? item.question_text.substring(0, 50) + '...' : item.question_text) : <span className="text-slate-300 italic">Empty</span>}
-                      </span>
-                    </TD>
-                    <TD className="py-2.5">
-                      {item.answer_text ? (
-                        <span className={cn('text-sm', showTrash ? 'text-slate-500 line-through' : 'text-slate-700')}>
-                          {item.answer_text.length > 50 ? item.answer_text.substring(0, 50) + '...' : item.answer_text}
-                        </span>
-                      ) : <span className="text-slate-300 italic">--</span>}
-                    </TD>
+                    <TD className="py-2.5"><span className={cn('text-sm', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{item.item_text ? (item.item_text.length > 40 ? item.item_text.substring(0, 40) + '...' : item.item_text) : <span className="text-slate-300 italic">Empty</span>}</span></TD>
+                    <TD className="py-2.5"><span className={cn('text-sm', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{item.image ? (item.image.length > 40 ? item.image.substring(0, 40) + '...' : item.image) : <span className="text-slate-300 italic">Empty</span>}</span></TD>
                     {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{item.deleted_at ? fromNow(item.deleted_at) : '--'}</span></TD>}
                     <TD className="py-2.5">
                       {showTrash ? <Badge variant="warning">Deleted</Badge> : <Badge variant={item.is_active ? 'success' : 'danger'}>{item.is_active ? 'Active' : 'Inactive'}</Badge>}
@@ -565,48 +522,23 @@ export default function DescQuestionTranslationsPage() {
       )}
 
       {/* --- View Dialog --- */}
-      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} title="View Descriptive Question Translation" size="lg">
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} title="View Ordering Item Translation" size="lg">
         {viewItem && (
           <div className="p-6 space-y-4">
             {/* Header info */}
             <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="info">{descQuestions.find(q => q.id === viewItem.descriptive_question_id)?.code || `Question #${viewItem.descriptive_question_id}`}</Badge>
+              <Badge variant="info">{getItemLabel(viewItem.ordering_item_id)}</Badge>
               <Badge variant="muted">{viewItem.languages?.name || `Lang #${viewItem.language_id}`}{viewItem.languages?.iso_code ? ` (${viewItem.languages.iso_code})` : ''}</Badge>
               <Badge variant={viewItem.is_active ? 'success' : 'danger'}>{viewItem.is_active ? 'Active' : 'Inactive'}</Badge>
             </div>
 
-            <div className="space-y-3">
-              <ViewField label="Question Text" value={viewItem.question_text} />
-              {/* Answer Text - shown prominently */}
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                <span className="block text-xs font-semibold text-emerald-700 mb-1">Answer Text (Model Answer)</span>
-                <p className="text-sm text-emerald-900 whitespace-pre-wrap">{viewItem.answer_text || <span className="text-slate-300 italic font-normal">Not set</span>}</p>
-              </div>
-              <ViewField label="Hint Text" value={viewItem.hint_text} />
-              <ViewField label="Explanation Text" value={viewItem.explanation_text} />
-            </div>
+            <ViewField label="Item Text" value={viewItem.item_text} />
+            <ViewField label="Image" value={viewItem.image} />
 
-            {/* Image previews */}
-            <div className="space-y-3">
-              <span className="block text-xs font-medium text-slate-500 mb-1">Images</span>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="block text-xs text-slate-400 mb-1">Image 1</span>
-                  {viewItem.image_1_url ? (
-                    <img src={viewItem.image_1_url} alt="Image 1" className="max-h-40 rounded-lg border border-slate-200" />
-                  ) : (
-                    <p className="text-sm text-slate-300 italic">Not set</p>
-                  )}
-                </div>
-                <div>
-                  <span className="block text-xs text-slate-400 mb-1">Image 2</span>
-                  {viewItem.image_2_url ? (
-                    <img src={viewItem.image_2_url} alt="Image 2" className="max-h-40 rounded-lg border border-slate-200" />
-                  ) : (
-                    <p className="text-sm text-slate-300 italic">Not set</p>
-                  )}
-                </div>
-              </div>
+            {/* Audit fields */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+              <ViewField label="Created At" value={viewItem.created_at ? fromNow(viewItem.created_at) : null} />
+              <ViewField label="Updated At" value={viewItem.updated_at ? fromNow(viewItem.updated_at) : null} />
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -620,7 +552,7 @@ export default function DescQuestionTranslationsPage() {
       </Dialog>
 
       {/* --- Edit / Create Dialog --- */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Descriptive Question Translation' : 'Add Descriptive Question Translation'} size="lg">
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Ordering Item Translation' : 'Add Ordering Item Translation'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {/* Active toggle -- only shown when editing */}
           {editing && (
@@ -635,7 +567,7 @@ export default function DescQuestionTranslationsPage() {
                 type="button"
                 onClick={async () => {
                   await onToggleActive(editing);
-                  const refreshed = await api.getDescQuestionTranslation(editing.id);
+                  const refreshed = await api.getOrderingItemTranslation(editing.id);
                   if (refreshed.success && refreshed.data) {
                     setEditing(refreshed.data);
                     setValue('is_active', refreshed.data.is_active);
@@ -662,9 +594,9 @@ export default function DescQuestionTranslationsPage() {
           {/* Dropdowns */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Descriptive Question</label>
-              <select className={cn(selectClass, 'w-full')} {...register('descriptive_question_id', { required: true })}>
-                {descQuestions.map(q => <option key={q.id} value={q.id}>{q.code}{q.slug ? ` (${q.slug})` : ''}</option>)}
+              <label className="block text-sm font-medium text-slate-700 mb-1">Ordering Item</label>
+              <select className={cn(selectClass, 'w-full')} {...register('ordering_item_id', { required: true })}>
+                {orderingItems.map(p => <option key={p.id} value={p.id}>Item #{p.id}</option>)}
               </select>
             </div>
             <div>
@@ -675,42 +607,19 @@ export default function DescQuestionTranslationsPage() {
             </div>
           </div>
 
-          {/* Question Text */}
+          {/* Item Text */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Question Text <span className="text-red-500">*</span></label>
-            <textarea className={cn(selectClass, 'w-full min-h-[120px]')} placeholder="Translated question text..." {...register('question_text', { required: true })} />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Item Text</label>
+            <textarea className={cn(selectClass, 'w-full min-h-[100px]')} placeholder="Item text..." {...register('item_text', { required: true })} />
           </div>
 
-          {/* Answer Text - prominent */}
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-            <label className="block text-sm font-semibold text-emerald-800 mb-1">Answer Text (Model Answer) <span className="text-red-500">*</span></label>
-            <textarea className={cn(selectClass, 'w-full min-h-[100px] border-emerald-300 focus:ring-emerald-500')} placeholder="The model answer for this descriptive question..." {...register('answer_text', { required: true })} />
-            <p className="text-xs text-emerald-600 mt-1">This is the expected model answer for this descriptive question translation.</p>
-          </div>
-
-          {/* Hint Text */}
+          {/* Image URL */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Hint Text</label>
-            <textarea className={cn(selectClass, 'w-full min-h-[60px]')} placeholder="Hint for the student..." {...register('hint_text')} />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Image URL</label>
+            <input type="text" className={cn(selectClass, 'w-full')} placeholder="Optional image URL..." {...register('image')} />
           </div>
 
-          {/* Explanation Text */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Explanation Text</label>
-            <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="Explanation for the answer..." {...register('explanation_text')} />
-          </div>
-
-          {/* Images */}
-          <div className="grid grid-cols-2 gap-4">
-            <ImageUpload key={`img1-${dialogKey}`} label="Image 1" hint="Question image 1"
-              value={editing?.image_1_url} shape="rounded"
-              onChange={(file, preview) => { setImage1File(file); setImage1Preview(preview); }} />
-            <ImageUpload key={`img2-${dialogKey}`} label="Image 2" hint="Question image 2"
-              value={editing?.image_2_url} shape="rounded"
-              onChange={(file, preview) => { setImage2File(file); setImage2Preview(preview); }} />
-          </div>
-
-          {/* Active checkbox */}
+          {/* Active checkbox (for new) */}
           {!editing && (
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">

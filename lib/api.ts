@@ -745,6 +745,50 @@ export const api = {
   autoTranslateMatching: (data: { topic_id?: number; question_ids?: number[]; provider?: string }) =>
     request('/ai/auto-translate-matching', { method: 'POST', body: JSON.stringify(data) }),
 
+  // Ordering Questions
+  listOrderingQuestions: (qs = '') => request(`/ordering-questions${qs}`, { auth: false }),
+  getOrderingQuestion: (id: number) => request(`/ordering-questions/${id}`, { auth: false }),
+  createOrderingQuestion: (data: any) => request('/ordering-questions', { method: 'POST', body: JSON.stringify(data) }),
+  updateOrderingQuestion: (id: number, data: any) => request(`/ordering-questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteOrderingQuestion: (id: number) => request(`/ordering-questions/${id}`, { method: 'DELETE' }),
+  restoreOrderingQuestion: (id: number) => request(`/ordering-questions/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteOrderingQuestion: (id: number) => request(`/ordering-questions/${id}/permanent`, { method: 'DELETE' }),
+
+  // Ordering Question Translations
+  listOrderingQuestionTranslations: (qs = '') => request(`/ordering-question-translations${qs}`, { auth: false }),
+  getOrderingQuestionTranslation: (id: number) => request(`/ordering-question-translations/${id}`, { auth: false }),
+  createOrderingQuestionTranslation: (data: any) => request('/ordering-question-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updateOrderingQuestionTranslation: (id: number, data: any) => request(`/ordering-question-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteOrderingQuestionTranslation: (id: number) => request(`/ordering-question-translations/${id}`, { method: 'DELETE' }),
+  restoreOrderingQuestionTranslation: (id: number) => request(`/ordering-question-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteOrderingQuestionTranslation: (id: number) => request(`/ordering-question-translations/${id}/permanent`, { method: 'DELETE' }),
+  getOrderingQuestionTranslationCoverage: () => request('/ordering-question-translations/coverage', { auth: false }),
+
+  // Ordering Items
+  listOrderingItems: (qs = '') => request(`/ordering-items${qs}`, { auth: false }),
+  getOrderingItem: (id: number) => request(`/ordering-items/${id}`, { auth: false }),
+  createOrderingItem: (data: any) => request('/ordering-items', { method: 'POST', body: JSON.stringify(data) }),
+  updateOrderingItem: (id: number, data: any) => request(`/ordering-items/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteOrderingItem: (id: number) => request(`/ordering-items/${id}`, { method: 'DELETE' }),
+  restoreOrderingItem: (id: number) => request(`/ordering-items/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteOrderingItem: (id: number) => request(`/ordering-items/${id}/permanent`, { method: 'DELETE' }),
+
+  // Ordering Item Translations
+  listOrderingItemTranslations: (qs = '') => request(`/ordering-item-translations${qs}`, { auth: false }),
+  getOrderingItemTranslation: (id: number) => request(`/ordering-item-translations/${id}`, { auth: false }),
+  createOrderingItemTranslation: (data: any) => request('/ordering-item-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updateOrderingItemTranslation: (id: number, data: any) => request(`/ordering-item-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteOrderingItemTranslation: (id: number) => request(`/ordering-item-translations/${id}`, { method: 'DELETE' }),
+  restoreOrderingItemTranslation: (id: number) => request(`/ordering-item-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteOrderingItemTranslation: (id: number) => request(`/ordering-item-translations/${id}/permanent`, { method: 'DELETE' }),
+  getOrderingItemTranslationCoverage: () => request('/ordering-item-translations/coverage', { auth: false }),
+
+  // AI — Auto Ordering Generation
+  autoGenerateOrdering: (data: { topic_id: number; sub_topic_id?: number; num_questions?: number; difficulty_mix?: string; provider?: string; auto_translate?: boolean }, signal?: AbortSignal) =>
+    request('/ai/auto-generate-ordering', { method: 'POST', body: JSON.stringify(data), signal }),
+  autoTranslateOrdering: (data: { topic_id?: number; question_ids?: number[]; provider?: string }) =>
+    request('/ai/auto-translate-ordering', { method: 'POST', body: JSON.stringify(data) }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),

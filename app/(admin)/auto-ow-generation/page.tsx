@@ -40,7 +40,7 @@ interface SubTopic { id: number; slug: string; topic_id: number; is_active: bool
 interface MaterialLang { id: number; name: string; iso_code: string }
 
 interface GeneratedQuestion {
-  ow_question_id: number;
+  one_word_question_id: number;
   code: string;
   slug: string;
   question_type: string;
@@ -650,7 +650,7 @@ function AutoOwGenerationContent() {
               size="sm"
               onClick={() => {
                 if (expandedQ.size === results.length) setExpandedQ(new Set());
-                else setExpandedQ(new Set(results.map(q => q.ow_question_id)));
+                else setExpandedQ(new Set(results.map(q => q.one_word_question_id)));
               }}
               className="text-xs"
             >
@@ -660,12 +660,12 @@ function AutoOwGenerationContent() {
 
           <div className="divide-y divide-slate-100">
             {results.map((q, idx) => (
-              <div key={q.ow_question_id} className="group">
+              <div key={q.one_word_question_id} className="group">
                 <button
-                  onClick={() => toggleExpanded(q.ow_question_id)}
+                  onClick={() => toggleExpanded(q.one_word_question_id)}
                   className="w-full px-6 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors text-left"
                 >
-                  {expandedQ.has(q.ow_question_id) ? (
+                  {expandedQ.has(q.one_word_question_id) ? (
                     <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
                   ) : (
                     <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
@@ -691,7 +691,7 @@ function AutoOwGenerationContent() {
                   </div>
                 </button>
 
-                {expandedQ.has(q.ow_question_id) && (
+                {expandedQ.has(q.one_word_question_id) && (
                   <div className="px-6 pb-4 pl-16 space-y-3">
                     {/* Correct Answer */}
                     <div>
@@ -733,7 +733,7 @@ function AutoOwGenerationContent() {
                     <div className="flex items-center gap-4 text-xs text-slate-400">
                       <span>Code: {q.code}</span>
                       <span>Points: {q.points}</span>
-                      <span>ID: {q.ow_question_id}</span>
+                      <span>ID: {q.one_word_question_id}</span>
                       {q.translations_created && q.translations_created.length > 0 && (
                         <span className="text-blue-500">Translated: {q.translations_created.join(', ')}</span>
                       )}

@@ -14,34 +14,12 @@ import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, HelpCircle, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X } from 'lucide-react';
+import { Plus, ListOrdered, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePageSize } from '@/hooks/usePageSize';
 
-type SortField = 'id' | 'code' | 'slug' | 'display_order' | 'question_type' | 'difficulty_level' | 'points' | 'is_active';
-
-interface CoverageItem {
-  one_word_question_id: number;
-  total_languages: number;
-  translated_count: number;
-  missing_count: number;
-  is_complete: boolean;
-  translated_languages: { id: number; name: string; iso_code: string }[];
-  missing_languages: { id: number; name: string; iso_code: string }[];
-}
-
-const QUESTION_TYPE_OPTIONS = [
-  { value: 'one_word', label: 'One Word' },
-  { value: 'fill_in_the_blank', label: 'Fill in Blank' },
-  { value: 'code_output', label: 'Code Output' },
-];
-
-const QUESTION_TYPE_COLORS: Record<string, string> = {
-  one_word: 'bg-emerald-50 text-emerald-700',
-  fill_in_the_blank: 'bg-blue-50 text-blue-700',
-  code_output: 'bg-amber-50 text-amber-700',
-};
+type SortField = 'id' | 'code' | 'slug' | 'display_order' | 'difficulty_level' | 'points' | 'is_active';
 
 const DIFFICULTY_OPTIONS = [
   { value: 'easy', label: 'Easy' },
@@ -55,7 +33,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   hard: 'bg-red-50 text-red-700',
 };
 
-export default function OwQuestionsPage() {
+export default function OrderingQuestionsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -76,7 +54,6 @@ export default function OwQuestionsPage() {
   const [filterSubjectId, setFilterSubjectId] = useState<string>('');
   const [filterChapterId, setFilterChapterId] = useState<string>('');
   const [filterTopicId, setFilterTopicId] = useState<string>('');
-  const [filterQuestionType, setFilterQuestionType] = useState<string>('');
   const [filterDifficulty, setFilterDifficulty] = useState<string>('');
 
   // Cascade dropdowns
@@ -102,9 +79,6 @@ export default function OwQuestionsPage() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
-
-  // Coverage
-  const [coverage, setCoverage] = useState<Record<number, CoverageItem>>({});
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const router = useRouter();
@@ -144,12 +118,11 @@ export default function OwQuestionsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Load summary + coverage + subjects once on mount
+  // Load summary + subjects once on mount
   useEffect(() => {
-    api.getTableSummary('one_word_questions').then(res => {
+    api.getTableSummary('ordering_questions').then(res => {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
-    loadCoverage();
     loadSubjects();
   }, []);
 
@@ -208,8 +181,8 @@ export default function OwQuestionsPage() {
     }
   }, [formChapterId]);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterStatus, filterSubjectId, filterChapterId, filterTopicId, filterQuestionType, filterDifficulty, pageSize, showTrash]);
-  useEffect(() => { load(); loadCoverage(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus, filterSubjectId, filterChapterId, filterTopicId, filterQuestionType, filterDifficulty, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterStatus, filterSubjectId, filterChapterId, filterTopicId, filterDifficulty, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus, filterSubjectId, filterChapterId, filterTopicId, filterDifficulty, showTrash]);
 
   async function loadSubjects() {
     const res = await api.listSubjects('?limit=999&sort=display_order&order=asc');
@@ -229,10 +202,9 @@ export default function OwQuestionsPage() {
     } else {
       if (filterStatus) qs.set('is_active', filterStatus);
       if (filterTopicId) qs.set('topic_id', filterTopicId);
-      if (filterQuestionType) qs.set('question_type', filterQuestionType);
       if (filterDifficulty) qs.set('difficulty_level', filterDifficulty);
     }
-    const res = await api.listOwQuestions('?' + qs.toString());
+    const res = await api.listOrderingQuestions('?' + qs.toString());
     if (res.success) {
       setItems(res.data || []);
       setTotalPages(res.pagination?.totalPages || 1);
@@ -242,17 +214,8 @@ export default function OwQuestionsPage() {
   }
 
   async function refreshSummary() {
-    const res = await api.getTableSummary('one_word_questions');
+    const res = await api.getTableSummary('ordering_questions');
     if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
-  }
-
-  async function loadCoverage() {
-    const res = await api.getOwQuestionTranslationCoverage();
-    if (res.success && Array.isArray(res.data)) {
-      const map: Record<number, CoverageItem> = {};
-      res.data.forEach((c: CoverageItem) => { map[c.one_word_question_id] = c; });
-      setCoverage(map);
-    }
   }
 
   function handleSort(field: SortField) {
@@ -281,10 +244,9 @@ export default function OwQuestionsPage() {
     setFormSubjectId(''); setFormChapterId(''); setFormChapters([]); setFormTopics([]);
     setFormSubjects(subjects.length > 0 ? subjects : []);
     reset({
-      topic_id: '', code: '', slug: '', question_type: 'one_word',
+      topic_id: '', code: '', slug: '',
       points: 1, display_order: 0, difficulty_level: 'medium',
-      is_case_sensitive: false, is_trim_whitespace: true,
-      is_mandatory: false, is_active: true,
+      partial_scoring: false, is_mandatory: false, is_active: true,
     });
     setDialogOpen(true);
   }
@@ -317,11 +279,9 @@ export default function OwQuestionsPage() {
     }
     reset({
       topic_id: c.topic_id ?? '', code: c.code || '', slug: c.slug || '',
-      question_type: c.question_type || 'one_word',
       points: c.points ?? 1, display_order: c.display_order ?? 0,
       difficulty_level: c.difficulty_level || 'medium',
-      is_case_sensitive: c.is_case_sensitive ?? false,
-      is_trim_whitespace: c.is_trim_whitespace ?? true,
+      partial_scoring: c.partial_scoring ?? false,
       is_mandatory: c.is_mandatory ?? false, is_active: c.is_active ?? true,
     });
     setDialogOpen(true);
@@ -343,43 +303,43 @@ export default function OwQuestionsPage() {
     });
 
     const res = editing
-      ? await api.updateOwQuestion(editing.id, payload)
-      : await api.createOwQuestion(payload);
+      ? await api.updateOrderingQuestion(editing.id, payload)
+      : await api.createOrderingQuestion(payload);
     if (res.success) {
-      toast.success(editing ? 'One word question updated' : 'One word question created');
-      setDialogOpen(false); load(); refreshSummary(); loadCoverage();
+      toast.success(editing ? 'Ordering question updated' : 'Ordering question created');
+      setDialogOpen(false); load(); refreshSummary();
     } else toast.error(res.error || 'Failed');
   }
 
   async function onSoftDelete(c: any) {
     if (!confirm(`Move "${c.code}" to trash? You can restore it later.`)) return;
     setActionLoadingId(c.id);
-    const res = await api.deleteOwQuestion(c.id);
+    const res = await api.deleteOrderingQuestion(c.id);
     setActionLoadingId(null);
-    if (res.success) { toast.success('One word question moved to trash'); load(); refreshSummary(); loadCoverage(); }
+    if (res.success) { toast.success('Ordering question moved to trash'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onRestore(c: any) {
     setActionLoadingId(c.id);
-    const res = await api.restoreOwQuestion(c.id);
+    const res = await api.restoreOrderingQuestion(c.id);
     setActionLoadingId(null);
-    if (res.success) { toast.success(`"${c.code}" restored`); load(); refreshSummary(); loadCoverage(); }
+    if (res.success) { toast.success(`"${c.code}" restored`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onPermanentDelete(c: any) {
     if (!confirm(`PERMANENTLY delete "${c.code}"? This cannot be undone.`)) return;
     setActionLoadingId(c.id);
-    const res = await api.permanentDeleteOwQuestion(c.id);
+    const res = await api.permanentDeleteOrderingQuestion(c.id);
     setActionLoadingId(null);
-    if (res.success) { toast.success('One word question permanently deleted'); load(); refreshSummary(); loadCoverage(); }
+    if (res.success) { toast.success('Ordering question permanently deleted'); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
   async function onToggleActive(c: any) {
-    const res = await api.updateOwQuestion(c.id, { is_active: !c.is_active });
-    if (res.success) { toast.success(`${!c.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); loadCoverage(); }
+    const res = await api.updateOrderingQuestion(c.id, { is_active: !c.is_active });
+    if (res.success) { toast.success(`${!c.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -407,7 +367,7 @@ export default function OwQuestionsPage() {
     setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
     for (let i = 0; i < ids.length; i++) {
-      const res = await api.deleteOwQuestion(ids[i]);
+      const res = await api.deleteOrderingQuestion(ids[i]);
       if (res.success) ok++;
       setBulkProgress({ done: i + 1, total: ids.length });
     }
@@ -425,7 +385,7 @@ export default function OwQuestionsPage() {
     setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
     for (let i = 0; i < ids.length; i++) {
-      const res = await api.restoreOwQuestion(ids[i]);
+      const res = await api.restoreOrderingQuestion(ids[i]);
       if (res.success) ok++;
       setBulkProgress({ done: i + 1, total: ids.length });
     }
@@ -443,7 +403,7 @@ export default function OwQuestionsPage() {
     setBulkProgress({ done: 0, total: ids.length });
     let ok = 0;
     for (let i = 0; i < ids.length; i++) {
-      const res = await api.permanentDeleteOwQuestion(ids[i]);
+      const res = await api.permanentDeleteOrderingQuestion(ids[i]);
       if (res.success) ok++;
       setBulkProgress({ done: i + 1, total: ids.length });
     }
@@ -452,11 +412,6 @@ export default function OwQuestionsPage() {
     load(); refreshSummary();
     setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
-  }
-
-  function formatQuestionType(val: string) {
-    const map: Record<string, string> = { one_word: 'One Word', fill_in_the_blank: 'Fill in Blank', code_output: 'Code Output' };
-    return map[val] || val;
   }
 
   function formatDifficulty(val: string) {
@@ -469,8 +424,8 @@ export default function OwQuestionsPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="One Word Questions"
-        description="Manage one word, fill-in-the-blank, and code output questions"
+        title="Ordering Questions"
+        description="Manage ordering sequence questions for assessments"
         actions={
           <div className="flex items-center gap-2">
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add question</Button>}
@@ -512,7 +467,7 @@ export default function OwQuestionsPage() {
             !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700'
           )}
         >
-          One Word Questions
+          Ordering Questions
         </button>
         <button
           onClick={() => setShowTrash(true)}
@@ -539,7 +494,7 @@ export default function OwQuestionsPage() {
         ref={toolbarRef}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder={showTrash ? 'Search trash...' : 'Search one word questions...'}
+        searchPlaceholder={showTrash ? 'Search trash...' : 'Search ordering questions...'}
       >
         {!showTrash && (
           <>
@@ -554,10 +509,6 @@ export default function OwQuestionsPage() {
             <select className={selectClass} value={filterTopicId} onChange={e => setFilterTopicId(e.target.value)} disabled={!filterChapterId}>
               <option value="">All Topics</option>
               {topics.map(t => <option key={t.id} value={t.id}>{t.english_name || t.name || `Topic ${t.id}`}</option>)}
-            </select>
-            <select className={selectClass} value={filterQuestionType} onChange={e => setFilterQuestionType(e.target.value)}>
-              <option value="">All Types</option>
-              {QUESTION_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <select className={selectClass} value={filterDifficulty} onChange={e => setFilterDifficulty(e.target.value)}>
               <option value="">All Difficulties</option>
@@ -586,10 +537,10 @@ export default function OwQuestionsPage() {
         </div>
       ) : items.length === 0 ? (
         <EmptyState
-          icon={showTrash ? Trash2 : HelpCircle}
-          title={showTrash ? 'Trash is empty' : 'No one word questions yet'}
-          description={showTrash ? 'No deleted questions' : (searchDebounce || filterStatus || filterTopicId || filterQuestionType || filterDifficulty ? 'No questions match your filters' : 'Add your first one word question')}
-          action={!showTrash && !searchDebounce && !filterStatus && !filterTopicId && !filterQuestionType && !filterDifficulty ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add question</Button> : undefined}
+          icon={showTrash ? Trash2 : ListOrdered}
+          title={showTrash ? 'Trash is empty' : 'No ordering questions yet'}
+          description={showTrash ? 'No deleted questions' : (searchDebounce || filterStatus || filterTopicId || filterDifficulty ? 'No questions match your filters' : 'Add your first ordering question')}
+          action={!showTrash && !searchDebounce && !filterStatus && !filterTopicId && !filterDifficulty ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add question</Button> : undefined}
         />
       ) : (
         <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
@@ -628,11 +579,9 @@ export default function OwQuestionsPage() {
                     Code <SortIcon field="code" />
                   </button>
                 </TH>
-                <TH>Question</TH>
-                <TH>Answer</TH>
                 <TH>
-                  <button onClick={() => handleSort('question_type')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Type <SortIcon field="question_type" />
+                  <button onClick={() => handleSort('slug')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
+                    Slug <SortIcon field="slug" />
                   </button>
                 </TH>
                 <TH>
@@ -645,7 +594,7 @@ export default function OwQuestionsPage() {
                     Points <SortIcon field="points" />
                   </button>
                 </TH>
-                <TH>Synonyms</TH>
+                <TH>Items</TH>
                 {!showTrash && <TH>Translations</TH>}
                 {showTrash && <TH>Deleted</TH>}
                 <TH>
@@ -666,20 +615,8 @@ export default function OwQuestionsPage() {
                   </TD>
                   <TD className="py-2.5">
                     <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>
-                      {c.question_text ? (c.question_text.length > 60 ? c.question_text.substring(0, 60) + '...' : c.question_text) : c.slug || ''}
+                      {c.slug || ''}
                     </span>
-                  </TD>
-                  <TD className="py-2.5">
-                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-400' : 'text-slate-700')}>
-                      {c.correct_answer ? (c.correct_answer.length > 30 ? c.correct_answer.substring(0, 30) + '...' : c.correct_answer) : <span className="text-slate-300">--</span>}
-                    </span>
-                  </TD>
-                  <TD className="py-2.5">
-                    {c.question_type ? (
-                      <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', QUESTION_TYPE_COLORS[c.question_type] || 'bg-slate-50 text-slate-600')}>
-                        {formatQuestionType(c.question_type)}
-                      </span>
-                    ) : <span className="text-slate-300">--</span>}
                   </TD>
                   <TD className="py-2.5">
                     {c.difficulty_level ? (
@@ -692,41 +629,11 @@ export default function OwQuestionsPage() {
                     <span className="text-sm font-medium text-slate-700">{c.points ?? '--'}</span>
                   </TD>
                   <TD className="py-2.5">
-                    <button
-                      onClick={() => router.push(`/ow-synonyms?one_word_question_id=${c.id}`)}
-                      className="text-sm text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                    >
-                      {c.synonym_count ?? '--'}
-                    </button>
+                    <span className="text-sm font-medium text-slate-700">{c.item_count ?? '--'}</span>
                   </TD>
                   {!showTrash && (
                     <TD className="py-2.5">
-                      {(() => {
-                        const cov = coverage[c.id];
-                        if (!cov) return (
-                          <button
-                            onClick={() => router.push(`/ow-question-translations?one_word_question_id=${c.id}`)}
-                            className="text-slate-300 text-xs hover:text-brand-600 hover:underline cursor-pointer"
-                          >
-                            --
-                          </button>
-                        );
-                        const complete = cov.is_complete;
-                        return (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => router.push(`/ow-question-translations?one_word_question_id=${c.id}`)}
-                              className={cn(
-                                'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full hover:opacity-80 cursor-pointer',
-                                complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                              )}
-                            >
-                              {complete ? <Check className="w-3 h-3" /> : null}
-                              {cov.translated_count}/{cov.total_languages}
-                            </button>
-                          </div>
-                        );
-                      })()}
+                      <span className="text-sm text-slate-600">{c.translation_count != null ? c.translation_count : '--'}</span>
                     </TD>
                   )}
                   {showTrash && (
@@ -787,32 +694,28 @@ export default function OwQuestionsPage() {
         </div>
       )}
 
-      {/* ── View One Word Question Dialog ── */}
-      <Dialog open={!!viewing} onClose={() => setViewing(null)} title="One Word Question Details" size="lg">
+      {/* ── View Ordering Question Dialog ── */}
+      <Dialog open={!!viewing} onClose={() => setViewing(null)} title="Ordering Question Details" size="lg">
         {viewing && (
           <div className="p-6">
             {/* Header */}
             <div className="flex items-center gap-4 mb-6">
               <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
-                <HelpCircle className="w-6 h-6 text-slate-400" />
+                <ListOrdered className="w-6 h-6 text-slate-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">{viewing.question_text || viewing.code}</h3>
+                <h3 className="text-lg font-semibold text-slate-900">{viewing.code}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>
                     {viewing.is_active ? 'Active' : 'Inactive'}
                   </Badge>
-                  {viewing.question_type && (
-                    <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', QUESTION_TYPE_COLORS[viewing.question_type] || 'bg-slate-50 text-slate-600')}>
-                      {formatQuestionType(viewing.question_type)}
-                    </span>
-                  )}
                   {viewing.difficulty_level && (
                     <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', DIFFICULTY_COLORS[viewing.difficulty_level] || 'bg-slate-50 text-slate-600')}>
                       {formatDifficulty(viewing.difficulty_level)}
                     </span>
                   )}
                   {viewing.is_mandatory && <Badge variant="info">Mandatory</Badge>}
+                  {viewing.partial_scoring && <Badge variant="info">Partial Scoring</Badge>}
                 </div>
               </div>
             </div>
@@ -822,13 +725,12 @@ export default function OwQuestionsPage() {
               <DetailRow label="Code" value={viewing.code} />
               <DetailRow label="Slug" value={viewing.slug ? `/${viewing.slug}` : undefined} />
               <DetailRow label="Topic ID" value={viewing.topic_id != null ? String(viewing.topic_id) : undefined} />
-              <DetailRow label="Question Type" value={viewing.question_type ? formatQuestionType(viewing.question_type) : undefined} />
               <DetailRow label="Difficulty" value={viewing.difficulty_level ? formatDifficulty(viewing.difficulty_level) : undefined} />
               <DetailRow label="Points" value={viewing.points != null ? String(viewing.points) : undefined} />
               <DetailRow label="Display Order" value={viewing.display_order != null ? String(viewing.display_order) : undefined} />
-              <DetailRow label="Correct Answer" value={viewing.correct_answer} />
-              <DetailRow label="Synonym Count" value={viewing.synonym_count != null ? String(viewing.synonym_count) : undefined} />
+              <DetailRow label="Item Count" value={viewing.item_count != null ? String(viewing.item_count) : undefined} />
               <DetailRow label="Translations" value={viewing.translation_count != null ? String(viewing.translation_count) : undefined} />
+              <DetailRow label="Partial Scoring" value={viewing.partial_scoring ? 'Yes' : 'No'} />
             </div>
 
             {/* Flags */}
@@ -837,9 +739,8 @@ export default function OwQuestionsPage() {
               <div className="flex flex-wrap gap-2">
                 {viewing.is_mandatory && <Badge variant="info">Mandatory</Badge>}
                 {viewing.is_active && <Badge variant="success">Active</Badge>}
-                {viewing.is_case_sensitive && <Badge variant="warning">Case Sensitive</Badge>}
-                {viewing.is_trim_whitespace && <Badge variant="default">Trim Whitespace</Badge>}
-                {!viewing.is_mandatory && !viewing.is_active && !viewing.is_case_sensitive && !viewing.is_trim_whitespace && (
+                {viewing.partial_scoring && <Badge variant="info">Partial Scoring</Badge>}
+                {!viewing.is_mandatory && !viewing.is_active && !viewing.partial_scoring && (
                   <span className="text-sm text-slate-400">No flags enabled</span>
                 )}
               </div>
@@ -865,7 +766,7 @@ export default function OwQuestionsPage() {
       </Dialog>
 
       {/* ── Create / Edit Dialog ── */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit One Word Question' : 'Add One Word Question'} size="lg">
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Ordering Question' : 'Add Ordering Question'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {/* Active toggle -- only shown when editing */}
           {editing && (
@@ -880,7 +781,7 @@ export default function OwQuestionsPage() {
                 type="button"
                 onClick={async () => {
                   await onToggleActive(editing);
-                  const refreshed = await api.getOwQuestion(editing.id);
+                  const refreshed = await api.getOrderingQuestion(editing.id);
                   if (refreshed.success && refreshed.data) setEditing(refreshed.data);
                 }}
                 className={cn(
@@ -923,31 +824,25 @@ export default function OwQuestionsPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Code" placeholder="ow-math-001" {...register('code', { required: true })} />
-              <Input label="Slug" placeholder="ow-math-001" {...register('slug', { required: true, onChange: () => setSlugManual(true) })} />
+              <Input label="Code" placeholder="order-math-001" {...register('code', { required: true })} />
+              <Input label="Slug" placeholder="order-math-001" {...register('slug', { required: true, onChange: () => setSlugManual(true) })} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Question Type</label>
-                <select className={cn(selectClass, 'w-full')} {...register('question_type')}>
-                  {QUESTION_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Difficulty Level</label>
                 <select className={cn(selectClass, 'w-full')} {...register('difficulty_level')}>
                   {DIFFICULTY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
+              <Input label="Points" type="number" placeholder="1" {...register('points')} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Points" type="number" placeholder="1" {...register('points')} />
               <Input label="Display Order" type="number" placeholder="0" {...register('display_order')} />
+              <div />
             </div>
             <div className="space-y-2.5">
               {[
-                { field: 'is_case_sensitive', label: 'Case Sensitive' },
-                { field: 'is_trim_whitespace', label: 'Trim Whitespace' },
+                { field: 'partial_scoring', label: 'Partial Scoring' },
                 { field: 'is_mandatory', label: 'Mandatory Question' },
                 { field: 'is_active', label: 'Active' },
               ].map(item => (
