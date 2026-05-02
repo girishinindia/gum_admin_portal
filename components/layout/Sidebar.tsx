@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -160,6 +160,46 @@ const navGroups: NavGroup[] = [
           { href: '/bundle-translations', label: 'Translations' },
           { href: '/bundle-courses', label: 'Courses' },
         ],
+      },
+    ],
+  },
+  {
+    key: 'qa',
+    title: 'Q&A Bank',
+    items: [
+      {
+        href: '/mcq-questions',
+        label: 'MCQ Questions',
+        icon: HelpCircle,
+        subLinks: [{ href: '/mcq-question-translations', label: 'Translations' }],
+      },
+      {
+        href: '/mcq-options',
+        label: 'MCQ Options',
+        icon: ListChecks,
+        subLinks: [{ href: '/mcq-option-translations', label: 'Translations' }],
+      },
+      {
+        href: '/auto-mcq-generation',
+        label: 'Auto MCQ Generation',
+        icon: Sparkles,
+      },
+      {
+        href: '/ow-questions',
+        label: 'OW Questions',
+        icon: PenLine,
+        subLinks: [{ href: '/ow-question-translations', label: 'Translations' }],
+      },
+      {
+        href: '/ow-synonyms',
+        label: 'OW Synonyms',
+        icon: Replace,
+        subLinks: [{ href: '/ow-synonym-translations', label: 'Translations' }],
+      },
+      {
+        href: '/auto-ow-generation',
+        label: 'Auto OW Generation',
+        icon: Sparkles,
       },
     ],
   },

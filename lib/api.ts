@@ -588,6 +588,94 @@ export const api = {
   restoreBundleCourse: (id: number) => request(`/bundle-courses/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteBundleCourse: (id: number) => request(`/bundle-courses/${id}/permanent`, { method: 'DELETE' }),
 
+  // MCQ Questions
+  listMcqQuestions: (qs = '') => request(`/mcq-questions${qs}`, { auth: false }),
+  getMcqQuestion: (id: number) => request(`/mcq-questions/${id}`, { auth: false }),
+  createMcqQuestion: (data: any) => request('/mcq-questions', { method: 'POST', body: JSON.stringify(data) }),
+  updateMcqQuestion: (id: number, data: any) => request(`/mcq-questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteMcqQuestion: (id: number) => request(`/mcq-questions/${id}`, { method: 'DELETE' }),
+  restoreMcqQuestion: (id: number) => request(`/mcq-questions/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMcqQuestion: (id: number) => request(`/mcq-questions/${id}/permanent`, { method: 'DELETE' }),
+
+  // MCQ Question Translations
+  listMcqQuestionTranslations: (qs = '') => request(`/mcq-question-translations${qs}`, { auth: false }),
+  getMcqQuestionTranslation: (id: number) => request(`/mcq-question-translations/${id}`, { auth: false }),
+  createMcqQuestionTranslation: (data: any, isFormData = false) => request('/mcq-question-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateMcqQuestionTranslation: (id: number, data: any, isFormData = false) => request(`/mcq-question-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteMcqQuestionTranslation: (id: number) => request(`/mcq-question-translations/${id}`, { method: 'DELETE' }),
+  restoreMcqQuestionTranslation: (id: number) => request(`/mcq-question-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMcqQuestionTranslation: (id: number) => request(`/mcq-question-translations/${id}/permanent`, { method: 'DELETE' }),
+  getMcqQuestionTranslationCoverage: () => request('/mcq-question-translations/coverage', { auth: false }),
+
+  // MCQ Options
+  listMcqOptions: (qs = '') => request(`/mcq-options${qs}`, { auth: false }),
+  getMcqOption: (id: number) => request(`/mcq-options/${id}`, { auth: false }),
+  createMcqOption: (data: any) => request('/mcq-options', { method: 'POST', body: JSON.stringify(data) }),
+  updateMcqOption: (id: number, data: any) => request(`/mcq-options/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteMcqOption: (id: number) => request(`/mcq-options/${id}`, { method: 'DELETE' }),
+  restoreMcqOption: (id: number) => request(`/mcq-options/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMcqOption: (id: number) => request(`/mcq-options/${id}/permanent`, { method: 'DELETE' }),
+
+  // MCQ Option Translations
+  listMcqOptionTranslations: (qs = '') => request(`/mcq-option-translations${qs}`, { auth: false }),
+  getMcqOptionTranslation: (id: number) => request(`/mcq-option-translations/${id}`, { auth: false }),
+  createMcqOptionTranslation: (data: any, isFormData = false) => request('/mcq-option-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateMcqOptionTranslation: (id: number, data: any, isFormData = false) => request(`/mcq-option-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteMcqOptionTranslation: (id: number) => request(`/mcq-option-translations/${id}`, { method: 'DELETE' }),
+  restoreMcqOptionTranslation: (id: number) => request(`/mcq-option-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteMcqOptionTranslation: (id: number) => request(`/mcq-option-translations/${id}/permanent`, { method: 'DELETE' }),
+  getMcqOptionTranslationCoverage: () => request('/mcq-option-translations/coverage', { auth: false }),
+
+  // AI — Auto MCQ Generation
+  autoGenerateMcq: (data: { topic_id: number; sub_topic_id?: number; num_questions?: number; difficulty_mix?: string; mcq_types?: string[]; provider?: string; auto_translate?: boolean }, signal?: AbortSignal) =>
+    request('/ai/auto-generate-mcq', { method: 'POST', body: JSON.stringify(data), signal }),
+  autoTranslateMcq: (data: { topic_id?: number; question_ids?: number[]; provider?: string }) =>
+    request('/ai/auto-translate-mcq', { method: 'POST', body: JSON.stringify(data) }),
+
+  // One Word Questions
+  listOwQuestions: (qs = '') => request(`/ow-questions${qs}`, { auth: false }),
+  getOwQuestion: (id: number) => request(`/ow-questions/${id}`, { auth: false }),
+  createOwQuestion: (data: any) => request('/ow-questions', { method: 'POST', body: JSON.stringify(data) }),
+  updateOwQuestion: (id: number, data: any) => request(`/ow-questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteOwQuestion: (id: number) => request(`/ow-questions/${id}`, { method: 'DELETE' }),
+  restoreOwQuestion: (id: number) => request(`/ow-questions/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteOwQuestion: (id: number) => request(`/ow-questions/${id}/permanent`, { method: 'DELETE' }),
+
+  // One Word Question Translations
+  listOwQuestionTranslations: (qs = '') => request(`/ow-question-translations${qs}`, { auth: false }),
+  getOwQuestionTranslation: (id: number) => request(`/ow-question-translations/${id}`, { auth: false }),
+  createOwQuestionTranslation: (data: any, isFormData = false) => request('/ow-question-translations', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateOwQuestionTranslation: (id: number, data: any, isFormData = false) => request(`/ow-question-translations/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteOwQuestionTranslation: (id: number) => request(`/ow-question-translations/${id}`, { method: 'DELETE' }),
+  restoreOwQuestionTranslation: (id: number) => request(`/ow-question-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteOwQuestionTranslation: (id: number) => request(`/ow-question-translations/${id}/permanent`, { method: 'DELETE' }),
+  getOwQuestionTranslationCoverage: () => request('/ow-question-translations/coverage', { auth: false }),
+
+  // One Word Synonyms
+  listOwSynonyms: (qs = '') => request(`/ow-synonyms${qs}`, { auth: false }),
+  getOwSynonym: (id: number) => request(`/ow-synonyms/${id}`, { auth: false }),
+  createOwSynonym: (data: any) => request('/ow-synonyms', { method: 'POST', body: JSON.stringify(data) }),
+  updateOwSynonym: (id: number, data: any) => request(`/ow-synonyms/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteOwSynonym: (id: number) => request(`/ow-synonyms/${id}`, { method: 'DELETE' }),
+  restoreOwSynonym: (id: number) => request(`/ow-synonyms/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteOwSynonym: (id: number) => request(`/ow-synonyms/${id}/permanent`, { method: 'DELETE' }),
+
+  // One Word Synonym Translations
+  listOwSynonymTranslations: (qs = '') => request(`/ow-synonym-translations${qs}`, { auth: false }),
+  getOwSynonymTranslation: (id: number) => request(`/ow-synonym-translations/${id}`, { auth: false }),
+  createOwSynonymTranslation: (data: any) => request('/ow-synonym-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updateOwSynonymTranslation: (id: number, data: any) => request(`/ow-synonym-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteOwSynonymTranslation: (id: number) => request(`/ow-synonym-translations/${id}`, { method: 'DELETE' }),
+  restoreOwSynonymTranslation: (id: number) => request(`/ow-synonym-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteOwSynonymTranslation: (id: number) => request(`/ow-synonym-translations/${id}/permanent`, { method: 'DELETE' }),
+  getOwSynonymTranslationCoverage: () => request('/ow-synonym-translations/coverage', { auth: false }),
+
+  // AI — Auto One Word Generation
+  autoGenerateOw: (data: { topic_id: number; sub_topic_id?: number; num_questions?: number; difficulty_mix?: string; question_types?: string[]; provider?: string; auto_translate?: boolean }, signal?: AbortSignal) =>
+    request('/ai/auto-generate-ow', { method: 'POST', body: JSON.stringify(data), signal }),
+  autoTranslateOw: (data: { topic_id?: number; question_ids?: number[]; provider?: string }) =>
+    request('/ai/auto-translate-ow', { method: 'POST', body: JSON.stringify(data) }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),
