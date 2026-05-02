@@ -19,12 +19,6 @@ const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
   { value: 'openai', label: 'OpenAI', model: 'GPT-4o Mini' },
 ];
 
-const OW_TYPES = [
-  { value: 'one_word', label: 'One Word' },
-  { value: 'fill_in_the_blank', label: 'Fill in the Blank' },
-  { value: 'code_output', label: 'Code Output' },
-];
-
 const DIFFICULTY_OPTIONS = [
   { value: 'auto', label: 'Auto (AI decides based on content)' },
   { value: 'mixed', label: 'Mixed (30% Easy / 50% Medium / 20% Hard)' },
@@ -39,30 +33,35 @@ interface Topic { id: number; slug: string; chapter_id: number; is_active: boole
 interface SubTopic { id: number; slug: string; topic_id: number; is_active: boolean; english_name?: string; display_order?: number }
 interface MaterialLang { id: number; name: string; iso_code: string }
 
-interface GeneratedQuestion {
-  ow_question_id: number;
-  code: string;
-  slug: string;
-  question_type: string;
-  difficulty_level: string;
-  points: number;
-  question_text: string;
-  correct_answer: string;
-  synonyms?: string[];
-  hint_text?: string;
-  explanation_text?: string;
-  translations_created?: string[];
+interface MatchingPair {
+  id: number;
+  left_text: string;
+  right_text: string;
 }
 
-export default function AutoOwGenerationPage() {
+interface GeneratedQuestion {
+  matching_question_id: number;
+  code: string;
+  slug: string;
+  difficulty_level: string;
+  points: number;
+  partial_scoring: boolean;
+  question_text: string;
+  hint: string;
+  explanation: string;
+  pairs: MatchingPair[];
+  translations_created: string[];
+}
+
+export default function AutoMatchingGenerationPage() {
   return (
     <Suspense fallback={<div className="animate-fade-in p-8 text-center text-slate-400">Loading...</div>}>
-      <AutoOwGenerationContent />
+      <AutoMatchingGenerationContent />
     </Suspense>
   );
 }
 
-function AutoOwGenerationContent() {
+function AutoMatchingGenerationContent() {
   const router = useRouter();
   const pageSize = usePageSize();
 
@@ -80,14 +79,13 @@ function AutoOwGenerationContent() {
   // Material languages (dynamic)
   const [materialLangs, setMaterialLangs] = useState<MaterialLang[]>([]);
 
-  // Per-topic OW counts (to show badges)
-  const [topicOwCounts, setTopicOwCounts] = useState<Record<number, number>>({});
+  // Per-topic matching counts (to show badges)
+  const [topicMatchingCounts, setTopicMatchingCounts] = useState<Record<number, number>>({});
 
   // Config
   const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
   const [numQuestions, setNumQuestions] = useState(0); // 0 = auto
   const [difficultyMix, setDifficultyMix] = useState('auto');
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(['one_word', 'fill_in_the_blank', 'code_output']);
   const [autoTranslate, setAutoTranslate] = useState(true);
 
   // State
@@ -105,7 +103,7 @@ function AutoOwGenerationContent() {
 
   useKeyboardShortcuts([
     { key: 'g d', action: () => router.push('/dashboard') },
-    { key: 'g o', action: () => router.push('/ow-questions') },
+    { key: 'g m', action: () => router.push('/matching-questions') },
   ]);
 
   // Current topic/chapter position for navigation
@@ -135,7 +133,7 @@ function AutoOwGenerationContent() {
     if (!initialized) return;
     setSelectedChapter(''); setSelectedTopic(''); setSelectedSubTopic('');
     setChapters([]); setTopics([]); setSubTopics([]);
-    setTopicOwCounts({});
+    setTopicMatchingCounts({});
     if (selectedSubject) {
       api.listChapters(`?limit=500&is_active=true&subject_id=${selectedSubject}&sort=display_order&ascending=true`).then(res => {
         if (res.success) setChapters(res.data || []);
@@ -143,25 +141,25 @@ function AutoOwGenerationContent() {
     }
   }, [selectedSubject]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cascade: chapter -> topics + load OW counts
+  // Cascade: chapter -> topics + load matching counts
   useEffect(() => {
     if (!initialized) return;
     setSelectedTopic(''); setSelectedSubTopic('');
     setTopics([]); setSubTopics([]);
-    setTopicOwCounts({});
+    setTopicMatchingCounts({});
     if (selectedChapter) {
       api.listTopics(`?limit=500&is_active=true&chapter_id=${selectedChapter}&sort=display_order&ascending=true`).then(async (res) => {
         if (res.success) {
           const topicList = res.data || [];
           setTopics(topicList);
 
-          // Load OW counts per topic for badges
+          // Load matching counts per topic for badges
           const counts: Record<number, number> = {};
           for (const t of topicList) {
-            const owRes = await api.listOwQuestions(`?topic_id=${t.id}&limit=1`);
-            if (owRes.success) counts[t.id] = owRes.pagination?.total || 0;
+            const matchRes = await api.listMatchingQuestions(`?topic_id=${t.id}&limit=1`);
+            if (matchRes.success) counts[t.id] = matchRes.pagination?.total || 0;
           }
-          setTopicOwCounts(counts);
+          setTopicMatchingCounts(counts);
         }
       });
     }
@@ -187,12 +185,6 @@ function AutoOwGenerationContent() {
     setErrorMsg('');
     setExpandedQ(new Set());
   }, [selectedTopic]);
-
-  function toggleType(type: string) {
-    setSelectedTypes(prev =>
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
-  }
 
   function toggleExpanded(qId: number) {
     setExpandedQ(prev => {
@@ -228,7 +220,6 @@ function AutoOwGenerationContent() {
 
   async function handleGenerate() {
     if (!selectedTopic) { toast.error('Please select a topic first'); return; }
-    if (selectedTypes.length === 0) { toast.error('Please select at least one question type'); return; }
 
     setGenerating(true);
     setErrorMsg('');
@@ -239,8 +230,8 @@ function AutoOwGenerationContent() {
     const langNames = materialLangs.map(l => l.name).join(', ');
     const steps: AiProgressStep[] = [
       { label: 'Finding sub-topic tutorial files', status: 'active' },
-      { label: 'Generating One Word questions with AI', status: 'pending' },
-      { label: 'Saving questions & translations', status: 'pending' },
+      { label: 'Generating Matching questions with AI', status: 'pending' },
+      { label: 'Saving questions, pairs & translations', status: 'pending' },
     ];
     if (autoTranslate && materialLangs.length > 0) {
       steps.push({ label: `Translating to ${langNames}`, status: 'pending' });
@@ -266,7 +257,6 @@ function AutoOwGenerationContent() {
         topic_id: topicId,
         num_questions: numQuestions, // 0 = auto
         difficulty_mix: difficultyMix,
-        question_types: selectedTypes,
         provider: aiProvider,
         auto_translate: autoTranslate && materialLangs.length > 0,
       };
@@ -274,7 +264,7 @@ function AutoOwGenerationContent() {
         requestBody.sub_topic_id = parseInt(selectedSubTopic);
       }
 
-      const res = await api.autoGenerateOw(requestBody);
+      const res = await api.autoGenerateMatching(requestBody);
 
       if (res.success) {
         const data = res.data;
@@ -286,10 +276,10 @@ function AutoOwGenerationContent() {
         setTimeout(() => setShowProgress(false), 1500);
 
         const qCount = data.questions?.length || 0;
-        toast.success(`Generated ${qCount} One Word question${qCount !== 1 ? 's' : ''} successfully!`);
+        toast.success(`Generated ${qCount} Matching question${qCount !== 1 ? 's' : ''} successfully!`);
 
-        // Update OW count for this topic
-        setTopicOwCounts(prev => ({
+        // Update matching count for this topic
+        setTopicMatchingCounts(prev => ({
           ...prev,
           [topicId]: (prev[topicId] || 0) + qCount,
         }));
@@ -313,7 +303,7 @@ function AutoOwGenerationContent() {
     setTranslateResults(null);
 
     try {
-      const res = await api.autoTranslateOw({
+      const res = await api.autoTranslateMatching({
         topic_id: parseInt(selectedTopic),
         provider: aiProvider,
       });
@@ -332,32 +322,14 @@ function AutoOwGenerationContent() {
     }
   }
 
-  function getQuestionTypeBadgeVariant(type: string): 'success' | 'info' | 'warning' {
-    switch (type) {
-      case 'one_word': return 'success';
-      case 'fill_in_the_blank': return 'info';
-      case 'code_output': return 'warning';
-      default: return 'info';
-    }
-  }
-
-  function formatQuestionType(type: string): string {
-    switch (type) {
-      case 'one_word': return 'one word';
-      case 'fill_in_the_blank': return 'fill in the blank';
-      case 'code_output': return 'code output';
-      default: return type.replace(/_/g, ' ');
-    }
-  }
-
   const selectedTopicName = topics.find(t => String(t.id) === selectedTopic)?.english_name || '';
   const selectedChapterName = chapters.find(c => String(c.id) === selectedChapter)?.english_name || '';
 
   return (
     <div className="animate-fade-in space-y-6">
-      <PageHeader title="Auto One Word Generation" description="Generate One Word questions automatically from sub-topic tutorials using AI" />
+      <PageHeader title="Auto Matching Generation" description="Generate Matching questions automatically from sub-topic tutorials using AI" />
 
-      {showProgress && <AiProgressOverlay active={generating} steps={progressSteps} title="Generating One Word Questions..." />}
+      {showProgress && <AiProgressOverlay active={generating} steps={progressSteps} title="Generating Matching Questions..." />}
 
       {/* Configuration Panel */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -424,7 +396,7 @@ function AutoOwGenerationContent() {
                 {topics.map((t, ti) => (
                   <option key={t.id} value={t.id}>
                     {ti + 1}. {t.english_name || t.slug}
-                    {topicOwCounts[t.id] ? ` (${topicOwCounts[t.id]} OWs)` : ''}
+                    {topicMatchingCounts[t.id] ? ` (${topicMatchingCounts[t.id]} matching)` : ''}
                   </option>
                 ))}
               </select>
@@ -512,40 +484,17 @@ function AutoOwGenerationContent() {
             </div>
           </div>
 
-          {/* Question Types */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Question Types</label>
-            <div className="flex flex-wrap gap-3">
-              {OW_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => toggleType(t.value)}
-                  className={cn(
-                    'px-4 py-2 rounded-lg text-sm font-medium border transition-all',
-                    selectedTypes.includes(t.value)
-                      ? 'bg-violet-100 border-violet-300 text-violet-700'
-                      : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                  )}
-                >
-                  {selectedTypes.includes(t.value) && <CheckCircle2 className="w-4 h-4 inline mr-1.5 -mt-0.5" />}
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Action Buttons */}
           <div className="flex items-center gap-3 pt-2">
             <Button
               onClick={handleGenerate}
-              disabled={generating || !selectedTopic || selectedTypes.length === 0}
+              disabled={generating || !selectedTopic}
               className="bg-violet-600 hover:bg-violet-700 text-white px-6"
             >
               {generating ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
               ) : (
-                <><Sparkles className="w-4 h-4 mr-2" /> Generate One Word Questions</>
+                <><Sparkles className="w-4 h-4 mr-2" /> Generate Matching Questions</>
               )}
             </Button>
 
@@ -558,15 +507,15 @@ function AutoOwGenerationContent() {
               {translating ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Translating...</>
               ) : (
-                <><Languages className="w-4 h-4 mr-2" /> Translate Existing OW Questions</>
+                <><Languages className="w-4 h-4 mr-2" /> Translate Existing Matching Questions</>
               )}
             </Button>
 
             {selectedTopic && (
               <span className="text-sm text-slate-500 ml-2">
                 Topic: <strong>{selectedTopicName}</strong>
-                {topicOwCounts[parseInt(selectedTopic)] > 0 && (
-                  <Badge variant="info" className="ml-2 text-xs">{topicOwCounts[parseInt(selectedTopic)]} existing OWs</Badge>
+                {topicMatchingCounts[parseInt(selectedTopic)] > 0 && (
+                  <Badge variant="info" className="ml-2 text-xs">{topicMatchingCounts[parseInt(selectedTopic)]} existing matching</Badge>
                 )}
               </span>
             )}
@@ -612,18 +561,14 @@ function AutoOwGenerationContent() {
       {/* Summary stats from generation */}
       {resultSummary && (
         <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-            <div className="bg-white rounded-lg p-3 border border-violet-100">
-              <span className="text-slate-500">Sub-topics processed</span>
-              <p className="text-lg font-semibold text-slate-800">{resultSummary.sub_topics_processed || 0}</p>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
             <div className="bg-white rounded-lg p-3 border border-violet-100">
               <span className="text-slate-500">Questions created</span>
               <p className="text-lg font-semibold text-green-600">{resultSummary.total_questions_created || 0}</p>
             </div>
             <div className="bg-white rounded-lg p-3 border border-violet-100">
-              <span className="text-slate-500">Synonyms created</span>
-              <p className="text-lg font-semibold text-slate-800">{resultSummary.total_synonyms_created || 0}</p>
+              <span className="text-slate-500">Pairs created</span>
+              <p className="text-lg font-semibold text-slate-800">{resultSummary.total_pairs_created || 0}</p>
             </div>
             <div className="bg-white rounded-lg p-3 border border-violet-100">
               <span className="text-slate-500">Translations</span>
@@ -631,7 +576,7 @@ function AutoOwGenerationContent() {
             </div>
             <div className="bg-white rounded-lg p-3 border border-violet-100">
               <span className="text-slate-500">Errors</span>
-              <p className="text-lg font-semibold text-red-600">{resultSummary.sub_topics_error || 0}</p>
+              <p className="text-lg font-semibold text-red-600">{resultSummary.errors || 0}</p>
             </div>
           </div>
         </div>
@@ -643,14 +588,14 @@ function AutoOwGenerationContent() {
           <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-green-50 to-emerald-50 flex items-center justify-between">
             <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-green-500" />
-              Generated {results.length} Question{results.length !== 1 ? 's' : ''}
+              Generated {results.length} Matching Question{results.length !== 1 ? 's' : ''}
             </h2>
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 if (expandedQ.size === results.length) setExpandedQ(new Set());
-                else setExpandedQ(new Set(results.map(q => q.ow_question_id)));
+                else setExpandedQ(new Set(results.map(q => q.matching_question_id)));
               }}
               className="text-xs"
             >
@@ -660,12 +605,12 @@ function AutoOwGenerationContent() {
 
           <div className="divide-y divide-slate-100">
             {results.map((q, idx) => (
-              <div key={q.ow_question_id} className="group">
+              <div key={q.matching_question_id} className="group">
                 <button
-                  onClick={() => toggleExpanded(q.ow_question_id)}
+                  onClick={() => toggleExpanded(q.matching_question_id)}
                   className="w-full px-6 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors text-left"
                 >
-                  {expandedQ.has(q.ow_question_id) ? (
+                  {expandedQ.has(q.matching_question_id) ? (
                     <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
                   ) : (
                     <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
@@ -673,14 +618,14 @@ function AutoOwGenerationContent() {
                   <span className="text-xs font-mono text-slate-400 shrink-0 w-8">#{idx + 1}</span>
                   <span className="text-sm text-slate-800 flex-1 truncate">{q.question_text}</span>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      {q.correct_answer}
-                    </span>
-                    <Badge variant={getQuestionTypeBadgeVariant(q.question_type)} className="text-xs">
-                      {formatQuestionType(q.question_type)}
+                    <Badge variant="info" className="text-xs">
+                      {q.pairs?.length || 0} pairs
                     </Badge>
                     <Badge variant={q.difficulty_level === 'hard' ? 'danger' : q.difficulty_level === 'medium' ? 'warning' : 'success'} className="text-xs">
                       {q.difficulty_level}
+                    </Badge>
+                    <Badge variant={q.partial_scoring ? 'success' : 'default'} className="text-xs">
+                      {q.partial_scoring ? 'Partial' : 'All-or-nothing'}
                     </Badge>
                     {q.translations_created && q.translations_created.length > 0 && (
                       <Badge variant="info" className="text-xs">
@@ -691,49 +636,44 @@ function AutoOwGenerationContent() {
                   </div>
                 </button>
 
-                {expandedQ.has(q.ow_question_id) && (
+                {expandedQ.has(q.matching_question_id) && (
                   <div className="px-6 pb-4 pl-16 space-y-3">
-                    {/* Correct Answer */}
+                    {/* Matching Pairs */}
                     <div>
-                      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Correct Answer</span>
-                      <div className="mt-1">
-                        <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-500" />
-                          {q.correct_answer}
-                        </span>
+                      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Matching Pairs</span>
+                      <div className="mt-2 space-y-2">
+                        {q.pairs?.map((pair, pIdx) => (
+                          <div key={pair.id} className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5">
+                            <span className="text-xs font-mono text-slate-400 shrink-0 w-6">{pIdx + 1}.</span>
+                            <span className="text-sm text-slate-800 font-medium flex-1">{pair.left_text}</span>
+                            <span className="text-slate-400 shrink-0 text-sm font-medium">&harr;</span>
+                            <span className="text-sm text-emerald-700 font-medium flex-1 text-right">{pair.right_text}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Synonyms */}
-                    {q.synonyms && q.synonyms.length > 0 && (
-                      <div>
-                        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Alternative Answers (Synonyms)</span>
-                        <p className="text-sm text-slate-700 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 mt-1">
-                          {q.synonyms.map((s: any) => typeof s === 'string' ? s : s.synonym_text || s.text || JSON.stringify(s)).join(', ')}
-                        </p>
-                      </div>
-                    )}
-
                     {/* Hint */}
-                    {q.hint_text && (
+                    {q.hint && (
                       <div>
                         <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Hint</span>
-                        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-1">{q.hint_text}</p>
+                        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-1">{q.hint}</p>
                       </div>
                     )}
 
                     {/* Explanation */}
-                    {q.explanation_text && (
+                    {q.explanation && (
                       <div>
                         <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Explanation</span>
-                        <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mt-1">{q.explanation_text}</p>
+                        <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mt-1">{q.explanation}</p>
                       </div>
                     )}
 
                     <div className="flex items-center gap-4 text-xs text-slate-400">
                       <span>Code: {q.code}</span>
                       <span>Points: {q.points}</span>
-                      <span>ID: {q.ow_question_id}</span>
+                      <span>Partial scoring: {q.partial_scoring ? 'Yes' : 'No'}</span>
+                      <span>ID: {q.matching_question_id}</span>
                       {q.translations_created && q.translations_created.length > 0 && (
                         <span className="text-blue-500">Translated: {q.translations_created.join(', ')}</span>
                       )}
@@ -789,8 +729,8 @@ function AutoOwGenerationContent() {
       {!generating && results.length === 0 && !errorMsg && selectedTopic && (
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-8 text-center">
           <HelpCircle className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Click &quot;Generate One Word Questions&quot; to create questions from this topic&apos;s tutorial files.</p>
-          <p className="text-xs text-slate-400 mt-1">The system will find English sub-topic HTML files, extract content, and generate one-word / fill-in-the-blank / code output questions.</p>
+          <p className="text-sm text-slate-500">Click &quot;Generate Matching Questions&quot; to create questions from this topic&apos;s tutorial files.</p>
+          <p className="text-xs text-slate-400 mt-1">The system will find English sub-topic HTML files, extract content, and generate matching questions with left-right pairs.</p>
         </div>
       )}
     </div>

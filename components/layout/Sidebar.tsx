@@ -212,6 +212,23 @@ const navGroups: NavGroup[] = [
         label: 'Auto Desc Generation',
         icon: Sparkles,
       },
+      {
+        href: '/matching-questions',
+        label: 'Matching Questions',
+        icon: Link2,
+        subLinks: [{ href: '/matching-question-translations', label: 'Translations' }],
+      },
+      {
+        href: '/matching-pairs',
+        label: 'Matching Pairs',
+        icon: Link2,
+        subLinks: [{ href: '/matching-pair-translations', label: 'Translations' }],
+      },
+      {
+        href: '/auto-matching-generation',
+        label: 'Auto Matching Generation',
+        icon: Sparkles,
+      },
     ],
   },
 ];
