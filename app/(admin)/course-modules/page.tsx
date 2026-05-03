@@ -14,7 +14,7 @@ import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Layers, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X } from 'lucide-react';
+import { Plus, Layers, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePageSize } from '@/hooks/usePageSize';
@@ -165,6 +165,38 @@ export default function CourseModulesPage() {
       res.data.forEach((c: CoverageItem) => { map[c.course_module_id] = c; });
       setCoverage(map);
     }
+  }
+
+  async function handleFillAllMissing() {
+    if (!confirm('This will generate AI content for ALL course modules with missing or empty translations. This may take several minutes. Continue?')) return;
+    setBulkActionLoading(true);
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'course_module', generate_all: true, provider: 'gemini' });
+      if (res.success && res.data) {
+        const { summary: s } = res.data;
+        toast.success(`Generated content for ${s.success} item(s), ${s.skipped} already complete, ${s.errors} error(s)`);
+        load(); loadCoverage();
+      } else { toast.error(res.error || 'Bulk generation failed'); }
+    } catch { toast.error('Bulk generation failed'); }
+    setBulkActionLoading(false);
+  }
+
+  async function handleAIGenerateSingle(entityId: number, forceRegenerate: boolean = false) {
+    setBulkActionLoading(true);
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'course_module', entity_ids: [entityId], provider: 'gemini', force_regenerate: forceRegenerate });
+      if (res.success && res.data) {
+        const { summary: s, results: r } = res.data;
+        if (s.skipped > 0 && s.success === 0) {
+          toast.success('All translations already complete!');
+        } else {
+          const langsGenerated = r?.reduce((acc: number, item: any) => acc + (item.languages_generated || 0), 0) || 0;
+          toast.success(`${forceRegenerate ? 'Regenerated' : 'Generated'} ${langsGenerated} translation(s) across ${s.success} language(s)`);
+        }
+        load(); loadCoverage();
+      } else { toast.error(res.error || 'Generation failed'); }
+    } catch { toast.error('Generation failed'); }
+    setBulkActionLoading(false);
   }
 
   function handleSort(field: SortField) {
@@ -352,6 +384,7 @@ export default function CourseModulesPage() {
         description="Manage course modules and their details"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={handleFillAllMissing} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI Fill All Missing</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add module</Button>}
           </div>
         }
@@ -536,7 +569,7 @@ export default function CourseModulesPage() {
                         if (!cov) return <span className="text-slate-300 text-xs">--</span>;
                         const complete = cov.translated_count >= cov.total_languages;
                         return (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span className={cn(
                               'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full',
                               complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
@@ -544,6 +577,14 @@ export default function CourseModulesPage() {
                               {complete ? <Check className="w-3 h-3" /> : null}
                               {cov.translated_count}/{cov.total_languages}
                             </span>
+                            <button
+                              onClick={() => handleAIGenerateSingle(c.id, complete)}
+                              className={cn('p-1 rounded-md transition-colors', complete ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50' : 'text-violet-500 hover:text-violet-700 hover:bg-violet-50')}
+                              title={complete ? 'Regenerate translations' : 'Generate missing translations'}
+                              disabled={bulkActionLoading}
+                            >
+                              {complete ? <RotateCcw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+                            </button>
                           </div>
                         );
                       })()}

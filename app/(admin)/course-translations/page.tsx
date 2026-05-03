@@ -17,7 +17,8 @@ import { usePageSize } from '@/hooks/usePageSize';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, BookOpen, Trash2, Edit2, Globe, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Eye, Loader2, X } from 'lucide-react';
+import { AiProgressOverlay } from '@/components/ui/AiProgressOverlay';
+import { Plus, BookOpen, Trash2, Edit2, Globe, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Eye, Loader2, X, Sparkles, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Language } from '@/lib/types';
 
@@ -161,6 +162,9 @@ export default function CourseTranslationsPage() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
   const [formLoading, setFormLoading] = useState(false);
@@ -527,6 +531,87 @@ export default function CourseTranslationsPage() {
     setBulkProgress({ done: 0, total: 0 });
   }
 
+  // ─── AI Generation ───
+  async function handleAIGenerate() {
+    const courseId = getValues('course_id');
+    if (!courseId) { toast.error('Please select a course first'); return; }
+    setAiLoading(true);
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'course', entity_ids: [Number(courseId)], provider: 'gemini' });
+      if (res.success && res.data) {
+        toast.success(`AI generated translations for ${res.data.summary?.success || 0} language(s)`);
+        load(); loadCoverage(); refreshSummary();
+        // Refresh dialog form if language is selected
+        const langId = getValues('language_id');
+        if (langId) {
+          const qs = `?course_id=${courseId}&language_id=${langId}&limit=1`;
+          const fresh = await api.listCourseTranslations(qs);
+          if (fresh.success && fresh.data && fresh.data.length > 0) {
+            const item = fresh.data[0] as CourseTranslation;
+            setEditing(item);
+            setFormMode('existing');
+            skipAutoFetchRef.current = true;
+            populateForm(item);
+          }
+        }
+      } else toast.error(res.error || 'AI generation failed');
+    } catch (e: any) { toast.error(e.message || 'AI generation failed'); }
+    setAiLoading(false);
+  }
+
+  async function handleFillAllMissing() {
+    if (!confirm('This will generate AI translations for ALL courses with missing or empty translations. This may take several minutes. Continue?')) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: 0 });
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'course', generate_all: true, provider: 'gemini' });
+      if (res.success && res.data) {
+        const s = res.data.summary;
+        toast.success(`AI: ${s?.success || 0} courses generated, ${s?.skipped || 0} skipped, ${s?.errors || 0} errors`);
+        load(); loadCoverage(); refreshSummary();
+      } else toast.error(res.error || 'Bulk AI generation failed');
+    } catch (e: any) { toast.error(e.message || 'Bulk AI generation failed'); }
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
+  async function handleAIGenerateSingle(courseId: number, forceRegenerate: boolean = false) {
+    setBulkActionLoading(true);
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'course', entity_ids: [courseId], provider: 'gemini', force_regenerate: forceRegenerate });
+      if (res.success && res.data) {
+        const { summary: s, results: r } = res.data;
+        if (s.skipped > 0 && s.success === 0) {
+          toast.success('All translations already complete!');
+        } else {
+          const langsGenerated = r?.reduce((acc: number, item: any) => acc + (item.languages_generated || 0), 0) || 0;
+          toast.success(`${forceRegenerate ? 'Regenerated' : 'Generated'} ${langsGenerated} translation(s)`);
+        }
+        load(); loadCoverage();
+      } else { toast.error(res.error || 'Generation failed'); }
+    } catch { toast.error('Generation failed'); }
+    setBulkActionLoading(false);
+  }
+
+  async function handleBulkAIGenerate() {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: 0 });
+    try {
+      const parentIds = new Set<number>();
+      items.filter(i => selectedIds.has(i.id)).forEach(i => { if (i.course_id) parentIds.add(i.course_id); });
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'course', entity_ids: Array.from(parentIds), provider: 'gemini' });
+      if (res.success && res.data) {
+        const s = res.data.summary;
+        toast.success(`AI: ${s?.success || 0} courses generated, ${s?.skipped || 0} already complete`);
+        load(); loadCoverage(); refreshSummary();
+      } else toast.error(res.error || 'Bulk AI generation failed');
+    } catch (e: any) { toast.error(e.message || 'Bulk AI generation failed'); }
+    setSelectedIds(new Set());
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
   function handleSort(field: SortField) {
     if (sortField === field) setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortOrder('asc'); }
@@ -548,7 +633,7 @@ export default function CourseTranslationsPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader title="Course Translations" description="Manage multi-language translations for courses"
-        actions={!showTrash ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button> : undefined} />
+        actions={!showTrash ? <div className="flex items-center gap-2"><Button variant="outline" onClick={handleFillAllMissing} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI Fill All Missing</Button><Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button></div> : undefined} />
 
       {summary && (
         <div className="grid grid-cols-4 gap-4 mb-5">
@@ -641,7 +726,10 @@ export default function CourseTranslationsPage() {
                       <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
                     </>
                   ) : (
-                    <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                    <>
+                      <Button size="sm" variant="outline" onClick={handleBulkAIGenerate} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} AI Generate Content</Button>
+                      <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                    </>
                   )}
                   <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
                 </div>
@@ -673,9 +761,23 @@ export default function CourseTranslationsPage() {
                       <TD className="py-2.5"><span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{item.title}</span></TD>
                       <TD className="py-2.5">
                         {cov ? (
-                          <span className={cn('text-xs font-medium', cov.is_complete ? 'text-emerald-600' : 'text-amber-600')}>
-                            {cov.translated_count}/{cov.total_languages}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn(
+                              'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full',
+                              cov.is_complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                            )}>
+                              {cov.is_complete && <Check className="w-3 h-3" />}
+                              {cov.translated_count}/{cov.total_languages}
+                            </span>
+                            <button
+                              onClick={() => handleAIGenerateSingle(item.course_id, cov.is_complete)}
+                              disabled={bulkActionLoading}
+                              className={cn('p-1 rounded-md transition-colors', cov.is_complete ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50' : 'text-violet-500 hover:text-violet-700 hover:bg-violet-50')}
+                              title={cov.is_complete ? 'Regenerate translations' : 'Generate missing translations'}
+                            >
+                              {cov.is_complete ? <RotateCcw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
                         ) : <span className="text-slate-300">--</span>}
                       </TD>
                       {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{item.deleted_at ? fromNow(item.deleted_at) : '--'}</span></TD>}
@@ -857,6 +959,31 @@ export default function CourseTranslationsPage() {
               </button>
             </div>
           )}
+
+          {/* AI Generate Panel */}
+          <div className="border border-indigo-200 rounded-lg overflow-hidden">
+            <button type="button" onClick={() => setAiPanelOpen(!aiPanelOpen)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 transition-colors text-sm font-medium text-indigo-700">
+              <span className="flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Generate All Translations</span>
+              {aiPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {aiPanelOpen && (
+              <div className="px-4 py-3 bg-white space-y-3">
+                <p className="text-xs text-slate-500">
+                  AI will generate <strong>English</strong> content first, then translate into <strong>all active languages</strong> for the selected course. Existing translations are preserved.
+                </p>
+                <Button type="button" onClick={handleAIGenerate} disabled={aiLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+                  {aiLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+                </Button>
+                <AiProgressOverlay
+                  active={aiLoading}
+                  phases={['Analyzing course content...', 'Generating English translations...', 'Translating to other languages...', 'Processing JSONB fields...', 'Finalizing results...']}
+                  title="AI Translation"
+                  subtitle={`Generating translations for ${courses.find(c => String(c.id) === String(watch('course_id')))?.name || courses.find(c => String(c.id) === String(watch('course_id')))?.code || 'course'}`}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Mode badge */}
           <div className="flex items-center gap-2">

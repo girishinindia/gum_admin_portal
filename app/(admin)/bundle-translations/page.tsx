@@ -17,7 +17,8 @@ import { usePageSize } from '@/hooks/usePageSize';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Globe, Trash2, Edit2, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Eye, Loader2, X, Image as ImageIcon } from 'lucide-react';
+import { AiProgressOverlay } from '@/components/ui/AiProgressOverlay';
+import { Plus, Globe, Trash2, Edit2, CheckCircle2, XCircle, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, AlertTriangle, Eye, Loader2, X, Image as ImageIcon, Sparkles, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import type { Language } from '@/lib/types';
 
@@ -136,6 +137,9 @@ export default function BundleTranslationsPage() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
   const [formLoading, setFormLoading] = useState(false);
@@ -455,6 +459,86 @@ export default function BundleTranslationsPage() {
     setBulkProgress({ done: 0, total: 0 });
   }
 
+  // ─── AI Generation ───
+  async function handleAIGenerate() {
+    const bundleId = getValues('bundle_id');
+    if (!bundleId) { toast.error('Please select a bundle first'); return; }
+    setAiLoading(true);
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'bundle', entity_ids: [Number(bundleId)], provider: 'gemini' });
+      if (res.success && res.data) {
+        toast.success(`AI generated translations for ${res.data.summary?.success || 0} language(s)`);
+        load(); loadCoverage(); refreshSummary();
+        const langId = getValues('language_id');
+        if (langId) {
+          const qs = `?bundle_id=${bundleId}&language_id=${langId}&limit=1`;
+          const fresh = await api.listBundleTranslations(qs);
+          if (fresh.success && fresh.data && fresh.data.length > 0) {
+            const item = fresh.data[0] as BundleTranslation;
+            setEditing(item);
+            setFormMode('existing');
+            skipAutoFetchRef.current = true;
+            populateForm(item);
+          }
+        }
+      } else toast.error(res.error || 'AI generation failed');
+    } catch (e: any) { toast.error(e.message || 'AI generation failed'); }
+    setAiLoading(false);
+  }
+
+  async function handleFillAllMissing() {
+    if (!confirm('This will generate AI translations for ALL bundles with missing or empty translations. This may take several minutes. Continue?')) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: 0 });
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'bundle', generate_all: true, provider: 'gemini' });
+      if (res.success && res.data) {
+        const s = res.data.summary;
+        toast.success(`AI: ${s?.success || 0} bundles generated, ${s?.skipped || 0} skipped, ${s?.errors || 0} errors`);
+        load(); loadCoverage(); refreshSummary();
+      } else toast.error(res.error || 'Bulk AI generation failed');
+    } catch (e: any) { toast.error(e.message || 'Bulk AI generation failed'); }
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
+  async function handleAIGenerateSingle(bundleId: number, forceRegenerate: boolean = false) {
+    setBulkActionLoading(true);
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'bundle', entity_ids: [bundleId], provider: 'gemini', force_regenerate: forceRegenerate });
+      if (res.success && res.data) {
+        const { summary: s, results: r } = res.data;
+        if (s.skipped > 0 && s.success === 0) {
+          toast.success('All translations already complete!');
+        } else {
+          const langsGenerated = r?.reduce((acc: number, item: any) => acc + (item.languages_generated || 0), 0) || 0;
+          toast.success(`${forceRegenerate ? 'Regenerated' : 'Generated'} ${langsGenerated} translation(s)`);
+        }
+        load(); loadCoverage();
+      } else { toast.error(res.error || 'Generation failed'); }
+    } catch { toast.error('Generation failed'); }
+    setBulkActionLoading(false);
+  }
+
+  async function handleBulkAIGenerate() {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    setBulkProgress({ done: 0, total: 0 });
+    try {
+      const parentIds = new Set<number>();
+      items.filter(i => selectedIds.has(i.id)).forEach(i => { if (i.bundle_id) parentIds.add(i.bundle_id); });
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'bundle', entity_ids: Array.from(parentIds), provider: 'gemini' });
+      if (res.success && res.data) {
+        const s = res.data.summary;
+        toast.success(`AI: ${s?.success || 0} bundles generated, ${s?.skipped || 0} already complete`);
+        load(); loadCoverage(); refreshSummary();
+      } else toast.error(res.error || 'Bulk AI generation failed');
+    } catch (e: any) { toast.error(e.message || 'Bulk AI generation failed'); }
+    setSelectedIds(new Set());
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
   function handleSort(field: SortField) {
     if (sortField === field) setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortOrder('asc'); }
@@ -476,7 +560,7 @@ export default function BundleTranslationsPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader title="Bundle Translations" description="Manage multi-language translations for bundles"
-        actions={!showTrash ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button> : undefined} />
+        actions={!showTrash ? <div className="flex items-center gap-2"><Button variant="outline" onClick={handleFillAllMissing} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI Fill All Missing</Button><Button onClick={openCreate}><Plus className="w-4 h-4" /> Add translation</Button></div> : undefined} />
 
       {summary && (
         <div className="grid grid-cols-4 gap-4 mb-5">
@@ -569,7 +653,10 @@ export default function BundleTranslationsPage() {
                       <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
                     </>
                   ) : (
-                    <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                    <>
+                      <Button size="sm" variant="outline" onClick={handleBulkAIGenerate} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} AI Generate Content</Button>
+                      <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                    </>
                   )}
                   <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
                 </div>
@@ -584,13 +671,16 @@ export default function BundleTranslationsPage() {
                   <TH>Language</TH>
                   <TH><button onClick={() => handleSort('title')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Title <SortIcon field="title" /></button></TH>
                   <TH>Images</TH>
+                  <TH>Coverage</TH>
                   {showTrash && <TH>Deleted</TH>}
                   <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Active <SortIcon field="is_active" /></button></TH>
                   <TH className="text-right">Actions</TH>
                 </TR>
               </THead>
               <TBody>
-                {items.map(item => (
+                {items.map(item => {
+                  const cov = getCoverage(item.bundle_id);
+                  return (
                   <TR key={item.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(item.id) && 'bg-brand-50/40')}>
                     <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                     <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{item.id}</span></TD>
@@ -603,6 +693,27 @@ export default function BundleTranslationsPage() {
                         {item.banner_url && <span title="Banner"><ImageIcon className="w-3.5 h-3.5 text-blue-500" /></span>}
                         {!item.thumbnail_url && !item.banner_url && <span className="text-slate-300">--</span>}
                       </div>
+                    </TD>
+                    <TD className="py-2.5">
+                      {cov ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn(
+                            'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full',
+                            cov.is_complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                          )}>
+                            {cov.is_complete && <Check className="w-3 h-3" />}
+                            {cov.translated_count}/{cov.total_languages}
+                          </span>
+                          <button
+                            onClick={() => handleAIGenerateSingle(item.bundle_id, cov.is_complete)}
+                            disabled={bulkActionLoading}
+                            className={cn('p-1 rounded-md transition-colors', cov.is_complete ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50' : 'text-violet-500 hover:text-violet-700 hover:bg-violet-50')}
+                            title={cov.is_complete ? 'Regenerate translations' : 'Generate missing translations'}
+                          >
+                            {cov.is_complete ? <RotateCcw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      ) : <span className="text-slate-300">--</span>}
                     </TD>
                     {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{item.deleted_at ? fromNow(item.deleted_at) : '--'}</span></TD>}
                     <TD className="py-2.5">
@@ -625,7 +736,8 @@ export default function BundleTranslationsPage() {
                       </div>
                     </TD>
                   </TR>
-                ))}
+                  );
+                })}
               </TBody>
             </Table>
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={(s) => setPageSize(s)} total={total} showingCount={items.length} />
@@ -761,6 +873,31 @@ export default function BundleTranslationsPage() {
               </button>
             </div>
           )}
+
+          {/* AI Generate Panel */}
+          <div className="border border-indigo-200 rounded-lg overflow-hidden">
+            <button type="button" onClick={() => setAiPanelOpen(!aiPanelOpen)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 transition-colors text-sm font-medium text-indigo-700">
+              <span className="flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Generate All Translations</span>
+              {aiPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {aiPanelOpen && (
+              <div className="px-4 py-3 bg-white space-y-3">
+                <p className="text-xs text-slate-500">
+                  AI will generate <strong>English</strong> content first, then translate into <strong>all active languages</strong> for the selected bundle. Existing translations are preserved.
+                </p>
+                <Button type="button" onClick={handleAIGenerate} disabled={aiLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+                  {aiLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+                </Button>
+                <AiProgressOverlay
+                  active={aiLoading}
+                  phases={['Analyzing bundle content...', 'Generating English translations...', 'Translating to other languages...', 'Processing JSONB fields...', 'Finalizing results...']}
+                  title="AI Translation"
+                  subtitle={`Generating translations for ${bundles.find(b => String(b.id) === String(watch('bundle_id')))?.title || bundles.find(b => String(b.id) === String(watch('bundle_id')))?.code || 'bundle'}`}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Mode badge */}
           <div className="flex items-center gap-2">

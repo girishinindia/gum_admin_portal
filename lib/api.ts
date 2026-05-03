@@ -431,7 +431,7 @@ export const api = {
     request('/ai/bulk-generate-sub-topic-translations', { method: 'POST', body: JSON.stringify(data) }),
 
   // AI — Bulk generate missing content for multiple entities (or all with generate_all)
-  bulkGenerateMissingContent: (data: { entity_type: string; entity_ids?: number[]; generate_all?: boolean; prompt?: string; provider?: string }) =>
+  bulkGenerateMissingContent: (data: { entity_type: string; entity_ids?: number[]; generate_all?: boolean; force_regenerate?: boolean; prompt?: string; provider?: string }) =>
     request('/ai/bulk-generate-missing-content', { method: 'POST', body: JSON.stringify(data) }),
 
   // AI — Auto Sub Topics from HTML
