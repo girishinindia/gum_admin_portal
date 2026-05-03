@@ -529,16 +529,16 @@ export default function OwSynonymsPage() {
             </select>
             <select className={selectClass} value={filterChapterId} onChange={e => setFilterChapterId(e.target.value)} disabled={!filterSubjectId}>
               <option value="">All Chapters</option>
-              {chapters.map(c => <option key={c.id} value={c.id}>{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
+              {chapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
             </select>
             <select className={selectClass} value={filterTopicId} onChange={e => setFilterTopicId(e.target.value)} disabled={!filterChapterId}>
               <option value="">All Topics</option>
-              {topics.map(t => <option key={t.id} value={t.id}>{t.english_name || t.name || `Topic ${t.id}`}</option>)}
+              {topics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name || `Topic ${t.id}`}</option>)}
             </select>
             <select className={selectClass} value={filterQuestionId} onChange={e => setFilterQuestionId(e.target.value)} disabled={!filterTopicId}>
               <option value="">All Questions</option>
               {owQuestions.map(q => (
-                <option key={q.id} value={String(q.id)}>{q.question_text || q.code || `Question #${q.id}`}</option>
+                <option key={q.id} value={String(q.id)}>{q.display_order ? q.display_order + '. ' : ''}{q.code}</option>
               ))}
             </select>
             <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
@@ -802,7 +802,7 @@ export default function OwSynonymsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Chapter</label>
                 <select className={cn(selectClass, 'w-full')} value={formChapterId} onChange={e => setFormChapterId(e.target.value)} disabled={!formSubjectId}>
                   <option value="">Select chapter...</option>
-                  {formChapters.map(c => <option key={c.id} value={c.id}>{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
+                  {formChapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
                 </select>
               </div>
             </div>
@@ -811,7 +811,7 @@ export default function OwSynonymsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Topic</label>
                 <select className={cn(selectClass, 'w-full')} value={formTopicId} onChange={e => setFormTopicId(e.target.value)} disabled={!formChapterId}>
                   <option value="">Select topic...</option>
-                  {formTopics.map(t => <option key={t.id} value={t.id}>{t.english_name || t.name || `Topic ${t.id}`}</option>)}
+                  {formTopics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name || `Topic ${t.id}`}</option>)}
                 </select>
               </div>
               <div>
@@ -819,7 +819,7 @@ export default function OwSynonymsPage() {
                 <select className={cn(selectClass, 'w-full')} {...register('one_word_question_id', { required: true })} disabled={!formTopicId}>
                   <option value="">Select a question...</option>
                   {formQuestions.map(q => (
-                    <option key={q.id} value={q.id}>{q.question_text || q.code || `Question #${q.id}`}</option>
+                    <option key={q.id} value={q.id}>{q.display_order ? q.display_order + '. ' : ''}{q.code}</option>
                   ))}
                 </select>
               </div>

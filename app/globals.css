@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -28,6 +30,17 @@
 
 @layer utilities {
   .text-balance { text-wrap: balance; }
+}
+
+/* Highlight.js code blocks — force Fira Code font */
+.hljs,
+pre code[class*="language-"],
+pre code,
+pre {
+  font-family: "Fira Code", monospace !important;
+  font-weight: 500 !important;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 /* AI Progress Bar — indeterminate animation */

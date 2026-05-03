@@ -83,6 +83,16 @@ export default function McqOptionTranslationsPage() {
   const [filterMcqOption, setFilterMcqOption] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+
+  // Cascade filter state
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [chapters, setChapters] = useState<any[]>([]);
+  const [topics, setTopics] = useState<any[]>([]);
+  const [mcqQuestions, setMcqQuestions] = useState<any[]>([]);
+  const [filterSubjectId, setFilterSubjectId] = useState('');
+  const [filterChapterId, setFilterChapterId] = useState('');
+  const [filterTopicId, setFilterTopicId] = useState('');
+  const [filterQuestionId, setFilterQuestionId] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
@@ -167,17 +177,81 @@ export default function McqOptionTranslationsPage() {
   useEffect(() => {
     api.listMcqOptions('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setMcqOptions(res.data || []); });
     api.listLanguages('?limit=999&sort=name&order=asc').then(res => { if (res.success) setLanguages(res.data || []); });
+    api.listSubjects('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setSubjects(res.data || []); });
     refreshSummary();
     loadCoverage();
   }, []);
+
+  // Cascade: when filter subject changes, load chapters
+  useEffect(() => {
+    setFilterChapterId('');
+    setFilterTopicId('');
+    setFilterQuestionId('');
+    setFilterMcqOption('');
+    if (filterSubjectId) {
+      api.listChapters(`?limit=999&sort=display_order&order=asc&subject_id=${filterSubjectId}`).then(res => {
+        if (res.success) setChapters(res.data || []);
+        else setChapters([]);
+      });
+    } else {
+      setChapters([]);
+    }
+    setTopics([]);
+    setMcqQuestions([]);
+  }, [filterSubjectId]);
+
+  // Cascade: when filter chapter changes, load topics
+  useEffect(() => {
+    setFilterTopicId('');
+    setFilterQuestionId('');
+    setFilterMcqOption('');
+    if (filterChapterId) {
+      api.listTopics(`?limit=999&sort=display_order&order=asc&chapter_id=${filterChapterId}`).then(res => {
+        if (res.success) setTopics(res.data || []);
+        else setTopics([]);
+      });
+    } else {
+      setTopics([]);
+    }
+    setMcqQuestions([]);
+  }, [filterChapterId]);
+
+  // Cascade: when filter topic changes, load questions
+  useEffect(() => {
+    setFilterQuestionId('');
+    setFilterMcqOption('');
+    if (filterTopicId) {
+      api.listMcqQuestions(`?limit=999&sort=display_order&order=asc&topic_id=${filterTopicId}`).then(res => {
+        if (res.success) setMcqQuestions(res.data || []);
+        else setMcqQuestions([]);
+      });
+    } else {
+      setMcqQuestions([]);
+    }
+  }, [filterTopicId]);
+
+  // Cascade: when filter question changes, reload mcqOptions filtered by that question
+  useEffect(() => {
+    setFilterMcqOption('');
+    if (filterQuestionId) {
+      api.listMcqOptions(`?mcq_question_id=${filterQuestionId}&limit=999&sort=display_order&order=asc`).then(res => {
+        if (res.success) setMcqOptions(res.data || []);
+        else setMcqOptions([]);
+      });
+    } else {
+      api.listMcqOptions('?limit=999&sort=display_order&order=asc').then(res => {
+        if (res.success) setMcqOptions(res.data || []);
+      });
+    }
+  }, [filterQuestionId]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounce(search), 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterMcqOption, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterMcqOption, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterMcqOption, filterLanguage, filterStatus, filterSubjectId, filterChapterId, filterTopicId, filterQuestionId, sortField, sortOrder, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterMcqOption, filterLanguage, filterStatus, filterSubjectId, filterChapterId, filterTopicId, filterQuestionId, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function refreshSummary() {
     const res = await api.getTableSummary('mcq_option_translations');
@@ -433,16 +507,31 @@ export default function McqOptionTranslationsPage() {
       <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
         {!showTrash && (
           <>
-            <select className={selectClass} value={filterMcqOption} onChange={e => setFilterMcqOption(e.target.value)}>
-              <option value="">All MCQ Options</option>
-              {mcqOptions.map(o => <option key={o.id} value={o.id}>Option #{o.id} (Q{o.mcq_question_id})</option>)}
+            <select className={selectClass} value={filterSubjectId} onChange={e => setFilterSubjectId(e.target.value)}>
+              <option value="">All Subjects</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.english_name || s.name || `Subject ${s.id}`}</option>)}
+            </select>
+            <select className={selectClass} value={filterChapterId} onChange={e => setFilterChapterId(e.target.value)} disabled={!filterSubjectId}>
+              <option value="">All Chapters</option>
+              {chapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
+            </select>
+            <select className={selectClass} value={filterTopicId} onChange={e => setFilterTopicId(e.target.value)} disabled={!filterChapterId}>
+              <option value="">All Topics</option>
+              {topics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name || `Topic ${t.id}`}</option>)}
+            </select>
+            <select className={selectClass} value={filterQuestionId} onChange={e => setFilterQuestionId(e.target.value)} disabled={!filterTopicId}>
+              <option value="">All Questions</option>
+              {mcqQuestions.map(q => <option key={q.id} value={String(q.id)}>{q.display_order ? q.display_order + '. ' : ''}{q.code || `Question #${q.id}`}</option>)}
+            </select>
+            <select className={selectClass} value={filterMcqOption} onChange={e => setFilterMcqOption(e.target.value)} disabled={!filterQuestionId}>
+              <option value="">All Options</option>
+              {mcqOptions.map(o => <option key={o.id} value={o.id}>{o.display_order ? o.display_order + '. ' : ''}Option #{o.id}</option>)}
             </select>
             <select className={selectClass} value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
               <option value="">All languages</option>
               {languages.map(l => <option key={l.id} value={l.id}>{l.name}{l.native_name ? ` (${l.native_name})` : ''}</option>)}
             </select>
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat">
+            <select className={selectClass} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
               <option value="">All Status</option>
               <option value="true">Active</option>
               <option value="false">Inactive</option>
@@ -639,7 +728,7 @@ export default function McqOptionTranslationsPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">MCQ Option</label>
               <select className={cn(selectClass, 'w-full')} {...register('mcq_option_id', { required: true })}>
-                {mcqOptions.map(o => <option key={o.id} value={o.id}>Option #{o.id} (Q{o.mcq_question_id}, Order: {o.display_order})</option>)}
+                {mcqOptions.map(o => <option key={o.id} value={o.id}>{o.display_order ? o.display_order + '. ' : ''}Option #{o.id}</option>)}
               </select>
             </div>
             <div>

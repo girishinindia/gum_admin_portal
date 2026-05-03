@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog } from '@/components/ui/Dialog';
+import { QuestionViewDialog } from '@/components/ui/QuestionViewDialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -59,6 +60,7 @@ export default function DescQuestionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [viewing, setViewing] = useState<any | null>(null);
+  const [viewDialogQuestion, setViewDialogQuestion] = useState<{ id: number; code: string } | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
 
   // Pagination, search, sort, filter
@@ -544,11 +546,11 @@ export default function DescQuestionsPage() {
             </select>
             <select className={selectClass} value={filterChapterId} onChange={e => setFilterChapterId(e.target.value)} disabled={!filterSubjectId}>
               <option value="">All Chapters</option>
-              {chapters.map(c => <option key={c.id} value={c.id}>{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
+              {chapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
             </select>
             <select className={selectClass} value={filterTopicId} onChange={e => setFilterTopicId(e.target.value)} disabled={!filterChapterId}>
               <option value="">All Topics</option>
-              {topics.map(t => <option key={t.id} value={t.id}>{t.english_name || t.name || `Topic ${t.id}`}</option>)}
+              {topics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name || `Topic ${t.id}`}</option>)}
             </select>
             <select className={selectClass} value={filterAnswerType} onChange={e => setFilterAnswerType(e.target.value)}>
               <option value="">All Types</option>
@@ -618,11 +620,6 @@ export default function DescQuestionsPage() {
               <TR className="hover:bg-transparent">
                 <TH className="w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                 <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
-                <TH>
-                  <button onClick={() => handleSort('code')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Code <SortIcon field="code" />
-                  </button>
-                </TH>
                 <TH>Question</TH>
                 <TH>
                   <button onClick={() => handleSort('answer_type')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
@@ -654,9 +651,6 @@ export default function DescQuestionsPage() {
                 <TR key={c.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(c.id) && 'bg-brand-50/40')}>
                   <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{c.id}</span></TD>
-                  <TD className="py-2.5">
-                    <span className={cn('text-sm font-medium font-mono', showTrash ? 'text-slate-500 line-through' : 'text-slate-700')}>{c.code}</span>
-                  </TD>
                   <TD className="py-2.5">
                     <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>
                       {c.question_text ? (c.question_text.length > 60 ? c.question_text.substring(0, 60) + '...' : c.question_text) : c.slug || ''}
@@ -736,7 +730,7 @@ export default function DescQuestionsPage() {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => openView(c)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                          <button onClick={() => setViewDialogQuestion({ id: c.id, code: c.code })} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="Full View">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => openEdit(c)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
@@ -840,6 +834,15 @@ export default function DescQuestionsPage() {
         )}
       </Dialog>
 
+      {/* ── Full Question View Dialog ── */}
+      <QuestionViewDialog
+        open={!!viewDialogQuestion}
+        onClose={() => setViewDialogQuestion(null)}
+        questionType="desc"
+        questionId={viewDialogQuestion?.id ?? null}
+        questionCode={viewDialogQuestion?.code ?? ''}
+      />
+
       {/* ── Create / Edit Dialog ── */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Descriptive Question' : 'Add Descriptive Question'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
@@ -887,14 +890,14 @@ export default function DescQuestionsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Chapter</label>
                 <select className={cn(selectClass, 'w-full')} value={formChapterId} onChange={e => setFormChapterId(e.target.value)} disabled={!formSubjectId}>
                   <option value="">Select chapter...</option>
-                  {formChapters.map(c => <option key={c.id} value={c.id}>{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
+                  {formChapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Topic</label>
                 <select className={cn(selectClass, 'w-full')} {...register('topic_id')} disabled={!formChapterId}>
                   <option value="">Select topic...</option>
-                  {formTopics.map(t => <option key={t.id} value={t.id}>{t.english_name || t.name || `Topic ${t.id}`}</option>)}
+                  {formTopics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name || `Topic ${t.id}`}</option>)}
                 </select>
               </div>
             </div>

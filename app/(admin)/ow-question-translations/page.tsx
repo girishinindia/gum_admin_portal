@@ -84,6 +84,12 @@ export default function OwQuestionTranslationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<OwQuestionTranslation | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [chapters, setChapters] = useState<any[]>([]);
+  const [topics, setTopics] = useState<any[]>([]);
+  const [filterSubjectId, setFilterSubjectId] = useState('');
+  const [filterChapterId, setFilterChapterId] = useState('');
+  const [filterTopicId, setFilterTopicId] = useState('');
   const [filterQuestion, setFilterQuestion] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -171,19 +177,63 @@ export default function OwQuestionTranslationsPage() {
   }, [watchedQuestionId, watchedLangId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    api.listOwQuestions('?limit=999&sort=code&order=asc').then(res => { if (res.success) setOwQuestions(res.data || []); });
+    api.listOwQuestions('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setOwQuestions(res.data || []); });
     api.listLanguages('?limit=999&sort=name&order=asc').then(res => { if (res.success) setLanguages(res.data || []); });
+    api.listSubjects('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setSubjects(res.data || []); });
     refreshSummary();
     loadCoverage();
   }, []);
+
+  // Cascade: when filter subject changes, load chapters
+  useEffect(() => {
+    setFilterChapterId('');
+    setFilterTopicId('');
+    setFilterQuestion('');
+    if (filterSubjectId) {
+      api.listChapters(`?limit=999&sort=display_order&order=asc&subject_id=${filterSubjectId}`).then(res => {
+        if (res.success) setChapters(res.data || []);
+        else setChapters([]);
+      });
+    } else {
+      setChapters([]);
+    }
+    setTopics([]);
+  }, [filterSubjectId]);
+
+  // Cascade: when filter chapter changes, load topics
+  useEffect(() => {
+    setFilterTopicId('');
+    setFilterQuestion('');
+    if (filterChapterId) {
+      api.listTopics(`?limit=999&sort=display_order&order=asc&chapter_id=${filterChapterId}`).then(res => {
+        if (res.success) setTopics(res.data || []);
+        else setTopics([]);
+      });
+    } else {
+      setTopics([]);
+    }
+  }, [filterChapterId]);
+
+  // Cascade: when filter topic changes, reload questions
+  useEffect(() => {
+    setFilterQuestion('');
+    if (filterTopicId) {
+      api.listOwQuestions(`?topic_id=${filterTopicId}&limit=999&sort=display_order&order=asc`).then(res => {
+        if (res.success) setOwQuestions(res.data || []);
+        else setOwQuestions([]);
+      });
+    } else {
+      api.listOwQuestions('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setOwQuestions(res.data || []); });
+    }
+  }, [filterTopicId]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounce(search), 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterQuestion, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterQuestion, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterSubjectId, filterChapterId, filterTopicId, filterQuestion, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterSubjectId, filterChapterId, filterTopicId, filterQuestion, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function refreshSummary() {
     const res = await api.getTableSummary('one_word_question_translations');
@@ -443,9 +493,21 @@ export default function OwQuestionTranslationsPage() {
       <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
         {!showTrash && (
           <>
-            <select className={selectClass} value={filterQuestion} onChange={e => setFilterQuestion(e.target.value)}>
-              <option value="">All questions</option>
-              {owQuestions.map(q => <option key={q.id} value={q.id}>{q.code}{q.slug ? ` (${q.slug})` : ''}</option>)}
+            <select className={selectClass} value={filterSubjectId} onChange={e => setFilterSubjectId(e.target.value)}>
+              <option value="">All Subjects</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.english_name || s.name || `Subject ${s.id}`}</option>)}
+            </select>
+            <select className={selectClass} value={filterChapterId} onChange={e => setFilterChapterId(e.target.value)} disabled={!filterSubjectId}>
+              <option value="">All Chapters</option>
+              {chapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
+            </select>
+            <select className={selectClass} value={filterTopicId} onChange={e => setFilterTopicId(e.target.value)} disabled={!filterChapterId}>
+              <option value="">All Topics</option>
+              {topics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name || `Topic ${t.id}`}</option>)}
+            </select>
+            <select className={selectClass} value={filterQuestion} onChange={e => setFilterQuestion(e.target.value)} disabled={!filterTopicId}>
+              <option value="">All Questions</option>
+              {owQuestions.map(q => <option key={q.id} value={q.id}>{q.display_order ? q.display_order + '. ' : ''}{q.code}</option>)}
             </select>
             <select className={selectClass} value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
               <option value="">All languages</option>
@@ -668,7 +730,7 @@ export default function OwQuestionTranslationsPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">One Word Question</label>
               <select className={cn(selectClass, 'w-full')} {...register('one_word_question_id', { required: true })}>
-                {owQuestions.map(q => <option key={q.id} value={q.id}>{q.code}{q.slug ? ` (${q.slug})` : ''}</option>)}
+                {owQuestions.map(q => <option key={q.id} value={q.id}>{q.display_order ? q.display_order + '. ' : ''}{q.code}</option>)}
               </select>
             </div>
             <div>

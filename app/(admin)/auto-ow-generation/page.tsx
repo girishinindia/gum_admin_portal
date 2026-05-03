@@ -335,7 +335,8 @@ function AutoOwGenerationContent() {
   function getQuestionTypeBadgeVariant(type: string): 'success' | 'info' | 'warning' {
     switch (type) {
       case 'one_word': return 'success';
-      case 'fill_in_the_blank': return 'info';
+      case 'fill_in_the_blank':
+      case 'fill_in_blank': return 'info';
       case 'code_output': return 'warning';
       default: return 'info';
     }
@@ -344,7 +345,8 @@ function AutoOwGenerationContent() {
   function formatQuestionType(type: string): string {
     switch (type) {
       case 'one_word': return 'one word';
-      case 'fill_in_the_blank': return 'fill in the blank';
+      case 'fill_in_the_blank':
+      case 'fill_in_blank': return 'fill in the blank';
       case 'code_output': return 'code output';
       default: return type.replace(/_/g, ' ');
     }

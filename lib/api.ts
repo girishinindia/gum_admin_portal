@@ -591,7 +591,10 @@ export const api = {
   // MCQ Questions
   listMcqQuestions: (qs = '') => request(`/mcq-questions${qs}`, { auth: false }),
   getMcqQuestion: (id: number) => request(`/mcq-questions/${id}`, { auth: false }),
+  getMcqQuestionFull: (id: number) => request(`/mcq-questions/${id}/full`, { auth: false }),
   createMcqQuestion: (data: any) => request('/mcq-questions', { method: 'POST', body: JSON.stringify(data) }),
+  createFullMcqQuestion: (data: any) => request('/mcq-questions/create-full', { method: 'POST', body: JSON.stringify(data) }),
+  updateFullMcqQuestion: (id: number, data: any) => request(`/mcq-questions/${id}/update-full`, { method: 'PUT', body: JSON.stringify(data) }),
   updateMcqQuestion: (id: number, data: any) => request(`/mcq-questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteMcqQuestion: (id: number) => request(`/mcq-questions/${id}`, { method: 'DELETE' }),
   restoreMcqQuestion: (id: number) => request(`/mcq-questions/${id}/restore`, { method: 'PATCH' }),
@@ -635,6 +638,9 @@ export const api = {
   // One Word Questions
   listOwQuestions: (qs = '') => request(`/ow-questions${qs}`, { auth: false }),
   getOwQuestion: (id: number) => request(`/ow-questions/${id}`, { auth: false }),
+  getOwQuestionFull: (id: number) => request(`/ow-questions/${id}/full`, { auth: false }),
+  createFullOwQuestion: (data: any) => request('/ow-questions/create-full', { method: 'POST', body: JSON.stringify(data) }),
+  updateFullOwQuestion: (id: number, data: any) => request(`/ow-questions/${id}/update-full`, { method: 'PUT', body: JSON.stringify(data) }),
   createOwQuestion: (data: any) => request('/ow-questions', { method: 'POST', body: JSON.stringify(data) }),
   updateOwQuestion: (id: number, data: any) => request(`/ow-questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteOwQuestion: (id: number) => request(`/ow-questions/${id}`, { method: 'DELETE' }),
@@ -679,6 +685,9 @@ export const api = {
   // Descriptive Questions
   listDescQuestions: (qs = '') => request(`/desc-questions${qs}`, { auth: false }),
   getDescQuestion: (id: number) => request(`/desc-questions/${id}`, { auth: false }),
+  getDescQuestionFull: (id: number) => request(`/desc-questions/${id}/full`, { auth: false }),
+  createFullDescQuestion: (data: any) => request('/desc-questions/create-full', { method: 'POST', body: JSON.stringify(data) }),
+  updateFullDescQuestion: (id: number, data: any) => request(`/desc-questions/${id}/update-full`, { method: 'PUT', body: JSON.stringify(data) }),
   createDescQuestion: (data: any) => request('/desc-questions', { method: 'POST', body: JSON.stringify(data) }),
   updateDescQuestion: (id: number, data: any) => request(`/desc-questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteDescQuestion: (id: number) => request(`/desc-questions/${id}`, { method: 'DELETE' }),
@@ -704,6 +713,9 @@ export const api = {
   // Matching Questions
   listMatchingQuestions: (qs = '') => request(`/matching-questions${qs}`, { auth: false }),
   getMatchingQuestion: (id: number) => request(`/matching-questions/${id}`, { auth: false }),
+  getMatchingQuestionFull: (id: number) => request(`/matching-questions/${id}/full`, { auth: false }),
+  createFullMatchingQuestion: (data: any) => request('/matching-questions/create-full', { method: 'POST', body: JSON.stringify(data) }),
+  updateFullMatchingQuestion: (id: number, data: any) => request(`/matching-questions/${id}/update-full`, { method: 'PUT', body: JSON.stringify(data) }),
   createMatchingQuestion: (data: any) => request('/matching-questions', { method: 'POST', body: JSON.stringify(data) }),
   updateMatchingQuestion: (id: number, data: any) => request(`/matching-questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteMatchingQuestion: (id: number) => request(`/matching-questions/${id}`, { method: 'DELETE' }),
@@ -748,6 +760,9 @@ export const api = {
   // Ordering Questions
   listOrderingQuestions: (qs = '') => request(`/ordering-questions${qs}`, { auth: false }),
   getOrderingQuestion: (id: number) => request(`/ordering-questions/${id}`, { auth: false }),
+  getOrderingQuestionFull: (id: number) => request(`/ordering-questions/${id}/full`, { auth: false }),
+  createFullOrderingQuestion: (data: any) => request('/ordering-questions/create-full', { method: 'POST', body: JSON.stringify(data) }),
+  updateFullOrderingQuestion: (id: number, data: any) => request(`/ordering-questions/${id}/update-full`, { method: 'PUT', body: JSON.stringify(data) }),
   createOrderingQuestion: (data: any) => request('/ordering-questions', { method: 'POST', body: JSON.stringify(data) }),
   updateOrderingQuestion: (id: number, data: any) => request(`/ordering-questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteOrderingQuestion: (id: number) => request(`/ordering-questions/${id}`, { method: 'DELETE' }),

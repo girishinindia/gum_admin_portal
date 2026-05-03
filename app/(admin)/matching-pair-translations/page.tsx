@@ -77,6 +77,14 @@ export default function MatchingPairTranslationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MatchingPairTranslation | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [chapters, setChapters] = useState<any[]>([]);
+  const [topics, setTopics] = useState<any[]>([]);
+  const [matchingQuestions, setMatchingQuestions] = useState<any[]>([]);
+  const [filterSubjectId, setFilterSubjectId] = useState('');
+  const [filterChapterId, setFilterChapterId] = useState('');
+  const [filterTopicId, setFilterTopicId] = useState('');
+  const [filterQuestionId, setFilterQuestionId] = useState('');
   const [filterPairId, setFilterPairId] = useState(searchParams.get('matching_pair_id') || '');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -158,19 +166,54 @@ export default function MatchingPairTranslationsPage() {
   }, [watchedPairId, watchedLangId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    api.listMatchingPairs('?limit=999&sort=id&order=asc').then(res => { if (res.success) setMatchingPairs(res.data || []); });
+    api.listMatchingPairs('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setMatchingPairs(res.data || []); });
     api.listLanguages('?limit=999&sort=name&order=asc').then(res => { if (res.success) setLanguages(res.data || []); });
+    api.listSubjects('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setSubjects(res.data || []); });
     refreshSummary();
     loadCoverage();
   }, []);
+
+  // Cascade filters: Subject → Chapter → Topic → Question → Pair
+  useEffect(() => {
+    setFilterChapterId(''); setFilterTopicId(''); setFilterQuestionId(''); setFilterPairId('');
+    setChapters([]); setTopics([]); setMatchingQuestions([]);
+    if (filterSubjectId) {
+      api.listChapters(`?subject_id=${filterSubjectId}&limit=999&sort=display_order&order=asc`).then(res => { if (res.success) setChapters(res.data || []); });
+    }
+  }, [filterSubjectId]);
+
+  useEffect(() => {
+    setFilterTopicId(''); setFilterQuestionId(''); setFilterPairId('');
+    setTopics([]); setMatchingQuestions([]);
+    if (filterChapterId) {
+      api.listTopics(`?chapter_id=${filterChapterId}&limit=999&sort=display_order&order=asc`).then(res => { if (res.success) setTopics(res.data || []); });
+    }
+  }, [filterChapterId]);
+
+  useEffect(() => {
+    setFilterQuestionId(''); setFilterPairId('');
+    setMatchingQuestions([]);
+    if (filterTopicId) {
+      api.listMatchingQuestions(`?topic_id=${filterTopicId}&limit=999&sort=display_order&order=asc`).then(res => { if (res.success) setMatchingQuestions(res.data || []); });
+    }
+  }, [filterTopicId]);
+
+  useEffect(() => {
+    setFilterPairId('');
+    if (filterQuestionId) {
+      api.listMatchingPairs(`?matching_question_id=${filterQuestionId}&limit=999&sort=display_order&order=asc`).then(res => { if (res.success) setMatchingPairs(res.data || []); });
+    } else {
+      api.listMatchingPairs('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setMatchingPairs(res.data || []); });
+    }
+  }, [filterQuestionId]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounce(search), 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterPairId, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterPairId, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterPairId, filterLanguage, filterStatus, filterSubjectId, filterChapterId, filterTopicId, filterQuestionId, sortField, sortOrder, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterPairId, filterLanguage, filterStatus, filterSubjectId, filterChapterId, filterTopicId, filterQuestionId, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function refreshSummary() {
     const res = await api.getTableSummary('matching_pair_translations');
@@ -417,9 +460,25 @@ export default function MatchingPairTranslationsPage() {
       <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
         {!showTrash && (
           <>
-            <select className={selectClass} value={filterPairId} onChange={e => setFilterPairId(e.target.value)}>
+            <select className={selectClass} value={filterSubjectId} onChange={e => setFilterSubjectId(e.target.value)}>
+              <option value="">All Subjects</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.display_order ? s.display_order + '. ' : ''}{s.english_name || s.name}</option>)}
+            </select>
+            <select className={selectClass} value={filterChapterId} onChange={e => setFilterChapterId(e.target.value)} disabled={!filterSubjectId}>
+              <option value="">All Chapters</option>
+              {chapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name}</option>)}
+            </select>
+            <select className={selectClass} value={filterTopicId} onChange={e => setFilterTopicId(e.target.value)} disabled={!filterChapterId}>
+              <option value="">All Topics</option>
+              {topics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name}</option>)}
+            </select>
+            <select className={selectClass} value={filterQuestionId} onChange={e => setFilterQuestionId(e.target.value)} disabled={!filterTopicId}>
+              <option value="">All Questions</option>
+              {matchingQuestions.map(q => <option key={q.id} value={q.id}>{q.display_order ? q.display_order + '. ' : ''}{q.code}</option>)}
+            </select>
+            <select className={selectClass} value={filterPairId} onChange={e => setFilterPairId(e.target.value)} disabled={!filterQuestionId}>
               <option value="">All Pairs</option>
-              {matchingPairs.map(p => <option key={p.id} value={p.id}>Pair #{p.id}</option>)}
+              {matchingPairs.map(p => <option key={p.id} value={p.id}>{p.display_order ? p.display_order + '. ' : ''}Pair #{p.id}</option>)}
             </select>
             <select className={selectClass} value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
               <option value="">All languages</option>
@@ -596,7 +655,7 @@ export default function MatchingPairTranslationsPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Matching Pair</label>
               <select className={cn(selectClass, 'w-full')} {...register('matching_pair_id', { required: true })}>
-                {matchingPairs.map(p => <option key={p.id} value={p.id}>Pair #{p.id}</option>)}
+                {matchingPairs.map(p => <option key={p.id} value={p.id}>{p.display_order ? p.display_order + '. ' : ''}Pair #{p.id}</option>)}
               </select>
             </div>
             <div>

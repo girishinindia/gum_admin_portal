@@ -46,9 +46,8 @@ interface GeneratedQuestion {
   difficulty_level: string;
   points: number;
   question_text: string;
-  answer_text: string;
-  hint_text?: string;
-  explanation_text?: string;
+  explanation: string;
+  hint?: string;
   translations_created?: string[];
 }
 
@@ -666,7 +665,7 @@ function AutoDescGenerationContent() {
                   <span className="text-sm text-slate-800 flex-1 truncate">{q.question_text}</span>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 max-w-[200px] truncate">
-                      {q.answer_text}
+                      {q.explanation}
                     </span>
                     <Badge variant={getAnswerTypeBadgeVariant(q.answer_type)} className="text-xs">
                       {formatAnswerType(q.answer_type)}
@@ -685,29 +684,21 @@ function AutoDescGenerationContent() {
 
                 {expandedQ.has(q.descriptive_question_id) && (
                   <div className="px-6 pb-4 pl-16 space-y-3">
-                    {/* Answer Text */}
+                    {/* Answer (Explanation) */}
                     <div>
                       <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Answer</span>
                       <div className="mt-1">
                         <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 whitespace-pre-wrap">
-                          {q.answer_text}
+                          {q.explanation}
                         </p>
                       </div>
                     </div>
 
                     {/* Hint */}
-                    {q.hint_text && (
+                    {q.hint && (
                       <div>
                         <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Hint</span>
-                        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-1">{q.hint_text}</p>
-                      </div>
-                    )}
-
-                    {/* Explanation */}
-                    {q.explanation_text && (
-                      <div>
-                        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Explanation</span>
-                        <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mt-1">{q.explanation_text}</p>
+                        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-1">{q.hint}</p>
                       </div>
                     )}
 

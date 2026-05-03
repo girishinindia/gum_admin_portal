@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog } from '@/components/ui/Dialog';
+import { QuestionViewDialog } from '@/components/ui/QuestionViewDialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -39,6 +40,7 @@ export default function OrderingQuestionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [viewing, setViewing] = useState<any | null>(null);
+  const [viewDialogQuestion, setViewDialogQuestion] = useState<{ id: number; code: string } | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
 
   // Pagination, search, sort, filter
@@ -500,15 +502,15 @@ export default function OrderingQuestionsPage() {
           <>
             <select className={selectClass} value={filterSubjectId} onChange={e => setFilterSubjectId(e.target.value)}>
               <option value="">All Subjects</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.english_name || s.name || `Subject ${s.id}`}</option>)}
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.display_order ? s.display_order + '. ' : ''}{s.english_name || s.name || `Subject ${s.id}`}</option>)}
             </select>
             <select className={selectClass} value={filterChapterId} onChange={e => setFilterChapterId(e.target.value)} disabled={!filterSubjectId}>
               <option value="">All Chapters</option>
-              {chapters.map(c => <option key={c.id} value={c.id}>{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
+              {chapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
             </select>
             <select className={selectClass} value={filterTopicId} onChange={e => setFilterTopicId(e.target.value)} disabled={!filterChapterId}>
               <option value="">All Topics</option>
-              {topics.map(t => <option key={t.id} value={t.id}>{t.english_name || t.name || `Topic ${t.id}`}</option>)}
+              {topics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name || `Topic ${t.id}`}</option>)}
             </select>
             <select className={selectClass} value={filterDifficulty} onChange={e => setFilterDifficulty(e.target.value)}>
               <option value="">All Difficulties</option>
@@ -663,7 +665,7 @@ export default function OrderingQuestionsPage() {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => openView(c)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                          <button onClick={() => setViewDialogQuestion({ id: c.id, code: c.code })} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="Full View">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => openEdit(c)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
@@ -765,6 +767,15 @@ export default function OrderingQuestionsPage() {
         )}
       </Dialog>
 
+      {/* ── Full Question View Dialog ── */}
+      <QuestionViewDialog
+        open={!!viewDialogQuestion}
+        onClose={() => setViewDialogQuestion(null)}
+        questionType="ordering"
+        questionId={viewDialogQuestion?.id ?? null}
+        questionCode={viewDialogQuestion?.code ?? ''}
+      />
+
       {/* ── Create / Edit Dialog ── */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Ordering Question' : 'Add Ordering Question'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
@@ -805,21 +816,21 @@ export default function OrderingQuestionsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Subject</label>
                 <select className={cn(selectClass, 'w-full')} value={formSubjectId} onChange={e => setFormSubjectId(e.target.value)}>
                   <option value="">Select subject...</option>
-                  {formSubjects.map(s => <option key={s.id} value={s.id}>{s.english_name || s.name || `Subject ${s.id}`}</option>)}
+                  {formSubjects.map(s => <option key={s.id} value={s.id}>{s.display_order ? s.display_order + '. ' : ''}{s.english_name || s.name || `Subject ${s.id}`}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Chapter</label>
                 <select className={cn(selectClass, 'w-full')} value={formChapterId} onChange={e => setFormChapterId(e.target.value)} disabled={!formSubjectId}>
                   <option value="">Select chapter...</option>
-                  {formChapters.map(c => <option key={c.id} value={c.id}>{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
+                  {formChapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name || `Chapter ${c.id}`}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Topic</label>
                 <select className={cn(selectClass, 'w-full')} {...register('topic_id')} disabled={!formChapterId}>
                   <option value="">Select topic...</option>
-                  {formTopics.map(t => <option key={t.id} value={t.id}>{t.english_name || t.name || `Topic ${t.id}`}</option>)}
+                  {formTopics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name || `Topic ${t.id}`}</option>)}
                 </select>
               </div>
             </div>

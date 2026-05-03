@@ -79,6 +79,12 @@ export default function OrderingQuestionTranslationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<OrderingQuestionTranslation | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [chapters, setChapters] = useState<any[]>([]);
+  const [topics, setTopics] = useState<any[]>([]);
+  const [filterSubjectId, setFilterSubjectId] = useState('');
+  const [filterChapterId, setFilterChapterId] = useState('');
+  const [filterTopicId, setFilterTopicId] = useState('');
   const [filterQuestion, setFilterQuestion] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -174,18 +180,45 @@ export default function OrderingQuestionTranslationsPage() {
   }, [watchedQuestionId, watchedLangId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    api.listOrderingQuestions('?limit=999&sort=code&order=asc').then(res => { if (res.success) setOrderingQuestions(res.data || []); });
+    api.listOrderingQuestions('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setOrderingQuestions(res.data || []); });
     api.listLanguages('?limit=999&sort=name&order=asc').then(res => { if (res.success) setLanguages(res.data || []); });
+    api.listSubjects('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setSubjects(res.data || []); });
     refreshSummary();
   }, []);
+
+  // Cascade filters: Subject → Chapter → Topic → Question
+  useEffect(() => {
+    setFilterChapterId(''); setFilterTopicId(''); setFilterQuestion('');
+    setChapters([]); setTopics([]);
+    if (filterSubjectId) {
+      api.listChapters(`?subject_id=${filterSubjectId}&limit=999&sort=display_order&order=asc`).then(res => { if (res.success) setChapters(res.data || []); });
+    }
+  }, [filterSubjectId]);
+
+  useEffect(() => {
+    setFilterTopicId(''); setFilterQuestion('');
+    setTopics([]);
+    if (filterChapterId) {
+      api.listTopics(`?chapter_id=${filterChapterId}&limit=999&sort=display_order&order=asc`).then(res => { if (res.success) setTopics(res.data || []); });
+    }
+  }, [filterChapterId]);
+
+  useEffect(() => {
+    setFilterQuestion('');
+    if (filterTopicId) {
+      api.listOrderingQuestions(`?topic_id=${filterTopicId}&limit=999&sort=display_order&order=asc`).then(res => { if (res.success) setOrderingQuestions(res.data || []); });
+    } else {
+      api.listOrderingQuestions('?limit=999&sort=display_order&order=asc').then(res => { if (res.success) setOrderingQuestions(res.data || []); });
+    }
+  }, [filterTopicId]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounce(search), 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterQuestion, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterQuestion, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterQuestion, filterLanguage, filterStatus, filterSubjectId, filterChapterId, filterTopicId, sortField, sortOrder, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterQuestion, filterLanguage, filterStatus, filterSubjectId, filterChapterId, filterTopicId, sortField, sortOrder, pageSize, showTrash]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function refreshSummary() {
     const res = await api.getTableSummary('ordering_question_translations');
@@ -439,9 +472,21 @@ export default function OrderingQuestionTranslationsPage() {
       <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
         {!showTrash && (
           <>
-            <select className={selectClass} value={filterQuestion} onChange={e => setFilterQuestion(e.target.value)}>
-              <option value="">All questions</option>
-              {orderingQuestions.map(q => <option key={q.id} value={q.id}>{q.code}{q.slug ? ` (${q.slug})` : ''}</option>)}
+            <select className={selectClass} value={filterSubjectId} onChange={e => setFilterSubjectId(e.target.value)}>
+              <option value="">All Subjects</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.display_order ? s.display_order + '. ' : ''}{s.english_name || s.name}</option>)}
+            </select>
+            <select className={selectClass} value={filterChapterId} onChange={e => setFilterChapterId(e.target.value)} disabled={!filterSubjectId}>
+              <option value="">All Chapters</option>
+              {chapters.map(c => <option key={c.id} value={c.id}>{c.display_order ? c.display_order + '. ' : ''}{c.english_name || c.name}</option>)}
+            </select>
+            <select className={selectClass} value={filterTopicId} onChange={e => setFilterTopicId(e.target.value)} disabled={!filterChapterId}>
+              <option value="">All Topics</option>
+              {topics.map(t => <option key={t.id} value={t.id}>{t.display_order ? t.display_order + '. ' : ''}{t.english_name || t.name}</option>)}
+            </select>
+            <select className={selectClass} value={filterQuestion} onChange={e => setFilterQuestion(e.target.value)} disabled={!filterTopicId}>
+              <option value="">All Questions</option>
+              {orderingQuestions.map(q => <option key={q.id} value={q.id}>{q.display_order ? q.display_order + '. ' : ''}{q.code}</option>)}
             </select>
             <select className={selectClass} value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
               <option value="">All languages</option>
@@ -676,7 +721,7 @@ export default function OrderingQuestionTranslationsPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Ordering Question</label>
               <select className={cn(selectClass, 'w-full')} {...register('ordering_question_id', { required: true })}>
-                {orderingQuestions.map(q => <option key={q.id} value={q.id}>{q.code}{q.slug ? ` (${q.slug})` : ''}</option>)}
+                {orderingQuestions.map(q => <option key={q.id} value={q.id}>{q.display_order ? q.display_order + '. ' : ''}{q.code}{q.slug ? ` (${q.slug})` : ''}</option>)}
               </select>
             </div>
             <div>

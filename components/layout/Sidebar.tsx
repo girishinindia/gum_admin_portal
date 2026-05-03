@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -19,10 +19,18 @@ interface NavItem {
   subLinks?: SubLink[];
 }
 
+interface NavSubGroup {
+  key: string;
+  label: string;
+  icon: any;
+  items: NavItem[];
+}
+
 interface NavGroup {
   key: string;
   title: string;
-  items: NavItem[];
+  items?: NavItem[];
+  subGroups?: NavSubGroup[];
 }
 
 const navGroups: NavGroup[] = [
@@ -164,102 +172,129 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    key: 'qa',
-    title: 'Q&A Bank',
+    key: 'qa-viewer',
+    title: 'Q&A Viewer',
     items: [
       {
-        href: '/mcq-questions',
-        label: 'MCQ Questions',
+        href: '/qa-viewer',
+        label: 'Browse Questions',
+        icon: BookOpen,
+      },
+    ],
+  },
+  {
+    key: 'qa',
+    title: 'Q&A Bank',
+    subGroups: [
+      {
+        key: 'qa-mcq',
+        label: 'MCQ',
         icon: HelpCircle,
-        subLinks: [{ href: '/mcq-question-translations', label: 'Translations' }],
+        items: [
+          {
+            href: '/create-mcq',
+            label: 'MCQ Questions',
+            icon: HelpCircle,
+          },
+          {
+            href: '/auto-mcq-generation',
+            label: 'Auto Generate',
+            icon: Sparkles,
+          },
+        ],
       },
       {
-        href: '/mcq-options',
-        label: 'MCQ Options',
-        icon: ListChecks,
-        subLinks: [{ href: '/mcq-option-translations', label: 'Translations' }],
-      },
-      {
-        href: '/auto-mcq-generation',
-        label: 'Auto MCQ Generation',
-        icon: Sparkles,
-      },
-      {
-        href: '/ow-questions',
-        label: 'OW Questions',
+        key: 'qa-ow',
+        label: 'One Word',
         icon: PenLine,
-        subLinks: [{ href: '/ow-question-translations', label: 'Translations' }],
+        items: [
+          {
+            href: '/create-one-word',
+            label: 'One Word Questions',
+            icon: PenLine,
+          },
+          {
+            href: '/auto-ow-generation',
+            label: 'Auto Generate',
+            icon: Sparkles,
+          },
+        ],
       },
       {
-        href: '/ow-synonyms',
-        label: 'OW Synonyms',
-        icon: Replace,
-        subLinks: [{ href: '/ow-synonym-translations', label: 'Translations' }],
-      },
-      {
-        href: '/auto-ow-generation',
-        label: 'Auto OW Generation',
-        icon: Sparkles,
-      },
-      {
-        href: '/desc-questions',
-        label: 'Desc Questions',
+        key: 'qa-desc',
+        label: 'Descriptive',
         icon: FileEdit,
-        subLinks: [{ href: '/desc-question-translations', label: 'Translations' }],
+        items: [
+          {
+            href: '/create-descriptive',
+            label: 'Descriptive Questions',
+            icon: FileEdit,
+          },
+          {
+            href: '/auto-desc-generation',
+            label: 'Auto Generate',
+            icon: Sparkles,
+          },
+        ],
       },
       {
-        href: '/auto-desc-generation',
-        label: 'Auto Desc Generation',
-        icon: Sparkles,
-      },
-      {
-        href: '/matching-questions',
-        label: 'Matching Questions',
+        key: 'qa-matching',
+        label: 'Matching',
         icon: Link2,
-        subLinks: [{ href: '/matching-question-translations', label: 'Translations' }],
+        items: [
+          {
+            href: '/create-matching',
+            label: 'Matching Questions',
+            icon: Link2,
+          },
+          {
+            href: '/auto-matching-generation',
+            label: 'Auto Generate',
+            icon: Sparkles,
+          },
+        ],
       },
       {
-        href: '/matching-pairs',
-        label: 'Matching Pairs',
-        icon: Link2,
-        subLinks: [{ href: '/matching-pair-translations', label: 'Translations' }],
-      },
-      {
-        href: '/auto-matching-generation',
-        label: 'Auto Matching Generation',
-        icon: Sparkles,
-      },
-      {
-        href: '/ordering-questions',
-        label: 'Ordering Questions',
+        key: 'qa-ordering',
+        label: 'Ordering',
         icon: ListOrdered,
-        subLinks: [{ href: '/ordering-question-translations', label: 'Translations' }],
-      },
-      {
-        href: '/ordering-items',
-        label: 'Ordering Items',
-        icon: ListOrdered,
-        subLinks: [{ href: '/ordering-item-translations', label: 'Translations' }],
-      },
-      {
-        href: '/auto-ordering-generation',
-        label: 'Auto Ordering Generation',
-        icon: Sparkles,
+        items: [
+          {
+            href: '/create-ordering',
+            label: 'Ordering Questions',
+            icon: ListOrdered,
+          },
+          {
+            href: '/auto-ordering-generation',
+            label: 'Auto Generate',
+            icon: Sparkles,
+          },
+        ],
       },
     ],
   },
 ];
 
-/** Check if a pathname falls within a group's items (including subLinks) */
-function isGroupActive(group: NavGroup, pathname: string): boolean {
-  return group.items.some(
-    (item) =>
-      pathname === item.href ||
-      pathname.startsWith(item.href + '/') ||
-      item.subLinks?.some(
-        (s) => pathname === s.href || pathname.startsWith(s.href + '/')
-      )
+/** Check if a single item (or its subLinks) is active */
+function isItemActive(item: NavItem, pathname: string): boolean {
+  return (
+    pathname === item.href ||
+    pathname.startsWith(item.href + '/') ||
+    !!item.subLinks?.some((s) => pathname === s.href || pathname.startsWith(s.href + '/'))
   );
+}
+
+/** Check if a sub-group has any active item */
+function isSubGroupActive(sg: NavSubGroup, pathname: string): boolean {
+  return sg.items.some((item) => isItemActive(item, pathname));
+}
+
+/** Check if a pathname falls within a group's items (including subLinks and subGroups) */
+function isGroupActive(group: NavGroup, pathname: string): boolean {
+  if (group.subGroups) {
+    return group.subGroups.some((sg) => isSubGroupActive(sg, pathname));
+  }
+  return (group.items || []).some((item) => isItemActive(item, pathname));
 }
 
 export function Sidebar() {
@@ -267,21 +302,27 @@ export function Sidebar() {
   const { user } = useAuth();
   const isSuperAdmin = (user?.max_role_level || 0) >= 100;
 
-  // Initialise open groups — auto-open the group whose item is currently active
+  // Initialise open groups + sub-groups — auto-open whichever is currently active
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     navGroups.forEach((g) => {
       initial[g.key] = isGroupActive(g, pathname);
+      g.subGroups?.forEach((sg) => {
+        initial[sg.key] = isSubGroupActive(sg, pathname);
+      });
     });
     return initial;
   });
 
-  // Keep the active group open when the route changes
+  // Keep the active group/sub-group open when the route changes
   useEffect(() => {
     setOpenGroups((prev) => {
       const next = { ...prev };
       navGroups.forEach((g) => {
         if (isGroupActive(g, pathname)) next[g.key] = true;
+        g.subGroups?.forEach((sg) => {
+          if (isSubGroupActive(sg, pathname)) next[sg.key] = true;
+        });
       });
       return next;
     });
@@ -289,6 +330,71 @@ export function Sidebar() {
 
   const toggle = (key: string) =>
     setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  /** Renders a single nav item with optional sub-links. `compact` shrinks padding for nested sub-group items. */
+  const renderNavItem = (item: NavItem, currentPath: string, compact = false) => {
+    const Icon = item.icon;
+    const active = currentPath === item.href || currentPath.startsWith(item.href + '/');
+    const subActive = item.subLinks?.some(
+      (s) => currentPath === s.href || currentPath.startsWith(s.href + '/')
+    );
+
+    return (
+      <div key={item.href}>
+        <Link
+          href={item.href}
+          className={cn(
+            'flex items-center gap-3 rounded-lg text-sm font-medium transition-all relative group',
+            compact ? 'px-2.5 py-1.5 text-[13px]' : 'px-3 py-2',
+            active || subActive
+              ? 'bg-brand-50 text-brand-700'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          )}
+        >
+          {(active || subActive) && !compact && (
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-500 rounded-r-full" />
+          )}
+          <Icon
+            className={cn(
+              compact ? 'w-4 h-4' : 'w-[18px] h-[18px]',
+              'flex-shrink-0',
+              (active || subActive) && 'text-brand-600'
+            )}
+            strokeWidth={active || subActive ? 2.5 : 2}
+          />
+          {item.label}
+          {item.superAdminOnly && (
+            <span className="ml-auto text-[9px] font-bold text-brand-500 tracking-wider">
+              SUPER
+            </span>
+          )}
+        </Link>
+
+        {/* Sub-links (e.g. Translations) */}
+        {item.subLinks && (active || subActive) && (
+          <div className={cn(compact ? 'ml-7' : 'ml-9', 'mt-0.5 space-y-0.5')}>
+            {item.subLinks.map((sub) => {
+              const sActive = currentPath === sub.href || currentPath.startsWith(sub.href + '/');
+              return (
+                <Link
+                  key={sub.href}
+                  href={sub.href}
+                  className={cn(
+                    'block px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                    sActive
+                      ? 'text-brand-700 bg-brand-50/60'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  )}
+                >
+                  {sub.label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <aside className="w-60 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">
@@ -331,10 +437,12 @@ export function Sidebar() {
         </div>
 
         {navGroups.map((group) => {
-          const visibleItems = group.items.filter(
+          const groupItems = group.items || [];
+          const visibleItems = groupItems.filter(
             (item) => !item.superAdminOnly || isSuperAdmin
           );
-          if (visibleItems.length === 0) return null;
+          const hasSubGroups = !!group.subGroups;
+          if (!hasSubGroups && visibleItems.length === 0) return null;
 
           const isOpen = openGroups[group.key] ?? false;
           const groupActive = isGroupActive(group, pathname);
@@ -373,75 +481,66 @@ export function Sidebar() {
                   isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                 )}
               >
-                <div className="px-3 space-y-0.5 pb-1">
-                  {visibleItems.map((item) => {
-                    const Icon = item.icon;
-                    const active =
-                      pathname === item.href ||
-                      pathname.startsWith(item.href + '/');
-                    const subActive = item.subLinks?.some(
-                      (s) =>
-                        pathname === s.href ||
-                        pathname.startsWith(s.href + '/')
-                    );
+                {/* Regular flat items */}
+                {!hasSubGroups && (
+                  <div className="px-3 space-y-0.5 pb-1">
+                    {visibleItems.map((item) => renderNavItem(item, pathname))}
+                  </div>
+                )}
 
-                    return (
-                      <div key={item.href}>
-                        <Link
-                          href={item.href}
-                          className={cn(
-                            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all relative group',
-                            active || subActive
-                              ? 'bg-brand-50 text-brand-700'
-                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                          )}
-                        >
-                          {(active || subActive) && (
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-500 rounded-r-full" />
-                          )}
-                          <Icon
+                {/* Sub-grouped items (e.g. Q&A Bank) */}
+                {hasSubGroups && (
+                  <div className="px-2 pb-1 space-y-0.5">
+                    {group.subGroups!.map((sg) => {
+                      const sgOpen = openGroups[sg.key] ?? false;
+                      const sgActive = isSubGroupActive(sg, pathname);
+                      const SgIcon = sg.icon;
+
+                      return (
+                        <div key={sg.key}>
+                          {/* Sub-group toggle header */}
+                          <button
+                            onClick={() => toggle(sg.key)}
                             className={cn(
-                              'w-[18px] h-[18px] flex-shrink-0',
-                              (active || subActive) && 'text-brand-600'
+                              'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-semibold transition-all cursor-pointer',
+                              sgActive
+                                ? 'bg-brand-50/70 text-brand-700'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
                             )}
-                            strokeWidth={active || subActive ? 2.5 : 2}
-                          />
-                          {item.label}
-                          {item.superAdminOnly && (
-                            <span className="ml-auto text-[9px] font-bold text-brand-500 tracking-wider">
-                              SUPER
-                            </span>
-                          )}
-                        </Link>
+                          >
+                            <SgIcon
+                              className={cn(
+                                'w-4 h-4 flex-shrink-0',
+                                sgActive ? 'text-brand-600' : 'text-slate-400'
+                              )}
+                              strokeWidth={sgActive ? 2.5 : 2}
+                            />
+                            {sg.label}
+                            <ChevronRight
+                              className={cn(
+                                'w-3.5 h-3.5 ml-auto transition-transform duration-200',
+                                sgActive ? 'text-brand-500' : 'text-slate-400',
+                                sgOpen && 'rotate-90'
+                              )}
+                            />
+                          </button>
 
-                        {/* Sub-links (e.g. Translations) */}
-                        {item.subLinks && (active || subActive) && (
-                          <div className="ml-9 mt-0.5 space-y-0.5">
-                            {item.subLinks.map((sub) => {
-                              const sActive =
-                                pathname === sub.href ||
-                                pathname.startsWith(sub.href + '/');
-                              return (
-                                <Link
-                                  key={sub.href}
-                                  href={sub.href}
-                                  className={cn(
-                                    'block px-3 py-1.5 rounded-md text-xs font-medium transition-all',
-                                    sActive
-                                      ? 'text-brand-700 bg-brand-50/60'
-                                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                                  )}
-                                >
-                                  {sub.label}
-                                </Link>
-                              );
-                            })}
+                          {/* Sub-group children */}
+                          <div
+                            className={cn(
+                              'overflow-hidden transition-all duration-200 ease-in-out',
+                              sgOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
+                            )}
+                          >
+                            <div className="ml-3 pl-3 border-l border-slate-200 space-y-0.5 py-0.5">
+                              {sg.items.map((item) => renderNavItem(item, pathname, true))}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           );
