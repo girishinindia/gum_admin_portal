@@ -229,7 +229,13 @@ export default function MiniProjectsPage() {
       });
       if (res.success) {
         const summary = (res as any).data?.summary || res.data;
-        toast.success(`Translated ${summary?.assessment_translations_created || 0} assessment(s) + ${summary?.solution_translations_created || 0} solution(s)`);
+        const transCount = summary?.assessment_translations_created || 0;
+        const solCount = summary?.solution_translations_created || 0;
+        if (transCount === 0 && solCount === 0) {
+          toast.info('All translations already exist — nothing new to translate');
+        } else {
+          toast.success(`Translated ${transCount} assessment(s) + ${solCount} solution(s)`);
+        }
         load();
       } else {
         toast.error((res as any).message || 'AI translation failed');
