@@ -507,6 +507,9 @@ export default function CreateMcqPage() {
     if (!topicId && mode === 'create') { toast.error('Please select a topic'); return; }
     if (!questionText.trim()) { toast.error('Question text is required'); return; }
     if (!options.some(o => o.is_correct)) { toast.error('At least one option must be correct'); return; }
+    if ((mcqType === 'single_choice' || mcqType === 'true_false') && options.filter(o => o.is_correct).length > 1) {
+      toast.error('Single Choice questions can only have one correct answer'); return;
+    }
     if (options.some(o => !o.option_text.trim())) { toast.error('All options must have text'); return; }
 
     setSaving(true);
