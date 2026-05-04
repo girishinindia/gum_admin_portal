@@ -807,6 +807,8 @@ export const api = {
   // Assessment AI generation
   autoGenerateAssessment: (data: { assessment_type: string; scope_id: number; num_assessments?: number; difficulty_mix?: string; provider?: string; auto_translate?: boolean }, signal?: AbortSignal) =>
     request('/ai/auto-generate-assessment', { method: 'POST', body: JSON.stringify(data), signal }),
+  autoTranslateAssessment: (data: { assessment_ids?: number[]; scope_id?: number; assessment_type?: string; provider?: string }) =>
+    request('/ai/auto-translate-assessment', { method: 'POST', body: JSON.stringify(data) }),
 
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),

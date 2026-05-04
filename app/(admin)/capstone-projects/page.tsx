@@ -16,7 +16,7 @@ import { usePageSize } from '@/hooks/usePageSize';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, FileQuestion, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, X, Sparkles } from 'lucide-react';
+import { Plus, FileQuestion, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, X, Sparkles, Languages } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 
 interface Assessment {
@@ -86,6 +86,7 @@ export default function CapstoneProjectsPage() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiResult, setAiResult] = useState<any>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
+  const [aiTranslating, setAiTranslating] = useState(false);
 
   const { register, handleSubmit, reset, watch, setValue } = useForm();
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -180,7 +181,7 @@ export default function CapstoneProjectsPage() {
         auto_translate: autoTranslate,
       }, controller.signal);
       if (res.success) {
-        const count = res.data?.length || (res as any).count || 0;
+        const count = res.data?.assessments?.length || res.data?.summary?.assessments_created || 0;
         setAiResult({ success: true, count });
         toast.success(`AI generated ${count} capstone project(s)`);
         load();
@@ -197,6 +198,28 @@ export default function CapstoneProjectsPage() {
     } finally {
       setAiGenerating(false);
       aiAbortRef.current = null;
+    }
+  }
+
+  async function handleAiTranslateAll() {
+    if (!filterCourse || items.length === 0) { toast.error('Select a course with capstone projects first'); return; }
+    setAiTranslating(true);
+    try {
+      const res = await api.autoTranslateAssessment({
+        scope_id: Number(filterCourse),
+        assessment_type: 'capstone_project',
+      });
+      if (res.success) {
+        const summary = (res as any).data?.summary || res.data;
+        toast.success(`Translated ${summary?.assessment_translations_created || 0} assessment(s) + ${summary?.solution_translations_created || 0} solution(s)`);
+        load();
+      } else {
+        toast.error((res as any).message || 'AI translation failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'AI translation error');
+    } finally {
+      setAiTranslating(false);
     }
   }
 
@@ -336,6 +359,19 @@ export default function CapstoneProjectsPage() {
                   )}
                 >
                   <Sparkles className="w-4 h-4" /> AI Generate
+                </button>
+                <button
+                  onClick={handleAiTranslateAll}
+                  disabled={!filterCourse || aiTranslating || items.length === 0}
+                  title={filterCourse ? 'AI Translate all capstone projects in this subject' : 'Select a subject first'}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                    filterCourse && !aiTranslating && items.length > 0
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-blue-200 text-blue-400 cursor-not-allowed'
+                  )}
+                >
+                  {aiTranslating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />} AI Translate
                 </button>
                 <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add Capstone Project</Button>
               </>

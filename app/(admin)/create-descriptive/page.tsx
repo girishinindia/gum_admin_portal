@@ -1157,16 +1157,17 @@ export default function CreateDescriptivePage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Answer Type *</label>
                 <select
-                  className={cn("w-full border rounded-md px-3 py-2 text-sm", isNonEnglish && "bg-gray-100 text-gray-500")}
+                  className={cn("w-full border rounded-md px-3 py-2 text-sm", (isNonEnglish || mode === 'edit') && "bg-gray-100 text-gray-500")}
                   value={answerType}
                   onChange={e => setAnswerType(e.target.value)}
-                  disabled={isNonEnglish}
+                  disabled={isNonEnglish || mode === 'edit'}
                 >
                   {ANSWER_TYPE_OPTIONS.map(t => (
                     <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
                 </select>
                 {isNonEnglish && <p className="text-xs text-gray-400 mt-1">Language-independent setting (edit in English)</p>}
+                {mode === 'edit' && !isNonEnglish && <p className="text-xs text-gray-400 mt-1">Type cannot be changed after creation</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
