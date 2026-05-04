@@ -255,9 +255,9 @@ export default function CreateDescriptivePage() {
   const loadLanguageIntoForm = (langId: number, translations: any[]) => {
     const trans = translations.find((t: any) => t.language_id === langId);
     setQuestionText(trans?.question_text || '');
-    setAnswerText(trans?.answer_text || '');
+    setAnswerText(trans?.answer_text ?? trans?.explanation ?? '');
     setHintText(trans?.hint || trans?.hint_text || '');
-    setExplanationText(trans?.explanation || trans?.explanation_text || '');
+    setExplanationText(trans?.explanation_text ?? '');
   };
 
   // ── Switch language tab ──
@@ -326,9 +326,9 @@ export default function CreateDescriptivePage() {
       // Get English translation
       const engTrans = translations.find((t: any) => t.language_id === 7);
       setQuestionText(engTrans?.question_text || '');
-      setAnswerText(engTrans?.answer_text || '');
+      setAnswerText(engTrans?.answer_text ?? engTrans?.explanation ?? '');
       setHintText(engTrans?.hint || engTrans?.hint_text || '');
-      setExplanationText(engTrans?.explanation || engTrans?.explanation_text || '');
+      setExplanationText(engTrans?.explanation_text ?? '');
 
       // Translation coverage
       setTranslationCoverage(q.translation_coverage || []);
