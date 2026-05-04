@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle, Settings, Database, Landmark, BookText, ClipboardList, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -15,6 +15,7 @@ interface NavItem {
   href: string;
   label: string;
   icon: any;
+  iconColor?: string;
   superAdminOnly?: boolean;
   subLinks?: SubLink[];
 }
@@ -29,6 +30,8 @@ interface NavSubGroup {
 interface NavGroup {
   key: string;
   title: string;
+  icon?: any;
+  iconColor?: string;
   items?: NavItem[];
   subGroups?: NavSubGroup[];
 }
@@ -37,40 +40,46 @@ const navGroups: NavGroup[] = [
   {
     key: 'admin',
     title: 'Admin',
+    icon: Settings,
+    iconColor: 'text-violet-500',
     items: [
-      { href: '/my-permissions',  label: 'My Access',     icon: ShieldCheck },
-      { href: '/users',           label: 'Users',         icon: Users },
-      { href: '/roles',           label: 'Roles',         icon: Shield,    superAdminOnly: true },
-      { href: '/permissions',     label: 'Permissions',   icon: KeyRound,  superAdminOnly: true },
-      { href: '/activity-logs',   label: 'Activity Logs', icon: FileText },
+      { href: '/my-permissions',  label: 'My Access',     icon: ShieldCheck, iconColor: 'text-emerald-500' },
+      { href: '/users',           label: 'Users',         icon: Users,      iconColor: 'text-blue-500' },
+      { href: '/roles',           label: 'Roles',         icon: Shield,     iconColor: 'text-amber-500', superAdminOnly: true },
+      { href: '/permissions',     label: 'Permissions',   icon: KeyRound,   iconColor: 'text-rose-500',  superAdminOnly: true },
+      { href: '/activity-logs',   label: 'Activity Logs', icon: FileText,   iconColor: 'text-violet-500' },
     ],
   },
   {
     key: 'master',
     title: 'Master',
+    icon: Database,
+    iconColor: 'text-amber-500',
     items: [
-      { href: '/countries',        label: 'Countries',        icon: Globe2 },
-      { href: '/states',           label: 'States',           icon: MapPin },
-      { href: '/cities',           label: 'Cities',           icon: Building2 },
-      { href: '/skills',           label: 'Skills',           icon: Sparkles },
-      { href: '/languages',        label: 'Languages',        icon: Languages },
-      { href: '/education-levels', label: 'Education Levels', icon: GraduationCap },
-      { href: '/document-types',   label: 'Document Types',   icon: FolderOpen },
-      { href: '/documents',        label: 'Documents',        icon: FileImage },
-      { href: '/designations',     label: 'Designations',     icon: Award },
-      { href: '/specializations',  label: 'Specializations',  icon: Compass },
-      { href: '/learning-goals',   label: 'Learning Goals',   icon: Target },
-      { href: '/social-medias',    label: 'Social Media',     icon: Share2 },
+      { href: '/countries',        label: 'Countries',        icon: Globe2,        iconColor: 'text-blue-500' },
+      { href: '/states',           label: 'States',           icon: MapPin,        iconColor: 'text-emerald-500' },
+      { href: '/cities',           label: 'Cities',           icon: Building2,     iconColor: 'text-violet-500' },
+      { href: '/skills',           label: 'Skills',           icon: Sparkles,      iconColor: 'text-amber-500' },
+      { href: '/languages',        label: 'Languages',        icon: Languages,     iconColor: 'text-cyan-500' },
+      { href: '/education-levels', label: 'Education Levels', icon: GraduationCap, iconColor: 'text-indigo-500' },
+      { href: '/document-types',   label: 'Document Types',   icon: FolderOpen,    iconColor: 'text-orange-500' },
+      { href: '/documents',        label: 'Documents',        icon: FileImage,     iconColor: 'text-pink-500' },
+      { href: '/designations',     label: 'Designations',     icon: Award,   iconColor: 'text-yellow-500' },
+      { href: '/specializations',  label: 'Specializations',  icon: Compass, iconColor: 'text-teal-500' },
+      { href: '/learning-goals',   label: 'Learning Goals',   icon: Target,  iconColor: 'text-red-500' },
+      { href: '/social-medias',    label: 'Social Media',     icon: Share2,  iconColor: 'text-sky-500' },
       {
         href: '/categories',
         label: 'Categories',
         icon: LayoutGrid,
+        iconColor: 'text-purple-500',
         subLinks: [{ href: '/category-translations', label: 'Translations' }],
       },
       {
         href: '/sub-categories',
         label: 'Sub-Categories',
         icon: Layers,
+        iconColor: 'text-lime-600',
         subLinks: [{ href: '/sub-category-translations', label: 'Translations' }],
       },
     ],
@@ -78,58 +87,70 @@ const navGroups: NavGroup[] = [
   {
     key: 'branch',
     title: 'Branch & Departments',
+    icon: Landmark,
+    iconColor: 'text-rose-500',
     items: [
-      { href: '/branches',            label: 'Branches',             icon: GitBranch },
-      { href: '/departments',         label: 'Departments',          icon: Network },
-      { href: '/branch-departments',  label: 'Branch & Departments', icon: Link2 },
+      { href: '/branches',            label: 'Branches',             icon: GitBranch, iconColor: 'text-emerald-500' },
+      { href: '/departments',         label: 'Departments',          icon: Network,   iconColor: 'text-blue-500' },
+      { href: '/branch-departments',  label: 'Branch & Departments', icon: Link2,     iconColor: 'text-violet-500' },
     ],
   },
   {
     key: 'material',
     title: 'Material Management',
+    icon: BookText,
+    iconColor: 'text-emerald-500',
     items: [
       {
         href: '/subjects',
         label: 'Subjects',
         icon: BookOpen,
+        iconColor: 'text-blue-500',
         subLinks: [{ href: '/subject-translations', label: 'Translations' }],
       },
       {
         href: '/chapters',
         label: 'Chapters',
         icon: BookMarked,
+        iconColor: 'text-violet-500',
         subLinks: [{ href: '/chapter-translations', label: 'Translations' }],
       },
       {
         href: '/topics',
         label: 'Topics',
         icon: FileQuestion,
+        iconColor: 'text-amber-500',
         subLinks: [{ href: '/topic-translations', label: 'Translations' }],
       },
       {
         href: '/sub-topics',
         label: 'Sub-Topics',
         icon: FileQuestion,
+        iconColor: 'text-teal-500',
         subLinks: [{ href: '/sub-topic-translations', label: 'Translations' }],
       },
       {
         href: '/auto-sub-topics',
         label: 'Auto Sub-Topics',
         icon: Sparkles,
+        iconColor: 'text-yellow-500',
       },
       {
         href: '/auto-video-upload',
         label: 'Auto Video Upload',
         icon: Video,
+        iconColor: 'text-red-500',
       },
       {
         href: '/youtube-descriptions',
         label: 'YouTube Descriptions',
         icon: Video,
+        iconColor: 'text-rose-500',
       },
       {
         href: '/material-tree',
         label: 'Material Tree',
+        iconColor: 'text-emerald-500',
         icon: FolderOpen,
       },
     ],
@@ -137,33 +158,40 @@ const navGroups: NavGroup[] = [
   {
     key: 'course',
     title: 'Course Management',
+    icon: GraduationCap,
+    iconColor: 'text-blue-500',
     items: [
       {
         href: '/courses',
         label: 'Courses',
         icon: Library,
+        iconColor: 'text-indigo-500',
         subLinks: [{ href: '/course-translations', label: 'Translations' }],
       },
       {
         href: '/course-sub-categories',
         label: 'Course Categories',
         icon: Tags,
+        iconColor: 'text-pink-500',
       },
       {
         href: '/course-modules',
         label: 'Course Modules',
         icon: Package,
+        iconColor: 'text-amber-500',
         subLinks: [{ href: '/course-module-translations', label: 'Translations' }],
       },
       {
         href: '/course-structure',
         label: 'Course Structure',
         icon: FolderTree,
+        iconColor: 'text-teal-500',
       },
       {
         href: '/bundles',
         label: 'Bundles',
         icon: Boxes,
+        iconColor: 'text-purple-500',
         subLinks: [
           { href: '/bundle-translations', label: 'Translations' },
           { href: '/bundle-courses', label: 'Courses' },
@@ -172,19 +200,18 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    key: 'qa-viewer',
-    title: 'Q&A Viewer',
+    key: 'qa',
+    title: 'Q&A Bank',
+    icon: ClipboardList,
+    iconColor: 'text-orange-500',
     items: [
       {
         href: '/qa-viewer',
-        label: 'Browse Questions',
+        label: 'Browse Q&A',
         icon: BookOpen,
+        iconColor: 'text-cyan-500',
       },
     ],
-  },
-  {
-    key: 'qa',
-    title: 'Q&A Bank',
     subGroups: [
       {
         key: 'qa-mcq',
@@ -193,7 +220,7 @@ const navGroups: NavGroup[] = [
         items: [
           {
             href: '/create-mcq',
-            label: 'MCQ Questions',
+            label: 'MCQ Q&A',
             icon: HelpCircle,
           },
           {
@@ -210,7 +237,7 @@ const navGroups: NavGroup[] = [
         items: [
           {
             href: '/create-one-word',
-            label: 'One Word Questions',
+            label: 'One Word Q&A',
             icon: PenLine,
           },
           {
@@ -227,7 +254,7 @@ const navGroups: NavGroup[] = [
         items: [
           {
             href: '/create-descriptive',
-            label: 'Descriptive Questions',
+            label: 'Descriptive Q&A',
             icon: FileEdit,
           },
           {
@@ -244,7 +271,7 @@ const navGroups: NavGroup[] = [
         items: [
           {
             href: '/create-matching',
-            label: 'Matching Questions',
+            label: 'Matching Q&A',
             icon: Link2,
           },
           {
@@ -261,7 +288,7 @@ const navGroups: NavGroup[] = [
         items: [
           {
             href: '/create-ordering',
-            label: 'Ordering Questions',
+            label: 'Ordering Q&A',
             icon: ListOrdered,
           },
           {
@@ -301,6 +328,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const isSuperAdmin = (user?.max_role_level || 0) >= 100;
+  const [collapsed, setCollapsed] = useState(false);
 
   // Initialise open groups + sub-groups — auto-open whichever is currently active
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
@@ -332,39 +360,44 @@ export function Sidebar() {
     setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
   /** Renders a single nav item with optional sub-links. `compact` shrinks padding for nested sub-group items. */
-  const renderNavItem = (item: NavItem, currentPath: string, compact = false) => {
+  const renderNavItem = (item: NavItem, currentPath: string, compact = false, idx = 0) => {
     const Icon = item.icon;
     const active = currentPath === item.href || currentPath.startsWith(item.href + '/');
     const subActive = item.subLinks?.some(
       (s) => currentPath === s.href || currentPath.startsWith(s.href + '/')
     );
+    const isEven = idx % 2 === 0;
 
     return (
-      <div key={item.href}>
+      <div key={item.href} className="relative">
+        {/* Horizontal tree branch line */}
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 border-t-2 border-brand-300/60" />
         <Link
           href={item.href}
           className={cn(
-            'flex items-center gap-3 rounded-lg text-sm font-medium transition-all relative group',
-            compact ? 'px-2.5 py-1.5 text-[13px]' : 'px-3 py-2',
+            'flex items-center gap-2.5 ml-3 rounded-md text-sm font-medium transition-all relative group',
+            compact ? 'px-2 py-1' : 'px-2.5 py-1',
             active || subActive
-              ? 'bg-brand-50 text-brand-700'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              ? 'bg-white/80 text-brand-800 shadow-sm'
+              : isEven
+                ? 'text-slate-700 hover:bg-white/50 hover:text-slate-900 bg-white/25'
+                : 'text-slate-700 hover:bg-white/50 hover:text-slate-900'
           )}
         >
-          {(active || subActive) && !compact && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-500 rounded-r-full" />
+          {(active || subActive) && (
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-brand-600 rounded-r-full" />
           )}
           <Icon
             className={cn(
-              compact ? 'w-4 h-4' : 'w-[18px] h-[18px]',
+              'w-[16px] h-[16px]',
               'flex-shrink-0',
-              (active || subActive) && 'text-brand-600'
+              (active || subActive) ? 'text-brand-600' : (item.iconColor || 'text-brand-500/60')
             )}
             strokeWidth={active || subActive ? 2.5 : 2}
           />
-          {item.label}
+          <span className="truncate">{item.label}</span>
           {item.superAdminOnly && (
-            <span className="ml-auto text-[9px] font-bold text-brand-500 tracking-wider">
+            <span className="ml-auto flex-shrink-0 text-[9px] font-bold text-brand-600 tracking-wider">
               SUPER
             </span>
           )}
@@ -382,8 +415,8 @@ export function Sidebar() {
                   className={cn(
                     'block px-3 py-1.5 rounded-md text-xs font-medium transition-all',
                     sActive
-                      ? 'text-brand-700 bg-brand-50/60'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                      ? 'text-brand-800 bg-white/60'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
                   )}
                 >
                   {sub.label}
@@ -397,55 +430,82 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-60 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">
+    <aside className={cn(
+      'bg-gradient-to-b from-white via-sky-50/60 to-brand-50/80 border-r border-brand-200 flex flex-col h-screen sticky top-0 transition-all duration-300',
+      collapsed ? 'w-16' : 'w-72'
+    )}>
       {/* Brand */}
-      <div className="px-5 h-16 flex items-center border-b border-slate-200">
+      <div className={cn('h-16 flex items-center border-b border-brand-200/80', collapsed ? 'px-3 justify-center' : 'px-5')}>
         <Link href="/dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 bg-gradient-to-br from-brand-500 via-brand-600 to-brand-800 rounded-xl flex items-center justify-center shadow-brand group-hover:scale-105 transition-transform relative overflow-hidden">
+          <div className="w-9 h-9 bg-gradient-to-br from-brand-500 via-brand-600 to-brand-800 rounded-xl flex items-center justify-center shadow-brand group-hover:scale-105 transition-transform relative overflow-hidden flex-shrink-0">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.3),transparent_50%)]" />
             <GraduationCap className="w-5 h-5 text-white relative" strokeWidth={2.5} />
           </div>
-          <div>
-            <div className="font-display font-bold text-slate-900 leading-none text-[15px]">Grow Up More</div>
-            <div className="text-[10px] text-brand-600 mt-0.5 tracking-wider uppercase font-semibold">Admin Panel</div>
-          </div>
+          {!collapsed && (
+            <div>
+              <div className="font-display font-bold text-brand-900 leading-none text-[15px]">Grow Up More</div>
+              <div className="text-[10px] text-brand-600 mt-0.5 tracking-wider uppercase font-semibold">Admin Panel</div>
+            </div>
+          )}
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto pb-2">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-2">
         {/* Dashboard — always visible at top */}
-        <div className="px-3 pt-3 pb-1">
+        <div className={cn('pt-2 pb-0.5', collapsed ? 'px-2' : 'px-3')}>
           <Link
             href="/dashboard"
+            title="Dashboard"
             className={cn(
-              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all relative group',
+              'flex items-center gap-3 rounded-lg text-sm font-medium transition-all relative group',
+              collapsed ? 'justify-center px-2 py-1.5' : 'px-3 py-1.5',
               pathname === '/dashboard'
-                ? 'bg-brand-50 text-brand-700'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                ? 'bg-white/80 text-brand-800 shadow-sm'
+                : 'text-slate-700 hover:bg-white/50 hover:text-slate-900'
             )}
           >
-            {pathname === '/dashboard' && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-500 rounded-r-full" />
+            {pathname === '/dashboard' && !collapsed && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-600 rounded-r-full" />
             )}
             <LayoutDashboard
-              className={cn('w-[18px] h-[18px] flex-shrink-0', pathname === '/dashboard' && 'text-brand-600')}
+              className={cn('w-[18px] h-[18px] flex-shrink-0', pathname === '/dashboard' ? 'text-brand-600' : 'text-brand-500')}
               strokeWidth={pathname === '/dashboard' ? 2.5 : 2}
             />
-            Dashboard
+            {!collapsed && 'Dashboard'}
           </Link>
         </div>
 
-        {navGroups.map((group) => {
+        {navGroups.map((group, groupIdx) => {
           const groupItems = group.items || [];
           const visibleItems = groupItems.filter(
             (item) => !item.superAdminOnly || isSuperAdmin
           );
           const hasSubGroups = !!group.subGroups;
           if (!hasSubGroups && visibleItems.length === 0) return null;
+          if (hasSubGroups && visibleItems.length === 0 && group.subGroups!.length === 0) return null;
 
           const isOpen = openGroups[group.key] ?? false;
           const groupActive = isGroupActive(group, pathname);
+
+          if (collapsed) {
+            // Collapsed mode: show only the group icon
+            const GroupIconC = group.icon;
+            return (
+              <div key={group.key} className="px-2 pt-1">
+                <button
+                  onClick={() => setCollapsed(false)}
+                  title={group.title}
+                  className={cn(
+                    'w-full flex items-center justify-center py-2 rounded-lg cursor-pointer transition-colors',
+                    groupActive ? 'bg-white/70 text-brand-700 shadow-sm' : 'text-brand-500 hover:bg-white/50 hover:text-brand-700'
+                  )}
+                >
+                  {GroupIconC && <GroupIconC className={cn('w-5 h-5', groupActive ? 'text-brand-600' : (group.iconColor || 'text-brand-400'))} strokeWidth={1.8} />}
+                </button>
+              </div>
+            );
+          }
 
           return (
             <div key={group.key}>
@@ -453,22 +513,23 @@ export function Sidebar() {
               <button
                 onClick={() => toggle(group.key)}
                 className={cn(
-                  'w-full flex items-center justify-between px-5 pt-4 pb-2 group/header cursor-pointer',
-                  'hover:bg-slate-50/60 transition-colors'
+                  'w-full flex items-center justify-between gap-2 px-5 pt-3 pb-1 group/header cursor-pointer',
+                  'hover:bg-white/30 transition-colors'
                 )}
               >
                 <span
                   className={cn(
-                    'text-[10px] font-semibold uppercase tracking-wider transition-colors',
-                    groupActive ? 'text-brand-600' : 'text-slate-400 group-hover/header:text-slate-500'
+                    'text-sm font-semibold transition-colors flex items-center gap-2 min-w-0',
+                    groupActive ? 'text-slate-800' : 'text-slate-500 group-hover/header:text-slate-700'
                   )}
                 >
-                  {group.title}
+                  {group.icon && (() => { const GroupIcon = group.icon; return <GroupIcon className={cn('w-[18px] h-[18px] flex-shrink-0', group.iconColor || 'text-brand-500')} strokeWidth={1.8} />; })()}
+                  <span className="truncate">{group.title}</span>
                 </span>
                 <ChevronDown
                   className={cn(
-                    'w-3.5 h-3.5 transition-transform duration-200',
-                    groupActive ? 'text-brand-500' : 'text-slate-400',
+                    'w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200',
+                    groupActive ? 'text-brand-600' : 'text-brand-400',
                     isOpen && 'rotate-180'
                   )}
                 />
@@ -481,45 +542,47 @@ export function Sidebar() {
                   isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                 )}
               >
-                {/* Regular flat items */}
-                {!hasSubGroups && (
-                  <div className="px-3 space-y-0.5 pb-1">
-                    {visibleItems.map((item) => renderNavItem(item, pathname))}
+                {/* Regular flat items (shown above subGroups if both exist) */}
+                {visibleItems.length > 0 && (
+                  <div className="ml-6 mr-3 pl-3 border-l-2 border-brand-300/60 space-y-0.5 pb-1">
+                    {visibleItems.map((item, idx) => renderNavItem(item, pathname, false, idx))}
                   </div>
                 )}
 
                 {/* Sub-grouped items (e.g. Q&A Bank) */}
                 {hasSubGroups && (
-                  <div className="px-2 pb-1 space-y-0.5">
+                  <div className="ml-6 mr-2 pl-3 border-l-2 border-brand-300/60 pb-1 space-y-0.5">
                     {group.subGroups!.map((sg) => {
                       const sgOpen = openGroups[sg.key] ?? false;
                       const sgActive = isSubGroupActive(sg, pathname);
                       const SgIcon = sg.icon;
 
                       return (
-                        <div key={sg.key}>
+                        <div key={sg.key} className="relative">
+                          {/* Horizontal tree branch for sub-group header */}
+                          <div className="absolute left-0 top-5 w-3 border-t-2 border-brand-300/60" />
                           {/* Sub-group toggle header */}
                           <button
                             onClick={() => toggle(sg.key)}
                             className={cn(
-                              'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-semibold transition-all cursor-pointer',
+                              'w-full flex items-center gap-2.5 ml-3 px-2.5 py-1 rounded-md text-sm font-semibold transition-all cursor-pointer',
                               sgActive
-                                ? 'bg-brand-50/70 text-brand-700'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                                ? 'bg-white/70 text-brand-800 shadow-sm'
+                                : 'text-slate-600 hover:bg-white/40 hover:text-slate-800'
                             )}
                           >
                             <SgIcon
                               className={cn(
-                                'w-4 h-4 flex-shrink-0',
-                                sgActive ? 'text-brand-600' : 'text-slate-400'
+                                'w-[16px] h-[16px] flex-shrink-0',
+                                sgActive ? 'text-brand-600' : 'text-brand-500/60'
                               )}
                               strokeWidth={sgActive ? 2.5 : 2}
                             />
-                            {sg.label}
+                            <span className="truncate">{sg.label}</span>
                             <ChevronRight
                               className={cn(
-                                'w-3.5 h-3.5 ml-auto transition-transform duration-200',
-                                sgActive ? 'text-brand-500' : 'text-slate-400',
+                                'w-3.5 h-3.5 ml-auto flex-shrink-0 transition-transform duration-200',
+                                sgActive ? 'text-brand-600' : 'text-brand-400',
                                 sgOpen && 'rotate-90'
                               )}
                             />
@@ -532,8 +595,8 @@ export function Sidebar() {
                               sgOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
                             )}
                           >
-                            <div className="ml-3 pl-3 border-l border-slate-200 space-y-0.5 py-0.5">
-                              {sg.items.map((item) => renderNavItem(item, pathname, true))}
+                            <div className="ml-6 pl-3 border-l-2 border-brand-300/60 space-y-0.5 py-0.5">
+                              {sg.items.map((item, idx) => renderNavItem(item, pathname, true, idx))}
                             </div>
                           </div>
                         </div>
@@ -547,15 +610,25 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-slate-100">
-        <div className="bg-gradient-to-br from-brand-50 to-sky-50 rounded-xl p-3.5 border border-brand-100/50">
-          <div className="text-xs font-semibold text-brand-900">Need help?</div>
-          <div className="text-[11px] text-brand-700 mt-0.5 leading-relaxed">Read the API docs or contact support</div>
-          <a href="https://growupmore.com" target="_blank" rel="noopener noreferrer" className="inline-flex mt-2 text-[11px] font-semibold text-brand-700 hover:text-brand-900">
-            Learn more →
-          </a>
-        </div>
+      {/* Collapse toggle */}
+      <div className={cn('border-t border-brand-200/60', collapsed ? 'p-2' : 'px-4 py-3')}>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={cn(
+            'flex items-center gap-2 rounded-lg text-brand-500 hover:text-brand-700 hover:bg-white/50 transition-colors cursor-pointer',
+            collapsed ? 'w-full justify-center p-2' : 'px-3 py-1.5 w-full'
+          )}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="w-[18px] h-[18px]" strokeWidth={1.8} />
+          ) : (
+            <>
+              <PanelLeftClose className="w-[18px] h-[18px]" strokeWidth={1.8} />
+              <span className="text-xs font-medium">Collapse</span>
+            </>
+          )}
+        </button>
       </div>
     </aside>
   );
