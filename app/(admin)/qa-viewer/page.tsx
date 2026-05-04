@@ -173,7 +173,7 @@ const selectClass = "h-9 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg
 
 /* ─── API loaders ─── */
 function fetchQuestions(tab: QuestionTab, topicId: string) {
-  const qs = `?page_size=200&topic_id=${topicId}`;
+  const qs = `?limit=200&topic_id=${topicId}`;
   switch (tab) {
     case 'mcq': return api.listMcqQuestions(qs);
     case 'ow': return api.listOwQuestions(qs);
@@ -229,14 +229,14 @@ export default function QaViewerPage() {
 
   // ── Load subjects on mount ──
   useEffect(() => {
-    api.listSubjects('?page_size=200&is_active=true').then(res => {
+    api.listSubjects('?limit=200&is_active=true').then(res => {
       if (res.success) setSubjects(res.data || []);
       setFiltersLoading(false);
     });
   }, []);
 
-  useEffect(() => { setChapterId(''); setTopicId(''); setChapters([]); setTopics([]); if (subjectId) { api.listChapters(`?page_size=200&is_active=true&subject_id=${subjectId}`).then(res => { if (res.success) setChapters(res.data || []); }); } }, [subjectId]);
-  useEffect(() => { setTopicId(''); setTopics([]); if (chapterId) { api.listTopics(`?page_size=200&is_active=true&chapter_id=${chapterId}`).then(res => { if (res.success) setTopics(res.data || []); }); } }, [chapterId]);
+  useEffect(() => { setChapterId(''); setTopicId(''); setChapters([]); setTopics([]); if (subjectId) { api.listChapters(`?limit=200&is_active=true&subject_id=${subjectId}`).then(res => { if (res.success) setChapters(res.data || []); }); } }, [subjectId]);
+  useEffect(() => { setTopicId(''); setTopics([]); if (chapterId) { api.listTopics(`?limit=200&is_active=true&chapter_id=${chapterId}`).then(res => { if (res.success) setTopics(res.data || []); }); } }, [chapterId]);
 
   const loadAllTabs = useCallback(async (tid: string) => {
     if (!tid) { setQuestions({ mcq: [], ow: [], desc: [], matching: [], ordering: [] }); setCounts({ mcq: 0, ow: 0, desc: 0, matching: 0, ordering: 0 }); return; }

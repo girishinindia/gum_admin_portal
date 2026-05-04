@@ -475,7 +475,7 @@ export default function CreateMatchingPage() {
     setSaving(true);
     try {
       const payload = {
-        topic_id: topicId,
+        topic_id: topicId || undefined,
         difficulty_level: difficultyLevel,
         question_text: questionText.trim(),
         hint: hintText.trim() || null,

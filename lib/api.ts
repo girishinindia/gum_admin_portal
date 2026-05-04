@@ -804,6 +804,10 @@ export const api = {
   autoTranslateOrdering: (data: { topic_id?: number; question_ids?: number[]; provider?: string }) =>
     request('/ai/auto-translate-ordering', { method: 'POST', body: JSON.stringify(data) }),
 
+  // Assessment AI generation
+  autoGenerateAssessment: (data: { assessment_type: string; scope_id: number; num_assessments?: number; difficulty_mix?: string; provider?: string; auto_translate?: boolean }, signal?: AbortSignal) =>
+    request('/ai/auto-generate-assessment', { method: 'POST', body: JSON.stringify(data), signal }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),
@@ -1043,4 +1047,59 @@ export const api = {
 
   // Resume (public)
   getResume: (slug: string) => request(`/resume/${slug}`, { auth: false }),
+
+  // ── Assessments ──
+  listAssessments: (qs = '') => request(`/assessments${qs}`, { auth: false }),
+  getAssessment: (id: number) => request(`/assessments/${id}`, { auth: false }),
+  createAssessment: (data: any) => request('/assessments', { method: 'POST', body: JSON.stringify(data) }),
+  updateAssessment: (id: number, data: any) => request(`/assessments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteAssessment: (id: number) => request(`/assessments/${id}`, { method: 'DELETE' }),
+  restoreAssessment: (id: number) => request(`/assessments/${id}/restore`, { method: 'PATCH' }),
+  deleteAssessment: (id: number) => request(`/assessments/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Assessment Translations ──
+  listAssessmentTranslations: (qs = '') => request(`/assessment-translations${qs}`, { auth: false }),
+  getAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}`, { auth: false }),
+  getAssessmentTranslationCoverage: (assessmentId: number) => request(`/assessment-translations/coverage?assessment_id=${assessmentId}`, { auth: false }),
+  createAssessmentTranslation: (data: any) => request('/assessment-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updateAssessmentTranslation: (id: number, data: any) => request(`/assessment-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}`, { method: 'DELETE' }),
+  restoreAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}/restore`, { method: 'PATCH' }),
+  deleteAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Assessment Attachments ──
+  listAssessmentAttachments: (qs = '') => request(`/assessment-attachments${qs}`, { auth: false }),
+  getAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}`, { auth: false }),
+  createAssessmentAttachment: (data: any) => request('/assessment-attachments', { method: 'POST', body: JSON.stringify(data) }),
+  updateAssessmentAttachment: (id: number, data: any) => request(`/assessment-attachments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}`, { method: 'DELETE' }),
+  restoreAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}/restore`, { method: 'PATCH' }),
+  deleteAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Assessment Attachment Translations ──
+  listAssessmentAttachmentTranslations: (qs = '') => request(`/assessment-attachment-translations${qs}`, { auth: false }),
+  getAssessmentAttachmentTranslation: (id: number) => request(`/assessment-attachment-translations/${id}`, { auth: false }),
+  createAssessmentAttachmentTranslation: (data: any) => request('/assessment-attachment-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updateAssessmentAttachmentTranslation: (id: number, data: any) => request(`/assessment-attachment-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteAssessmentAttachmentTranslation: (id: number) => request(`/assessment-attachment-translations/${id}`, { method: 'DELETE' }),
+  restoreAssessmentAttachmentTranslation: (id: number) => request(`/assessment-attachment-translations/${id}/restore`, { method: 'PATCH' }),
+  deleteAssessmentAttachmentTranslation: (id: number) => request(`/assessment-attachment-translations/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Assessment Solutions ──
+  listAssessmentSolutions: (qs = '') => request(`/assessment-solutions${qs}`, { auth: false }),
+  getAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}`, { auth: false }),
+  createAssessmentSolution: (data: any) => request('/assessment-solutions', { method: 'POST', body: JSON.stringify(data) }),
+  updateAssessmentSolution: (id: number, data: any) => request(`/assessment-solutions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}`, { method: 'DELETE' }),
+  restoreAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}/restore`, { method: 'PATCH' }),
+  deleteAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Assessment Solution Translations ──
+  listAssessmentSolutionTranslations: (qs = '') => request(`/assessment-solution-translations${qs}`, { auth: false }),
+  getAssessmentSolutionTranslation: (id: number) => request(`/assessment-solution-translations/${id}`, { auth: false }),
+  createAssessmentSolutionTranslation: (data: any) => request('/assessment-solution-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updateAssessmentSolutionTranslation: (id: number, data: any) => request(`/assessment-solution-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteAssessmentSolutionTranslation: (id: number) => request(`/assessment-solution-translations/${id}`, { method: 'DELETE' }),
+  restoreAssessmentSolutionTranslation: (id: number) => request(`/assessment-solution-translations/${id}/restore`, { method: 'PATCH' }),
+  deleteAssessmentSolutionTranslation: (id: number) => request(`/assessment-solution-translations/${id}/permanent`, { method: 'DELETE' }),
 };

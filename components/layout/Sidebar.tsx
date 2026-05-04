@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle, Settings, Database, Landmark, BookText, ClipboardList, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle, Settings, Database, Landmark, BookText, ClipboardList, PanelLeftClose, PanelLeftOpen, ClipboardCheck, Code2, Briefcase, Rocket } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -298,6 +298,18 @@ const navGroups: NavGroup[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    key: 'assessments',
+    title: 'Assessments',
+    icon: ClipboardCheck,
+    iconColor: 'text-purple-500',
+    items: [
+      { href: '/exercises', label: 'Exercises', icon: Code2, iconColor: 'text-green-500' },
+      { href: '/assignments', label: 'Assignments', icon: FileText, iconColor: 'text-blue-500' },
+      { href: '/mini-projects', label: 'Mini Projects', icon: Briefcase, iconColor: 'text-amber-500' },
+      { href: '/capstone-projects', label: 'Capstone Projects', icon: Rocket, iconColor: 'text-purple-500' },
     ],
   },
 ];

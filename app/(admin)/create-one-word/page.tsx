@@ -475,7 +475,7 @@ export default function CreateOneWordPage() {
     setSaving(true);
     try {
       const payload = {
-        topic_id: topicId,
+        topic_id: topicId || undefined,
         question_type: questionType,
         difficulty_level: difficultyLevel,
         question_text: questionText.trim(),

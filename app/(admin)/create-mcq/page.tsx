@@ -512,7 +512,7 @@ export default function CreateMcqPage() {
     setSaving(true);
     try {
       const payload = {
-        topic_id: topicId,
+        topic_id: topicId || undefined,
         mcq_type: mcqType,
         difficulty_level: difficultyLevel,
         question_text: questionText.trim(),

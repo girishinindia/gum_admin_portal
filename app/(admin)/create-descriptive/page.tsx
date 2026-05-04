@@ -402,7 +402,7 @@ export default function CreateDescriptivePage() {
     setSaving(true);
     try {
       const payload = {
-        topic_id: topicId,
+        topic_id: topicId || undefined,
         answer_type: answerType,
         difficulty_level: difficultyLevel,
         question_text: questionText.trim(),
