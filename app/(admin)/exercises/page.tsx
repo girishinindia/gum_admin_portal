@@ -45,15 +45,13 @@ interface Chapter { id: number; english_name?: string; subject_id?: number }
 interface Topic { id: number; english_name?: string; chapter_id?: number }
 interface SubTopic { id: number; slug: string; english_name?: string; topic_id?: number }
 
-const DIFFICULTY_LEVELS = ['beginner', 'intermediate', 'advanced', 'expert', 'all_levels'];
-const CONTENT_TYPES = ['html', 'coding'];
+const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard'];
+const CONTENT_TYPES = ['coding', 'github', 'pdf', 'image', 'mixed'];
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  beginner: 'emerald',
-  intermediate: 'blue',
-  advanced: 'orange',
-  expert: 'red',
-  all_levels: 'slate',
+  easy: 'emerald',
+  medium: 'blue',
+  hard: 'red',
 };
 
 type SortField = 'id' | 'english_title' | 'difficulty_level' | 'points' | 'display_order' | 'is_active';
@@ -277,8 +275,8 @@ export default function ExercisesPage() {
     setDialogSubTopics([]);
     reset({
       sub_topic_id: '',
-      content_type: 'html',
-      difficulty_level: 'beginner',
+      content_type: 'coding',
+      difficulty_level: 'medium',
       points: 10,
       estimated_hours: '',
       due_days: '',
@@ -337,8 +335,8 @@ export default function ExercisesPage() {
     }
     reset({
       sub_topic_id: item.sub_topic_id ? String(item.sub_topic_id) : '',
-      content_type: item.content_type || 'html',
-      difficulty_level: item.difficulty_level || 'beginner',
+      content_type: item.content_type || 'coding',
+      difficulty_level: item.difficulty_level || 'medium',
       points: item.points || 10,
       estimated_hours: item.estimated_hours || '',
       due_days: item.due_days || '',
