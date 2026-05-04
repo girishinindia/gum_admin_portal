@@ -1058,6 +1058,9 @@ export const api = {
   softDeleteAssessment: (id: number) => request(`/assessments/${id}`, { method: 'DELETE' }),
   restoreAssessment: (id: number) => request(`/assessments/${id}/restore`, { method: 'PATCH' }),
   deleteAssessment: (id: number) => request(`/assessments/${id}/permanent`, { method: 'DELETE' }),
+  createAssessmentFull: (data: any) => request('/assessments/full', { method: 'POST', body: JSON.stringify(data) }),
+  updateAssessmentFull: (id: number, data: any) => request(`/assessments/${id}/full`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getAssessmentFull: (id: number) => request(`/assessments/${id}/full`),
 
   // ── Assessment Translations ──
   listAssessmentTranslations: (qs = '') => request(`/assessment-translations${qs}`, { auth: false }),
@@ -1068,12 +1071,29 @@ export const api = {
   softDeleteAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}`, { method: 'DELETE' }),
   restoreAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}/restore`, { method: 'PATCH' }),
   deleteAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}/permanent`, { method: 'DELETE' }),
+  permanentDeleteAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}/permanent`, { method: 'DELETE' }),
 
   // ── Assessment Attachments ──
   listAssessmentAttachments: (qs = '') => request(`/assessment-attachments${qs}`, { auth: false }),
   getAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}`, { auth: false }),
-  createAssessmentAttachment: (data: any) => request('/assessment-attachments', { method: 'POST', body: JSON.stringify(data) }),
-  updateAssessmentAttachment: (id: number, data: any) => request(`/assessment-attachments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  createAssessmentAttachment: (data: any, file?: File) => {
+    if (file) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      fd.append('file', file, file.name);
+      return fetch(`${API_URL}/assessment-attachments`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request('/assessment-attachments', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateAssessmentAttachment: (id: number, data: any, file?: File) => {
+    if (file) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      fd.append('file', file, file.name);
+      return fetch(`${API_URL}/assessment-attachments/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request(`/assessment-attachments/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
   softDeleteAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}`, { method: 'DELETE' }),
   restoreAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}/restore`, { method: 'PATCH' }),
   deleteAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}/permanent`, { method: 'DELETE' }),
@@ -1090,8 +1110,24 @@ export const api = {
   // ── Assessment Solutions ──
   listAssessmentSolutions: (qs = '') => request(`/assessment-solutions${qs}`, { auth: false }),
   getAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}`, { auth: false }),
-  createAssessmentSolution: (data: any) => request('/assessment-solutions', { method: 'POST', body: JSON.stringify(data) }),
-  updateAssessmentSolution: (id: number, data: any) => request(`/assessment-solutions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  createAssessmentSolution: (data: any, file?: File) => {
+    if (file) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      fd.append('file', file, file.name);
+      return fetch(`${API_URL}/assessment-solutions`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request('/assessment-solutions', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateAssessmentSolution: (id: number, data: any, file?: File) => {
+    if (file) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      fd.append('file', file, file.name);
+      return fetch(`${API_URL}/assessment-solutions/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request(`/assessment-solutions/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
   softDeleteAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}`, { method: 'DELETE' }),
   restoreAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}/restore`, { method: 'PATCH' }),
   deleteAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}/permanent`, { method: 'DELETE' }),

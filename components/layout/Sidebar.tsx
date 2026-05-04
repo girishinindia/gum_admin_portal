@@ -306,10 +306,10 @@ const navGroups: NavGroup[] = [
     icon: ClipboardCheck,
     iconColor: 'text-purple-500',
     items: [
-      { href: '/exercises', label: 'Exercises', icon: Code2, iconColor: 'text-green-500' },
-      { href: '/assignments', label: 'Assignments', icon: FileText, iconColor: 'text-blue-500' },
-      { href: '/mini-projects', label: 'Mini Projects', icon: Briefcase, iconColor: 'text-amber-500' },
-      { href: '/capstone-projects', label: 'Capstone Projects', icon: Rocket, iconColor: 'text-purple-500' },
+      { href: '/create-exercise', label: 'Exercises', icon: Code2, iconColor: 'text-green-500' },
+      { href: '/create-assignment', label: 'Assignments', icon: FileText, iconColor: 'text-blue-500' },
+      { href: '/create-mini-project', label: 'Mini Projects', icon: Briefcase, iconColor: 'text-amber-500' },
+      { href: '/create-capstone-project', label: 'Capstone Projects', icon: Rocket, iconColor: 'text-purple-500' },
     ],
   },
 ];
