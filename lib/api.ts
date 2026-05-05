@@ -588,6 +588,25 @@ export const api = {
   restoreBundleCourse: (id: number) => request(`/bundle-courses/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteBundleCourse: (id: number) => request(`/bundle-courses/${id}/permanent`, { method: 'DELETE' }),
 
+  // Course Batches
+  listCourseBatches: (qs = '') => request(`/course-batches${qs}`, { auth: false }),
+  getCourseBatch: (id: number) => request(`/course-batches/${id}`, { auth: false }),
+  createCourseBatch: (data: any) => request('/course-batches', { method: 'POST', body: JSON.stringify(data) }),
+  updateCourseBatch: (id: number, data: any) => request(`/course-batches/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCourseBatch: (id: number) => request(`/course-batches/${id}`, { method: 'DELETE' }),
+  restoreCourseBatch: (id: number) => request(`/course-batches/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCourseBatch: (id: number) => request(`/course-batches/${id}/permanent`, { method: 'DELETE' }),
+
+  // Batch Translations
+  listBatchTranslations: (qs = '') => request(`/batch-translations${qs}`, { auth: false }),
+  getBatchTranslation: (id: number) => request(`/batch-translations/${id}`, { auth: false }),
+  createBatchTranslation: (data: any, isFormData = false) => request('/batch-translations', { method: 'POST', body: isFormData ? data : JSON.stringify(data), isFormData }),
+  updateBatchTranslation: (id: number, data: any, isFormData = false) => request(`/batch-translations/${id}`, { method: 'PATCH', body: isFormData ? data : JSON.stringify(data), isFormData }),
+  deleteBatchTranslation: (id: number) => request(`/batch-translations/${id}`, { method: 'DELETE' }),
+  restoreBatchTranslation: (id: number) => request(`/batch-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteBatchTranslation: (id: number) => request(`/batch-translations/${id}/permanent`, { method: 'DELETE' }),
+  getBatchTranslationCoverage: (qs = '') => request(`/batch-translations/coverage${qs}`, { auth: false }),
+
   // MCQ Questions
   listMcqQuestions: (qs = '') => request(`/mcq-questions${qs}`, { auth: false }),
   getMcqQuestion: (id: number) => request(`/mcq-questions/${id}`, { auth: false }),
