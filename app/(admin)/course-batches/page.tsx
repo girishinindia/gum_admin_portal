@@ -14,7 +14,7 @@ import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
-import { Plus, Calendar, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Users, DollarSign, Clock } from 'lucide-react';
+import { Plus, Calendar, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Loader2, Check, X, Sparkles, Users, DollarSign, Clock, Package } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePageSize } from '@/hooks/usePageSize';
@@ -44,6 +44,15 @@ const OWNER_COLORS: Record<string, string> = {
   system: 'bg-blue-50 text-blue-700',
   instructor: 'bg-violet-50 text-violet-700',
 };
+
+function DetailRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium text-slate-400 uppercase tracking-wider">{label}</dt>
+      <dd className="mt-0.5 text-sm text-slate-800">{value || '--'}</dd>
+    </div>
+  );
+}
 
 export default function CourseBatchesPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -557,7 +566,7 @@ export default function CourseBatchesPage() {
             <THead>
               <TR className="hover:bg-transparent">
                 <TH className="w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
-                <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">ID <SortIcon field="id" /></button></TH>
+                <TH className="w-16"><button onClick={() => handleSort('id')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer"># <SortIcon field="id" /></button></TH>
                 <TH>
                   <button onClick={() => handleSort('title')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
                     Title <SortIcon field="title" />
@@ -579,7 +588,7 @@ export default function CourseBatchesPage() {
                 {showTrash && <TH>Deleted</TH>}
                 <TH>
                   <button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">
-                    Active <SortIcon field="is_active" />
+                    Status <SortIcon field="is_active" />
                   </button>
                 </TH>
                 <TH className="text-right">Actions</TH>
@@ -620,15 +629,25 @@ export default function CourseBatchesPage() {
                     <TD className="py-2.5">
                       {(() => {
                         const cov = coverage[c.id];
-                        if (!cov || cov.length === 0) return (
-                          <button onClick={() => handleAIGenerateSingle(c.id)} className="text-xs text-slate-400 hover:text-brand-600 flex items-center gap-1" title="Generate translations">
-                            <Sparkles className="w-3 h-3" /> 0
-                          </button>
-                        );
+                        const count = cov ? cov.length : 0;
                         return (
-                          <button onClick={() => handleAIGenerateSingle(c.id)} className="text-xs text-emerald-600 hover:text-brand-600 flex items-center gap-1" title="Generate missing translations">
-                            <Sparkles className="w-3 h-3" /> {cov.length}
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn(
+                              'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full',
+                              count > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                            )}>
+                              {count > 0 && <Check className="w-3 h-3" />}
+                              {count}
+                            </span>
+                            <button
+                              onClick={() => handleAIGenerateSingle(c.id, count > 0)}
+                              disabled={bulkActionLoading}
+                              className={cn('p-1 rounded-md transition-colors', count > 0 ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50' : 'text-violet-500 hover:text-violet-700 hover:bg-violet-50')}
+                              title={count > 0 ? 'Regenerate translations' : 'Generate translations'}
+                            >
+                              {count > 0 ? <RotateCcw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
                         );
                       })()}
                     </TD>
@@ -639,24 +658,39 @@ export default function CourseBatchesPage() {
                     </TD>
                   )}
                   <TD className="py-2.5">
-                    <button onClick={() => !showTrash && onToggleActive(c)} disabled={showTrash} className="group">
-                      {c.is_active ? <CheckCircle2 className="w-4.5 h-4.5 text-emerald-500 group-hover:text-emerald-700" /> : <XCircle className="w-4.5 h-4.5 text-slate-300 group-hover:text-slate-500" />}
-                    </button>
+                    {showTrash ? (
+                      <Badge variant="warning">Deleted</Badge>
+                    ) : (
+                      <Badge variant={c.is_active ? 'success' : 'danger'}>
+                        {c.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    )}
                   </TD>
-                  <TD className="py-2.5 text-right">
+                  <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
-                      {actionLoadingId === c.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                      ) : showTrash ? (
+                      {showTrash ? (
                         <>
-                          <Button size="sm" variant="ghost" onClick={() => onRestore(c)} title="Restore"><RotateCcw className="w-3.5 h-3.5" /></Button>
-                          <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => onPermanentDelete(c)} title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></Button>
+                          <button onClick={() => onRestore(c)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">
+                            {actionLoadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                          </button>
+                          <button onClick={() => onPermanentDelete(c)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">
+                            {actionLoadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          </button>
                         </>
                       ) : (
                         <>
-                          <Button size="sm" variant="ghost" onClick={() => openView(c)} title="View"><Eye className="w-3.5 h-3.5" /></Button>
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(c)} title="Edit"><Edit2 className="w-3.5 h-3.5" /></Button>
-                          <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => onSoftDelete(c)} title="Delete"><Trash2 className="w-3.5 h-3.5" /></Button>
+                          <button onClick={() => openView(c)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => openEdit(c)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onToggleActive(c)} className="p-1.5 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors" title={c.is_active ? 'Deactivate' : 'Activate'}>
+                            {c.is_active ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                          </button>
+                          <button onClick={() => onSoftDelete(c)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">
+                            {actionLoadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          </button>
                         </>
                       )}
                     </div>
@@ -665,47 +699,70 @@ export default function CourseBatchesPage() {
               ))}
             </TBody>
           </Table>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={handlePageSizeChange}
+            showingCount={items.length}
+          />
         </div>
-      )}
-
-      {/* Pagination */}
-      {!loading && items.length > 0 && (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={handlePageSizeChange}
-        />
       )}
 
       {/* View Dialog */}
       {viewing && (
-        <Dialog open={!!viewing} onClose={() => setViewing(null)} title={viewing.title || viewing.code || `Batch #${viewing.id}`} size="lg">
-          <div className="space-y-4 text-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div><span className="text-slate-500">Code:</span> <span className="font-medium">{viewing.code || '--'}</span></div>
-              <div><span className="text-slate-500">Slug:</span> <span className="font-medium">{viewing.slug || '--'}</span></div>
-              <div><span className="text-slate-500">Course:</span> <span className="font-medium">{viewing.courses?.title || '--'}</span></div>
-              <div><span className="text-slate-500">Instructor:</span> <span className="font-medium">{viewing.users?.full_name || '--'}</span></div>
-              <div><span className="text-slate-500">Status:</span> <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_COLORS[viewing.batch_status] || '')}>{STATUS_OPTIONS.find(o => o.value === viewing.batch_status)?.label || viewing.batch_status}</span></div>
-              <div><span className="text-slate-500">Owner:</span> <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', OWNER_COLORS[viewing.batch_owner] || '')}>{viewing.batch_owner}</span></div>
-              <div><span className="text-slate-500">Price:</span> <span className="font-medium">{viewing.is_free ? 'FREE' : formatPrice(viewing.price, false)}</span></div>
-              <div><span className="text-slate-500">Capacity:</span> <span className="font-medium">{viewing.enrolled_count || 0} / {viewing.max_students || 'Unlimited'}</span></div>
-              <div><span className="text-slate-500">Start:</span> <span className="font-medium">{viewing.start_date ? new Date(viewing.start_date).toLocaleDateString() : '--'}</span></div>
-              <div><span className="text-slate-500">End:</span> <span className="font-medium">{viewing.end_date ? new Date(viewing.end_date).toLocaleDateString() : '--'}</span></div>
-              <div><span className="text-slate-500">Meeting:</span> <span className="font-medium">{viewing.meeting_platform || '--'}</span></div>
-              <div><span className="text-slate-500">Active:</span> {viewing.is_active ? <CheckCircle2 className="inline w-4 h-4 text-emerald-500" /> : <XCircle className="inline w-4 h-4 text-red-400" />}</div>
-            </div>
-            {viewing.schedule && (
-              <div>
-                <span className="text-slate-500 block mb-1">Schedule (JSON):</span>
-                <pre className="bg-slate-50 rounded p-2 text-xs overflow-x-auto">{JSON.stringify(viewing.schedule, null, 2)}</pre>
+        <Dialog open={!!viewing} onClose={() => setViewing(null)} title="Batch Details" size="lg">
+          <div className="p-6">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
+                <Calendar className="w-6 h-6 text-slate-400" />
               </div>
-            )}
-            {viewing.meeting_link && (
-              <div><span className="text-slate-500">Meeting Link:</span> <a href={viewing.meeting_link} target="_blank" rel="noopener noreferrer" className="text-brand-600 underline">{viewing.meeting_link}</a></div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">{viewing.title || viewing.code || `Batch #${viewing.id}`}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant={viewing.is_active ? 'success' : 'danger'}>
+                    {viewing.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                  {viewing.batch_status && (
+                    <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_COLORS[viewing.batch_status] || 'bg-slate-50 text-slate-600')}>
+                      {STATUS_OPTIONS.find(o => o.value === viewing.batch_status)?.label || viewing.batch_status}
+                    </span>
+                  )}
+                  {viewing.batch_owner && (
+                    <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', OWNER_COLORS[viewing.batch_owner] || 'bg-slate-50 text-slate-600')}>
+                      {viewing.batch_owner === 'system' ? 'System' : 'Instructor'}
+                    </span>
+                  )}
+                  {viewing.is_free && <Badge variant="info">FREE</Badge>}
+                </div>
+              </div>
+            </div>
+
+            {/* Detail grid */}
+            <div className="grid grid-cols-3 gap-x-8 gap-y-4">
+              <DetailRow label="Code" value={viewing.code} />
+              <DetailRow label="Slug" value={viewing.slug ? `/${viewing.slug}` : undefined} />
+              <DetailRow label="Course" value={viewing.courses?.title} />
+              <DetailRow label="Instructor" value={viewing.users?.full_name || (viewing.instructor_id ? `ID: ${viewing.instructor_id}` : undefined)} />
+              <DetailRow label="Price" value={viewing.is_free ? 'FREE' : formatPrice(viewing.price, false)} />
+              <DetailRow label="Capacity" value={`${viewing.enrolled_count || 0} / ${viewing.max_students || 'Unlimited'}`} />
+              <DetailRow label="Start Date" value={viewing.start_date ? new Date(viewing.start_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : undefined} />
+              <DetailRow label="End Date" value={viewing.end_date ? new Date(viewing.end_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : undefined} />
+              <DetailRow label="Meeting Platform" value={viewing.meeting_platform} />
+              <DetailRow label="Display Order" value={viewing.display_order != null ? String(viewing.display_order) : undefined} />
+              <DetailRow label="Includes Course Access" value={viewing.includes_course_access ? 'Yes' : 'No'} />
+              <DetailRow label="Meeting Link" value={viewing.meeting_link} />
+            </div>
+
+            {/* Schedule JSON */}
+            {viewing.schedule && (
+              <div className="mt-6 pt-4 border-t border-slate-100">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Schedule</p>
+                <pre className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 overflow-x-auto border border-slate-100">{JSON.stringify(viewing.schedule, null, 2)}</pre>
+              </div>
             )}
           </div>
         </Dialog>
@@ -713,7 +770,7 @@ export default function CourseBatchesPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog key={dialogKey} open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Batch' : 'Create Batch'} size="lg">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {/* Tabs */}
           <div className="flex gap-1 border-b border-slate-200 mb-4">
             {formTabs.map(tab => (

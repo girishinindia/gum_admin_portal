@@ -554,7 +554,7 @@ export default function BatchTranslationsPage() {
                 <TH>Language</TH>
                 <TH>Thumb</TH>
                 {showTrash && <TH>Deleted</TH>}
-                <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Active <SortIcon field="is_active" /></button></TH>
+                <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="is_active" /></button></TH>
                 <TH className="text-right">Actions</TH>
               </TR>
             </THead>
@@ -584,24 +584,21 @@ export default function BatchTranslationsPage() {
                   </TD>
                   {showTrash && <TD className="py-2.5"><span className="text-xs text-slate-400">{item.deleted_at ? fromNow(item.deleted_at) : '--'}</span></TD>}
                   <TD className="py-2.5">
-                    <button onClick={() => !showTrash && onToggleActive(item)} disabled={showTrash} className="group">
-                      {item.is_active ? <CheckCircle2 className="w-4.5 h-4.5 text-emerald-500 group-hover:text-emerald-700" /> : <XCircle className="w-4.5 h-4.5 text-slate-300 group-hover:text-slate-500" />}
-                    </button>
+                    {showTrash ? <Badge variant="warning">Deleted</Badge> : <Badge variant={item.is_active ? 'success' : 'danger'}>{item.is_active ? 'Active' : 'Inactive'}</Badge>}
                   </TD>
-                  <TD className="py-2.5 text-right">
+                  <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
-                      {actionLoadingId === item.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                      ) : showTrash ? (
+                      {showTrash ? (
                         <>
-                          <Button size="sm" variant="ghost" onClick={() => onRestore(item)} title="Restore"><RotateCcw className="w-3.5 h-3.5" /></Button>
-                          <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => onPermanentDelete(item)} title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></Button>
+                          <button onClick={() => onRestore(item)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50" title="Restore">{actionLoadingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}</button>
+                          <button onClick={() => onPermanentDelete(item)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete permanently">{actionLoadingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
                         </>
                       ) : (
                         <>
-                          <Button size="sm" variant="ghost" onClick={() => openView(item)} title="View"><Eye className="w-3.5 h-3.5" /></Button>
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(item)} title="Edit"><Edit2 className="w-3.5 h-3.5" /></Button>
-                          <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => onSoftDelete(item)} title="Delete"><Trash2 className="w-3.5 h-3.5" /></Button>
+                          <button onClick={() => openView(item)} className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => onToggleActive(item)} className="p-1.5 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors" title={item.is_active ? 'Deactivate' : 'Activate'}>{item.is_active ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}</button>
+                          <button onClick={() => onSoftDelete(item)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">{actionLoadingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
                         </>
                       )}
                     </div>
@@ -610,17 +607,14 @@ export default function BatchTranslationsPage() {
               ))}
             </TBody>
           </Table>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} total={total} showingCount={items.length} />
         </div>
-      )}
-
-      {/* Pagination */}
-      {!loading && items.length > 0 && (
-        <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
       )}
 
       {/* View Dialog */}
       {viewOpen && viewItem && (
         <Dialog open={viewOpen} onClose={() => setViewOpen(false)} title={viewItem.title || 'Translation'} size="lg">
+          <div className="p-6 space-y-4">
           <div className="flex gap-1 border-b border-slate-200 mb-4">
             {TABS.map(tab => (
               <button key={tab} type="button" onClick={() => setViewTab(tab)} className={cn('px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px', viewTab === tab ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700')}>
@@ -677,12 +671,13 @@ export default function BatchTranslationsPage() {
               <ViewField label="Structured Data (JSON-LD)" value={jsonPretty(viewItem.structured_data)} mono />
             </div>
           )}
+          </div>
         </Dialog>
       )}
 
       {/* Create/Edit Dialog */}
       <Dialog key={dialogKey} open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Batch Translation' : 'Create Batch Translation'} size="lg">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {/* Tabs */}
           <div className="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto">
             {TABS.map(tab => (
