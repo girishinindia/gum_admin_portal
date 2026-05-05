@@ -95,6 +95,7 @@ export default function CapstoneProjectsPage() {
   const [fileHtml, setFileHtml] = useState<File | null>(null);
   const [fileSolution, setFileSolution] = useState<File | null>(null);
   const [existingFileUrl, setExistingFileUrl] = useState('');
+  const [existingFileName, setExistingFileName] = useState('');
   const [existingFileSolutionUrl, setExistingFileSolutionUrl] = useState('');
   const [existingFileSolutionName, setExistingFileSolutionName] = useState('');
 
@@ -242,6 +243,7 @@ export default function CapstoneProjectsPage() {
     setTransTitle(trans?.name || '');
     setTransDescription(trans?.description || '');
     setExistingFileUrl(trans?.file_url || '');
+    setExistingFileName(trans?.file_name || '');
     setFileHtml(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -280,6 +282,7 @@ export default function CapstoneProjectsPage() {
     setFileHtml(null);
     setFileSolution(null);
     setExistingFileUrl('');
+    setExistingFileName('');
     setExistingFileSolutionUrl('');
     setTranslationCoverage([]);
     setEditLangId(7);
@@ -337,6 +340,7 @@ export default function CapstoneProjectsPage() {
       setTransTitle(engTrans?.name || '');
       setTransDescription(engTrans?.description || '');
       setExistingFileUrl(engTrans?.file_url || '');
+      setExistingFileName(engTrans?.file_name || '');
       setFileHtml(null);
       setFileSolution(null);
 
@@ -436,6 +440,7 @@ export default function CapstoneProjectsPage() {
           if (r.data?.file_solution_url !== undefined) setExistingFileSolutionUrl(r.data.file_solution_url || '');
           if (r.data?.file_solution_name !== undefined) setExistingFileSolutionName(r.data.file_solution_name || '');
           if (r.data?.assesment_capstone_projects_translations?.[0]?.file_url !== undefined) setExistingFileUrl(r.data.assesment_capstone_projects_translations[0].file_url || '');
+          if (r.data?.assesment_capstone_projects_translations?.[0]?.file_name !== undefined) setExistingFileName(r.data.assesment_capstone_projects_translations[0].file_name || '');
         } else {
           resetForm();
         }
@@ -1177,6 +1182,7 @@ export default function CapstoneProjectsPage() {
                     if (!file && fileInputRef.current) fileInputRef.current.value = '';
                   }}
                   newFile={fileHtml}
+                  displayName={existingFileName || undefined}
                 />
               </div>
             </div>
