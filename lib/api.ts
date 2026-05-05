@@ -804,6 +804,14 @@ export const api = {
   autoTranslateOrdering: (data: { topic_id?: number; question_ids?: number[]; provider?: string }) =>
     request('/ai/auto-translate-ordering', { method: 'POST', body: JSON.stringify(data) }),
 
+  // AI — Assessment translations (HTML file-based)
+  autoTranslateExercise: (data: { exercise_id?: number; exercise_ids?: number[]; provider?: string }) =>
+    request('/ai/auto-translate-exercise', { method: 'POST', body: JSON.stringify(data) }),
+  autoTranslateMiniProject: (data: { mini_project_id?: number; mini_project_ids?: number[]; provider?: string }) =>
+    request('/ai/auto-translate-mini-project', { method: 'POST', body: JSON.stringify(data) }),
+  autoTranslateCapstone: (data: { capstone_project_id?: number; capstone_project_ids?: number[]; provider?: string }) =>
+    request('/ai/auto-translate-capstone', { method: 'POST', body: JSON.stringify(data) }),
+
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),

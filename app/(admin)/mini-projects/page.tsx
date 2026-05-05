@@ -13,7 +13,7 @@ import {
   Plus, Trash2, Edit2, Check, X, Loader2, Globe,
   CheckCircle2, XCircle, ArrowLeft, Save, RotateCcw,
   Eye, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle,
-  ExternalLink, Upload, Video, Package, BarChart3, ChevronRight
+  ExternalLink, Upload, Video, Package, BarChart3, ChevronRight, Sparkles
 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { usePageSize } from '@/hooks/usePageSize';
@@ -140,6 +140,7 @@ export default function MiniProjectsPage() {
   // ── Loading state ──
   const [saving, setSaving] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [aiTranslating, setAiTranslating] = useState(false);
 
   // ── Form cascade state ──
   const [formSubjects, setFormSubjects] = useState<any[]>([]);
@@ -504,6 +505,35 @@ export default function MiniProjectsPage() {
     }
   };
 
+
+  // ── AI Translate (translates English HTML file to all missing languages) ──
+  const handleAiTranslate = async (projectId?: number) => {
+    const id = projectId || editingId;
+    if (!id) return;
+    setAiTranslating(true);
+    try {
+      const r = await api.autoTranslateMiniProject({ mini_project_id: id });
+      if (r.success) {
+        const d = r.data || {};
+        const total = (d.translated || 0) + (d.skipped || 0) + (d.failed || 0);
+        toast.success(`AI translated ${d.translated || 0} of ${total} languages`);
+        if (editingId === id) {
+          const full = await api.getMiniProjectFull(id);
+          if (full.success && full.data) {
+            setAllTranslations(full.data.assesment_mini_projects_translations || []);
+            setTranslationCoverage(full.data.translation_coverage || []);
+          }
+        }
+        loadProjects();
+      } else {
+        toast.error(r.message || r.error || 'AI translation failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'AI translation error');
+    } finally {
+      setAiTranslating(false);
+    }
+  };
 
   // ── Soft delete ──
   const handleSoftDelete = async (id: number) => {
@@ -1180,6 +1210,17 @@ export default function MiniProjectsPage() {
                     Translation Coverage ({translatedLangs}/{totalLangs} languages)
                   </h4>
                   <div className="flex items-center gap-2">
+                    {missingLangs > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAiTranslate()}
+                        disabled={aiTranslating}
+                      >
+                        {aiTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Sparkles className="h-4 w-4 mr-1 text-purple-500" />}
+                        AI Translate Remaining ({missingLangs})
+                      </Button>
+                    )}
                     {translatedLangs > 1 && (
                       <Button
                         variant="outline"
@@ -1227,6 +1268,16 @@ export default function MiniProjectsPage() {
                     <CheckCircle2 className="h-3.5 w-3.5" /> All languages translated!
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* ── AI Translating overlay ── */}
+            {aiTranslating && (
+              <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 shadow-xl flex items-center gap-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                  <span className="text-gray-700 font-medium">Generating AI translations...</span>
+                </div>
               </div>
             )}
 

@@ -463,13 +463,55 @@ export default function ExercisesPage() {
     }
   };
 
-  // ── AI Translate (placeholder — no AI endpoint exists yet, but we follow the pattern) ──
+  // ── AI Translate (translates English HTML file to all missing languages) ──
   const handleAiTranslate = async (exerciseId?: number) => {
-    toast.info('AI translation for exercises is not yet available');
+    const id = exerciseId || editingId;
+    if (!id) return;
+    setAiTranslating(true);
+    try {
+      const r = await api.autoTranslateExercise({ exercise_id: id });
+      if (r.success) {
+        const d = r.data || {};
+        const total = (d.translated || 0) + (d.skipped || 0) + (d.failed || 0);
+        toast.success(`AI translated ${d.translated || 0} of ${total} languages`);
+        if (editingId === id) {
+          const full = await api.getExerciseFull(id);
+          if (full.success && full.data) {
+            setAllTranslations(full.data.assesment_exercise_translations || []);
+            setTranslationCoverage(full.data.translation_coverage || []);
+          }
+        }
+        loadExercises();
+        loadCoverage();
+      } else {
+        toast.error(r.message || r.error || 'AI translation failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'AI translation error');
+    } finally {
+      setAiTranslating(false);
+    }
   };
 
   const handleAiTranslateSelected = async () => {
-    toast.info('AI translation for exercises is not yet available');
+    if (selectedIds.size === 0) return;
+    setAiTranslating(true);
+    try {
+      const r = await api.autoTranslateExercise({ exercise_ids: Array.from(selectedIds) });
+      if (r.success) {
+        const d = r.data || {};
+        const total = (d.translated || 0) + (d.skipped || 0) + (d.failed || 0);
+        toast.success(`AI translated ${d.translated || 0} of ${total} languages across ${selectedIds.size} exercises`);
+        loadExercises();
+        loadCoverage();
+      } else {
+        toast.error(r.message || r.error || 'AI translation failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'AI translation error');
+    } finally {
+      setAiTranslating(false);
+    }
   };
 
   // ── Soft delete ──
@@ -1133,13 +1175,14 @@ export default function ExercisesPage() {
                       {lang.name}
                       <span className="text-xs text-gray-400">({lang.code})</span>
                       {lang.id !== 7 && hasTranslation && (
-                        <button
+                        <span
+                          role="button"
                           onClick={(e) => { e.stopPropagation(); handleDeleteTranslation(lang.id); }}
-                          className="p-0.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors ml-1"
+                          className="p-0.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors ml-1 cursor-pointer"
                           title={`Delete ${lang.name} translation`}
                         >
                           <X className="h-3 w-3" />
-                        </button>
+                        </span>
                       )}
                     </button>
                   );
