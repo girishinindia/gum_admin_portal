@@ -210,8 +210,8 @@ export default function WebinarsPage() {
       title: '', code: '', slug: '', is_active: true,
       course_id: '', chapter_id: '', webinar_owner: 'system', webinar_status: 'draft',
       instructor_id: '', max_attendees: '', price: '', is_free: false,
-      scheduled_at: '', duration_minutes: '', meeting_platform: '',
-      meeting_link: '', recording_url: '', display_order: '',
+      scheduled_at: '', duration_minutes: '', meeting_platform: 'zoom',
+      meeting_url: '', recording_url: '', display_order: '',
     });
     setDialogOpen(true);
   }
@@ -228,7 +228,7 @@ export default function WebinarsPage() {
       price: c.price ?? '', is_free: c.is_free ?? false,
       scheduled_at: c.scheduled_at ? c.scheduled_at.substring(0, 16) : '',
       duration_minutes: c.duration_minutes ?? '',
-      meeting_platform: c.meeting_platform || '', meeting_link: c.meeting_link || '',
+      meeting_platform: c.meeting_platform || 'zoom', meeting_url: c.meeting_url || '',
       recording_url: c.recording_url || '',
       display_order: c.display_order ?? '',
     });
@@ -779,7 +779,7 @@ export default function WebinarsPage() {
               <DetailRow label="Duration" value={viewing.duration_minutes ? `${viewing.duration_minutes} min` : undefined} />
               <DetailRow label="Scheduled At" value={viewing.scheduled_at ? new Date(viewing.scheduled_at).toLocaleString('en-IN') : undefined} />
               <DetailRow label="Meeting Platform" value={viewing.meeting_platform} />
-              <DetailRow label="Meeting Link" value={viewing.meeting_link} />
+              <DetailRow label="Meeting URL" value={viewing.meeting_url} />
               <DetailRow label="Recording URL" value={viewing.recording_url} />
               <DetailRow label="Display Order" value={viewing.display_order != null ? String(viewing.display_order) : undefined} />
             </div>
@@ -851,8 +851,16 @@ export default function WebinarsPage() {
                 <Input label="Duration (minutes)" type="number" {...register('duration_minutes')} placeholder="e.g. 60" />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Meeting Platform" {...register('meeting_platform')} placeholder="e.g. Zoom, Google Meet" />
-                <Input label="Meeting Link" {...register('meeting_link')} placeholder="https://..." />
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Meeting Platform</label>
+                  <select className={cn(selectClass, 'w-full')} {...register('meeting_platform')}>
+                    <option value="zoom">Zoom</option>
+                    <option value="google_meet">Google Meet</option>
+                    <option value="teams">Microsoft Teams</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <Input label="Meeting URL" {...register('meeting_url')} placeholder="https://..." />
               </div>
               <Input label="Recording URL" {...register('recording_url')} placeholder="https://..." />
               <Input label="Chapter ID" type="number" {...register('chapter_id')} placeholder="Optional chapter reference" />
