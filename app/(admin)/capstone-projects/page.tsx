@@ -421,9 +421,20 @@ export default function CapstoneProjectsPage() {
 
       if (r.success) {
         toast.success(mode === 'edit' ? 'Capstone project updated!' : 'Capstone project created!');
-        resetForm();
         loadProjects();
         loadSummary();
+        if (mode === 'edit' && editingId) {
+          // Stay in edit mode — refresh data to show updated file URLs
+          setFileSolution(null);
+          setFileHtml(null);
+          if (fileSolutionInputRef.current) fileSolutionInputRef.current.value = '';
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          // Update file URLs from response
+          if (r.data?.file_solution_url !== undefined) setExistingFileSolutionUrl(r.data.file_solution_url || '');
+          if (r.data?.assesment_capstone_projects_translations?.[0]?.file_url !== undefined) setExistingFileUrl(r.data.assesment_capstone_projects_translations[0].file_url || '');
+        } else {
+          resetForm();
+        }
       } else {
         toast.error(r.message || r.error || 'Failed to save');
       }

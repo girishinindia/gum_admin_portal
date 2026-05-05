@@ -1176,11 +1176,12 @@ export const api = {
   // ── Mini Project Solutions ──
   listMiniProjectSolutions: (qs = '') => request(`/assessment-mini-project-solutions${qs}`, { auth: false }),
   getMiniProjectSolution: (id: number) => request(`/assessment-mini-project-solutions/${id}`, { auth: false }),
-  createMiniProjectSolution: (data: any, videoFile?: File) => {
-    if (videoFile) {
+  createMiniProjectSolution: (data: any, videoFile?: File, thumbnailFile?: File) => {
+    if (videoFile || thumbnailFile) {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
-      fd.append('video_file', videoFile, videoFile.name);
+      if (videoFile) fd.append('video_file', videoFile, videoFile.name);
+      if (thumbnailFile) fd.append('thumbnail_file', thumbnailFile, thumbnailFile.name);
       return fetch(`${API_URL}/assessment-mini-project-solutions`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
     }
     return request('/assessment-mini-project-solutions', { method: 'POST', body: JSON.stringify(data) });
@@ -1260,11 +1261,12 @@ export const api = {
   // ── Capstone Project Solutions ──
   listCapstoneProjectSolutions: (qs = '') => request(`/assessment-capstone-project-solutions${qs}`, { auth: false }),
   getCapstoneProjectSolution: (id: number) => request(`/assessment-capstone-project-solutions/${id}`, { auth: false }),
-  createCapstoneProjectSolution: (data: any, videoFile?: File) => {
-    if (videoFile) {
+  createCapstoneProjectSolution: (data: any, videoFile?: File, thumbnailFile?: File) => {
+    if (videoFile || thumbnailFile) {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
-      fd.append('video_file', videoFile, videoFile.name);
+      if (videoFile) fd.append('video_file', videoFile, videoFile.name);
+      if (thumbnailFile) fd.append('thumbnail_file', thumbnailFile, thumbnailFile.name);
       return fetch(`${API_URL}/assessment-capstone-project-solutions`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
     }
     return request('/assessment-capstone-project-solutions', { method: 'POST', body: JSON.stringify(data) });

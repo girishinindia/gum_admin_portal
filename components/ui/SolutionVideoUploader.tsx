@@ -215,20 +215,26 @@ export function SolutionVideoUploader({
       setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading', progress: 30 } : q));
 
       try {
-        const titles = [item.title];
-        const files = [item.file];
+        const data: any = {
+          video_title: item.title,
+          video_short_intro: item.shortIntro || null,
+          display_order: 0,
+          is_active: true,
+        };
 
         let result: any;
         if (projectType === 'mini') {
-          result = await api.bulkUploadMiniProjectSolutions(projectId, files, titles, item.shortIntro || undefined);
+          data.mini_project_id = projectId;
+          result = await api.createMiniProjectSolution(data, item.file, item.thumbnailFile || undefined);
         } else {
-          result = await api.bulkUploadCapstoneProjectSolutions(projectId, files, titles, item.shortIntro || undefined);
+          data.capstone_project_id = projectId;
+          result = await api.createCapstoneProjectSolution(data, item.file, item.thumbnailFile || undefined);
         }
 
-        if (result.success || result.data?.uploaded?.length > 0) {
+        if (result.success) {
           setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done', progress: 100 } : q));
         } else {
-          const errMsg = result.data?.errors?.[0] || result.error || 'Upload failed';
+          const errMsg = result.error || 'Upload failed';
           setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'error', error: errMsg } : q));
         }
       } catch (e: any) {
