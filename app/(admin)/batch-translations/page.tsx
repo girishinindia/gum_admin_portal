@@ -39,17 +39,10 @@ interface BatchTranslation {
   title: string;
   short_description?: string | null;
   description?: string | null;
-  tags?: any;
   thumbnail_url?: string | null;
   meta_title?: string | null;
   meta_description?: string | null;
   meta_keywords?: string | null;
-  og_title?: string | null;
-  og_description?: string | null;
-  twitter_title?: string | null;
-  twitter_description?: string | null;
-  focus_keyword?: string | null;
-  structured_data?: any;
   is_active: boolean;
   deleted_at?: string | null;
   created_at: string;
@@ -58,7 +51,7 @@ interface BatchTranslation {
   languages?: { name: string; iso_code?: string; native_name?: string } | null;
 }
 
-const TABS = ['Basic', 'Content', 'Thumbnail', 'SEO', 'Open Graph', 'Twitter', 'Schema'] as const;
+const TABS = ['Basic', 'Content', 'Thumbnail', 'SEO'] as const;
 
 type SortField = 'id' | 'title' | 'is_active';
 
@@ -75,11 +68,6 @@ function ViewField({ label, value, mono }: { label: string; value?: string | nul
   );
 }
 
-function jsonPretty(val: any): string {
-  if (!val) return '';
-  if (typeof val === 'string') return val;
-  try { return JSON.stringify(val, null, 2); } catch { return String(val); }
-}
 
 export default function BatchTranslationsPage() {
   const [items, setItems] = useState<BatchTranslation[]>([]);
@@ -220,16 +208,9 @@ export default function BatchTranslationsPage() {
   const defaultFormValues = {
     batch_id: '', language_id: '',
     title: '', short_description: '', description: '',
-    tags: '[]',
     is_active: true,
     // SEO
     meta_title: '', meta_description: '', meta_keywords: '',
-    focus_keyword: '',
-    structured_data: '{}',
-    // OG
-    og_title: '', og_description: '',
-    // Twitter
-    twitter_title: '', twitter_description: '',
     // Thumbnail URL
     thumbnail_url: '',
   };
@@ -247,20 +228,11 @@ export default function BatchTranslationsPage() {
     setValue('title', item.title || '');
     setValue('short_description', item.short_description || '');
     setValue('description', item.description || '');
-    setValue('tags', jsonPretty(item.tags) || '[]');
     setValue('is_active', item.is_active ?? true);
     // SEO
     setValue('meta_title', item.meta_title || '');
     setValue('meta_description', item.meta_description || '');
     setValue('meta_keywords', item.meta_keywords || '');
-    setValue('focus_keyword', item.focus_keyword || '');
-    setValue('structured_data', jsonPretty(item.structured_data) || '{}');
-    // OG
-    setValue('og_title', item.og_title || '');
-    setValue('og_description', item.og_description || '');
-    // Twitter
-    setValue('twitter_title', item.twitter_title || '');
-    setValue('twitter_description', item.twitter_description || '');
     // Thumbnail
     setValue('thumbnail_url', item.thumbnail_url || '');
     resetImageState();
@@ -279,13 +251,8 @@ export default function BatchTranslationsPage() {
     reset({
       batch_id: item.batch_id, language_id: item.language_id,
       title: item.title || '', short_description: item.short_description || '', description: item.description || '',
-      tags: jsonPretty(item.tags) || '[]',
       is_active: item.is_active ?? true,
       meta_title: item.meta_title || '', meta_description: item.meta_description || '', meta_keywords: item.meta_keywords || '',
-      focus_keyword: item.focus_keyword || '',
-      structured_data: jsonPretty(item.structured_data) || '{}',
-      og_title: item.og_title || '', og_description: item.og_description || '',
-      twitter_title: item.twitter_title || '', twitter_description: item.twitter_description || '',
       thumbnail_url: item.thumbnail_url || '',
     });
     setDialogOpen(true);
@@ -297,9 +264,7 @@ export default function BatchTranslationsPage() {
     // Scalar text fields
     const scalarFields = [
       'batch_id', 'language_id', 'title', 'short_description', 'description',
-      'meta_title', 'meta_description', 'meta_keywords', 'focus_keyword',
-      'og_title', 'og_description',
-      'twitter_title', 'twitter_description',
+      'meta_title', 'meta_description', 'meta_keywords',
     ];
     scalarFields.forEach(k => {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
@@ -308,11 +273,6 @@ export default function BatchTranslationsPage() {
     // Boolean
     fd.append('is_active', String(data.is_active === true || data.is_active === 'true'));
 
-    // JSONB fields
-    const jsonbFields = ['tags', 'structured_data'];
-    jsonbFields.forEach(k => {
-      if (data[k]) fd.append(k, data[k]);
-    });
 
     // Image file (thumbnail)
     if (thumbnailFile) fd.append('thumbnail', thumbnailFile, thumbnailFile.name);
@@ -634,7 +594,6 @@ export default function BatchTranslationsPage() {
             <div className="space-y-3">
               <ViewField label="Short Description" value={viewItem.short_description} />
               <ViewField label="Description" value={viewItem.description} />
-              <ViewField label="Tags" value={jsonPretty(viewItem.tags)} mono />
             </div>
           )}
           {viewTab === 'Thumbnail' && (
@@ -651,24 +610,6 @@ export default function BatchTranslationsPage() {
               <ViewField label="Meta Title" value={viewItem.meta_title} />
               <ViewField label="Meta Description" value={viewItem.meta_description} />
               <ViewField label="Meta Keywords" value={viewItem.meta_keywords} />
-              <ViewField label="Focus Keyword" value={viewItem.focus_keyword} />
-            </div>
-          )}
-          {viewTab === 'Open Graph' && (
-            <div className="space-y-3">
-              <ViewField label="OG Title" value={viewItem.og_title} />
-              <ViewField label="OG Description" value={viewItem.og_description} />
-            </div>
-          )}
-          {viewTab === 'Twitter' && (
-            <div className="space-y-3">
-              <ViewField label="Twitter Title" value={viewItem.twitter_title} />
-              <ViewField label="Twitter Description" value={viewItem.twitter_description} />
-            </div>
-          )}
-          {viewTab === 'Schema' && (
-            <div className="space-y-3">
-              <ViewField label="Structured Data (JSON-LD)" value={jsonPretty(viewItem.structured_data)} mono />
             </div>
           )}
           </div>
@@ -738,10 +679,6 @@ export default function BatchTranslationsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
                 <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" rows={6} placeholder="Full description..." {...register('description')} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tags (JSON array)</label>
-                <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-mono" rows={3} placeholder='["tag1", "tag2"]' {...register('tags')} />
-              </div>
             </div>
           )}
 
@@ -771,41 +708,9 @@ export default function BatchTranslationsPage() {
                 <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" rows={3} placeholder="SEO description..." {...register('meta_description')} />
               </div>
               <Input label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
-              <Input label="Focus Keyword" placeholder="Primary keyword" {...register('focus_keyword')} />
             </div>
           )}
 
-          {/* Open Graph Tab */}
-          {activeTab === 'Open Graph' && (
-            <div className="space-y-4">
-              <Input label="OG Title" placeholder="Open Graph title" {...register('og_title')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">OG Description</label>
-                <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" rows={3} placeholder="OG description..." {...register('og_description')} />
-              </div>
-            </div>
-          )}
-
-          {/* Twitter Tab */}
-          {activeTab === 'Twitter' && (
-            <div className="space-y-4">
-              <Input label="Twitter Title" placeholder="Twitter card title" {...register('twitter_title')} />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Twitter Description</label>
-                <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" rows={3} placeholder="Twitter description..." {...register('twitter_description')} />
-              </div>
-            </div>
-          )}
-
-          {/* Schema Tab */}
-          {activeTab === 'Schema' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Structured Data (JSON-LD)</label>
-                <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-mono" rows={10} placeholder='{}' {...register('structured_data')} />
-              </div>
-            </div>
-          )}
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

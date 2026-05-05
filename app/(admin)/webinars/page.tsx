@@ -534,7 +534,7 @@ export default function WebinarsPage() {
           <>
             <select className={selectClass} value={filterCourse} onChange={e => setFilterCourse(e.target.value)}>
               <option value="">All Courses</option>
-              {courses.map(c => <option key={c.id} value={c.id}>{c.title || c.code}</option>)}
+              {courses.map(c => <option key={c.id} value={c.id}>{c.name || c.code}</option>)}
             </select>
             <select className={selectClass} value={filterWebinarStatus} onChange={e => setFilterWebinarStatus(e.target.value)}>
               <option value="">All Statuses</option>
@@ -647,7 +647,7 @@ export default function WebinarsPage() {
                     </div>
                   </TD>
                   <TD className="py-2.5">
-                    <span className="text-sm text-slate-600">{c.courses?.title || '--'}</span>
+                    <span className="text-sm text-slate-600">{c.courses?.name || '--'}</span>
                   </TD>
                   <TD className="py-2.5">
                     {c.webinar_status ? (
@@ -771,7 +771,7 @@ export default function WebinarsPage() {
             <div className="grid grid-cols-3 gap-x-8 gap-y-4">
               <DetailRow label="Code" value={viewing.code} />
               <DetailRow label="Slug" value={viewing.slug ? `/${viewing.slug}` : undefined} />
-              <DetailRow label="Course" value={viewing.courses?.title} />
+              <DetailRow label="Course" value={viewing.courses?.name} />
               <DetailRow label="Instructor" value={viewing.users?.full_name || (viewing.instructor_id ? `ID: ${viewing.instructor_id}` : undefined)} />
               <DetailRow label="Price" value={viewing.is_free ? 'FREE' : formatPrice(viewing.price, false)} />
               <DetailRow label="Max Attendees" value={viewing.max_attendees ? String(viewing.max_attendees) : 'Unlimited'} />
@@ -813,7 +813,7 @@ export default function WebinarsPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Course</label>
                   <select className={cn(selectClass, 'w-full')} {...register('course_id')}>
                     <option value="">Select course...</option>
-                    {courses.map(c => <option key={c.id} value={c.id}>{c.title || c.code}</option>)}
+                    {courses.map(c => <option key={c.id} value={c.id}>{c.name || c.code}</option>)}
                   </select>
                 </div>
               </div>
