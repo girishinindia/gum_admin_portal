@@ -45,6 +45,7 @@ interface CapstoneProjectListItem {
   difficulty_level: string;
   display_order: number;
   file_solution_url?: string;
+  file_solution_name?: string;
   is_active: boolean;
   deleted_at?: string | null;
   created_at: string;
@@ -95,6 +96,7 @@ export default function CapstoneProjectsPage() {
   const [fileSolution, setFileSolution] = useState<File | null>(null);
   const [existingFileUrl, setExistingFileUrl] = useState('');
   const [existingFileSolutionUrl, setExistingFileSolutionUrl] = useState('');
+  const [existingFileSolutionName, setExistingFileSolutionName] = useState('');
 
   // ── Translation coverage state ──
   const [translationCoverage, setTranslationCoverage] = useState<CoverageItem[]>([]);
@@ -308,6 +310,7 @@ export default function CapstoneProjectsPage() {
       setDisplayOrder(p.display_order ?? 0);
       setIsActive(p.is_active ?? true);
       setExistingFileSolutionUrl(p.file_solution_url || '');
+      setExistingFileSolutionName(p.file_solution_name || '');
 
       // Store all translations for language switching
       const translations = p.assesment_capstone_projects_translations || [];
@@ -431,6 +434,7 @@ export default function CapstoneProjectsPage() {
           if (fileInputRef.current) fileInputRef.current.value = '';
           // Update file URLs from response
           if (r.data?.file_solution_url !== undefined) setExistingFileSolutionUrl(r.data.file_solution_url || '');
+          if (r.data?.file_solution_name !== undefined) setExistingFileSolutionName(r.data.file_solution_name || '');
           if (r.data?.assesment_capstone_projects_translations?.[0]?.file_url !== undefined) setExistingFileUrl(r.data.assesment_capstone_projects_translations[0].file_url || '');
         } else {
           resetForm();
@@ -1129,6 +1133,7 @@ export default function CapstoneProjectsPage() {
                       if (!file && fileSolutionInputRef.current) fileSolutionInputRef.current.value = '';
                     }}
                     newFile={fileSolution}
+                    displayName={existingFileSolutionName || undefined}
                   />
                 )}
               </div>

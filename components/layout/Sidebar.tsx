@@ -320,6 +320,23 @@ const navGroups: NavGroup[] = [
       { href: '/capstone-projects', label: 'Capstone Projects', icon: GraduationCap, iconColor: 'text-purple-500' },
     ],
   },
+  {
+    key: 'webinar-management',
+    title: 'Webinar Management',
+    icon: Video,
+    iconColor: 'text-rose-500',
+    items: [
+      {
+        href: '/webinars',
+        label: 'Webinars',
+        icon: Video,
+        iconColor: 'text-rose-500',
+        subLinks: [
+          { href: '/webinar-translations', label: 'Translations' },
+        ],
+      },
+    ],
+  },
 ];
 
 /** Check if a single item (or its subLinks) is active */

@@ -18,6 +18,8 @@ interface FileAttachmentCardProps {
   disabled?: boolean;
   /** Optional: called when user clicks remove (clears existing file) */
   onRemove?: () => void;
+  /** Optional: override the displayed filename (instead of extracting from URL) */
+  displayName?: string;
 }
 
 /** Extract filename from a CDN URL */
@@ -62,13 +64,14 @@ export function FileAttachmentCard({
   newFile,
   disabled = false,
   onRemove,
+  displayName,
 }: FileAttachmentCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const hasExisting = !!fileUrl;
-  const filename = hasExisting ? getFilenameFromUrl(fileUrl!) : '';
+  const filename = displayName || (hasExisting ? getFilenameFromUrl(fileUrl!) : '');
   const ext = filename ? getExtension(filename) : '';
   const typeInfo = getFileTypeInfo(ext || (accept?.replace('.', '') || ''));
 

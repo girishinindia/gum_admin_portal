@@ -1293,4 +1293,27 @@ export const api = {
     return fetch(`${API_URL}/assessment-capstone-project-solutions/bulk-upload`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
   },
 
+  // ── Webinars ──
+  listWebinars: (qs = '') => request(`/webinars${qs}`, { auth: false }),
+  getWebinar: (id: number) => request(`/webinars/${id}`, { auth: false }),
+  createWebinar: (data: any) => request('/webinars', { method: 'POST', body: JSON.stringify(data) }),
+  updateWebinar: (id: number, data: any) => request(`/webinars/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteWebinar: (id: number) => request(`/webinars/${id}`, { method: 'DELETE' }),
+  restoreWebinar: (id: number) => request(`/webinars/${id}/restore`, { method: 'PATCH' }),
+  deleteWebinar: (id: number) => request(`/webinars/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Webinar Translations ──
+  listWebinarTranslations: (qs = '') => request(`/webinar-translations${qs}`, { auth: false }),
+  getWebinarTranslation: (id: number) => request(`/webinar-translations/${id}`, { auth: false }),
+  webinarTranslationCoverage: (qs = '') => request(`/webinar-translations/coverage${qs}`, { auth: false }),
+  createWebinarTranslation: (data: any, isFormData = false) => request('/webinar-translations', { method: 'POST', body: isFormData ? data : JSON.stringify(data), isFormData }),
+  updateWebinarTranslation: (id: number, data: any, isFormData = false) => request(`/webinar-translations/${id}`, { method: 'PATCH', body: isFormData ? data : JSON.stringify(data), isFormData }),
+  softDeleteWebinarTranslation: (id: number) => request(`/webinar-translations/${id}`, { method: 'DELETE' }),
+  restoreWebinarTranslation: (id: number) => request(`/webinar-translations/${id}/restore`, { method: 'PATCH' }),
+  deleteWebinarTranslation: (id: number) => request(`/webinar-translations/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Webinar AI ──
+  autoTranslateWebinar: (data: { entity_type: string; entity_id: number; provider?: string }) =>
+    request('/ai/generate-all-translations', { method: 'POST', body: JSON.stringify(data) }),
+
 };
