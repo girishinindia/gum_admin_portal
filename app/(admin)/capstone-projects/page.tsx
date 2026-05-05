@@ -321,7 +321,7 @@ export default function CapstoneProjectsPage() {
       }));
       if (langs.length === 0) {
         // Fallback: load languages
-        const langR = await api.listLanguages('?is_active=true&limit=50');
+        const langR = await api.listLanguages('?is_active=true&for_material=true&limit=50');
         if (langR.success) {
           langs.push(...langR.data.map((l: any) => ({ id: l.id, name: l.name, code: l.iso_code })));
         }
