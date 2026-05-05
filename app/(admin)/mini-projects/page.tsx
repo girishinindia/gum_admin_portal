@@ -444,7 +444,7 @@ export default function MiniProjectsPage() {
         loadProjects();
         loadSummary();
         if (mode === 'edit' && editingId) {
-          // Stay in edit mode — refresh data to show updated file URLs
+          // Stay in edit mode — refresh data to show updated file URLs and name
           setFileSolution(null);
           setFileHtml(null);
           if (fileSolutionInputRef.current) fileSolutionInputRef.current.value = '';
@@ -452,7 +452,15 @@ export default function MiniProjectsPage() {
           // Update file URLs from response
           if (r.data?.file_solution_url !== undefined) setExistingFileSolutionUrl(r.data.file_solution_url || '');
           if (r.data?.file_solution_name !== undefined) setExistingFileSolutionName(r.data.file_solution_name || '');
-          if (r.data?.assesment_mini_projects_translations?.[0]?.file_url !== undefined) setExistingFileUrl(r.data.assesment_mini_projects_translations[0].file_url || '');
+          const trans0 = r.data?.assesment_mini_projects_translations?.[0];
+          if (trans0?.file_url !== undefined) setExistingFileUrl(trans0.file_url || '');
+          // Refresh translation name and description from response to stay in sync
+          if (trans0?.name) setTransTitle(trans0.name);
+          if (trans0?.description !== undefined) setTransDescription(trans0.description || '');
+          // Refresh allTranslations so language tabs show updated data
+          if (r.data?.assesment_mini_projects_translations) {
+            setAllTranslations(r.data.assesment_mini_projects_translations);
+          }
         } else {
           resetForm();
         }
