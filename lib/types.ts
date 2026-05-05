@@ -5,6 +5,7 @@ export interface ApiResponse<T = any> {
   error?: string;
   details?: any;
   pagination?: { total: number; page: number; limit: number; totalPages: number };
+  summary?: any;
 }
 
 export interface User {

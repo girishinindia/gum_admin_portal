@@ -804,12 +804,6 @@ export const api = {
   autoTranslateOrdering: (data: { topic_id?: number; question_ids?: number[]; provider?: string }) =>
     request('/ai/auto-translate-ordering', { method: 'POST', body: JSON.stringify(data) }),
 
-  // Assessment AI generation
-  autoGenerateAssessment: (data: { assessment_type: string; scope_id: number; num_assessments?: number; difficulty_mix?: string; provider?: string; auto_translate?: boolean }, signal?: AbortSignal) =>
-    request('/ai/auto-generate-assessment', { method: 'POST', body: JSON.stringify(data), signal }),
-  autoTranslateAssessment: (data: { assessment_ids?: number[]; scope_id?: number; assessment_type?: string; provider?: string }) =>
-    request('/ai/auto-translate-assessment', { method: 'POST', body: JSON.stringify(data) }),
-
   // Branches
   listBranches: (qs = '') => request(`/branches${qs}`, { auth: false }),
   getBranch: (id: number) => request(`/branches/${id}`, { auth: false }),
@@ -1050,94 +1044,224 @@ export const api = {
   // Resume (public)
   getResume: (slug: string) => request(`/resume/${slug}`, { auth: false }),
 
-  // ── Assessments ──
-  listAssessments: (qs = '') => request(`/assessments${qs}`, { auth: false }),
-  getAssessment: (id: number) => request(`/assessments/${id}`, { auth: false }),
-  createAssessment: (data: any) => request('/assessments', { method: 'POST', body: JSON.stringify(data) }),
-  updateAssessment: (id: number, data: any) => request(`/assessments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  softDeleteAssessment: (id: number) => request(`/assessments/${id}`, { method: 'DELETE' }),
-  restoreAssessment: (id: number) => request(`/assessments/${id}/restore`, { method: 'PATCH' }),
-  deleteAssessment: (id: number) => request(`/assessments/${id}/permanent`, { method: 'DELETE' }),
-  createAssessmentFull: (data: any) => request('/assessments/full', { method: 'POST', body: JSON.stringify(data) }),
-  updateAssessmentFull: (id: number, data: any) => request(`/assessments/${id}/full`, { method: 'PATCH', body: JSON.stringify(data) }),
-  getAssessmentFull: (id: number) => request(`/assessments/${id}/full`),
+  // ── Assessment Exercises ──
+  listExercises: (qs = '') => request(`/assessment-exercises${qs}`, { auth: false }),
+  getExercise: (id: number) => request(`/assessment-exercises/${id}`, { auth: false }),
+  createExercise: (data: any) => request('/assessment-exercises', { method: 'POST', body: JSON.stringify(data) }),
+  updateExercise: (id: number, data: any) => request(`/assessment-exercises/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteExercise: (id: number) => request(`/assessment-exercises/${id}`, { method: 'DELETE' }),
+  restoreExercise: (id: number) => request(`/assessment-exercises/${id}/restore`, { method: 'PATCH' }),
+  deleteExercise: (id: number) => request(`/assessment-exercises/${id}/permanent`, { method: 'DELETE' }),
+  getExerciseFull: (id: number) => request(`/assessment-exercises/${id}/full`, { auth: false }),
+  createFullExercise: (data: any, file?: File, fileSolution?: File) => {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+    if (file) fd.append('file', file, file.name);
+    if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
+    return fetch(`${API_URL}/assessment-exercises/create-full`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+  },
+  updateFullExercise: (id: number, data: any, file?: File, fileSolution?: File) => {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+    if (file) fd.append('file', file, file.name);
+    if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
+    return fetch(`${API_URL}/assessment-exercises/${id}/update-full`, { method: 'PUT', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+  },
 
-  // ── Assessment Translations ──
-  listAssessmentTranslations: (qs = '') => request(`/assessment-translations${qs}`, { auth: false }),
-  getAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}`, { auth: false }),
-  getAssessmentTranslationCoverage: (assessmentId: number) => request(`/assessment-translations/coverage?assessment_id=${assessmentId}`, { auth: false }),
-  createAssessmentTranslation: (data: any) => request('/assessment-translations', { method: 'POST', body: JSON.stringify(data) }),
-  updateAssessmentTranslation: (id: number, data: any) => request(`/assessment-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  softDeleteAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}`, { method: 'DELETE' }),
-  restoreAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}/restore`, { method: 'PATCH' }),
-  deleteAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}/permanent`, { method: 'DELETE' }),
-  permanentDeleteAssessmentTranslation: (id: number) => request(`/assessment-translations/${id}/permanent`, { method: 'DELETE' }),
+  // ── Assessment Exercise Translations ──
+  listExerciseTranslations: (qs = '') => request(`/assessment-exercise-translations${qs}`, { auth: false }),
+  getExerciseTranslation: (id: number) => request(`/assessment-exercise-translations/${id}`, { auth: false }),
+  getExerciseTranslationCoverage: (qs = '') => request(`/assessment-exercise-translations/coverage${qs}`, { auth: false }),
+  createExerciseTranslation: (data: any, file?: File, fileSolution?: File) => {
+    if (file || fileSolution) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      if (file) fd.append('file', file, file.name);
+      if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
+      return fetch(`${API_URL}/assessment-exercise-translations`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request('/assessment-exercise-translations', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateExerciseTranslation: (id: number, data: any, file?: File, fileSolution?: File) => {
+    if (file || fileSolution) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      if (file) fd.append('file', file, file.name);
+      if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
+      return fetch(`${API_URL}/assessment-exercise-translations/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request(`/assessment-exercise-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
+  softDeleteExerciseTranslation: (id: number) => request(`/assessment-exercise-translations/${id}`, { method: 'DELETE' }),
+  restoreExerciseTranslation: (id: number) => request(`/assessment-exercise-translations/${id}/restore`, { method: 'PATCH' }),
+  deleteExerciseTranslation: (id: number) => request(`/assessment-exercise-translations/${id}/permanent`, { method: 'DELETE' }),
 
-  // ── Assessment Attachments ──
-  listAssessmentAttachments: (qs = '') => request(`/assessment-attachments${qs}`, { auth: false }),
-  getAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}`, { auth: false }),
-  createAssessmentAttachment: (data: any, file?: File) => {
+  // ── Mini Projects ──
+  listMiniProjects: (qs = '') => request(`/assessment-mini-projects${qs}`, { auth: false }),
+  getMiniProject: (id: number) => request(`/assessment-mini-projects/${id}`, { auth: false }),
+  getMiniProjectFull: (id: number) => request(`/assessment-mini-projects/${id}/full`, { auth: false }),
+  createMiniProject: (data: any) => request('/assessment-mini-projects', { method: 'POST', body: JSON.stringify(data) }),
+  updateMiniProject: (id: number, data: any) => request(`/assessment-mini-projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteMiniProject: (id: number) => request(`/assessment-mini-projects/${id}`, { method: 'DELETE' }),
+  restoreMiniProject: (id: number) => request(`/assessment-mini-projects/${id}/restore`, { method: 'PATCH' }),
+  deleteMiniProject: (id: number) => request(`/assessment-mini-projects/${id}/permanent`, { method: 'DELETE' }),
+  createFullMiniProject: (data: any, file?: File, fileSolution?: File) => {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+    if (file) fd.append('file', file, file.name);
+    if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
+    return fetch(`${API_URL}/assessment-mini-projects/create-full`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+  },
+  updateFullMiniProject: (id: number, data: any, file?: File, fileSolution?: File) => {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+    if (file) fd.append('file', file, file.name);
+    if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
+    return fetch(`${API_URL}/assessment-mini-projects/${id}/update-full`, { method: 'PUT', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+  },
+
+  // ── Mini Project Translations ──
+  listMiniProjectTranslations: (qs = '') => request(`/assessment-mini-project-translations${qs}`, { auth: false }),
+  getMiniProjectTranslation: (id: number) => request(`/assessment-mini-project-translations/${id}`, { auth: false }),
+  getMiniProjectTranslationCoverage: (qs = '') => request(`/assessment-mini-project-translations/coverage${qs}`, { auth: false }),
+  createMiniProjectTranslation: (data: any, file?: File) => {
     if (file) {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       fd.append('file', file, file.name);
-      return fetch(`${API_URL}/assessment-attachments`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return fetch(`${API_URL}/assessment-mini-project-translations`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
     }
-    return request('/assessment-attachments', { method: 'POST', body: JSON.stringify(data) });
+    return request('/assessment-mini-project-translations', { method: 'POST', body: JSON.stringify(data) });
   },
-  updateAssessmentAttachment: (id: number, data: any, file?: File) => {
+  updateMiniProjectTranslation: (id: number, data: any, file?: File) => {
     if (file) {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       fd.append('file', file, file.name);
-      return fetch(`${API_URL}/assessment-attachments/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return fetch(`${API_URL}/assessment-mini-project-translations/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
     }
-    return request(`/assessment-attachments/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    return request(`/assessment-mini-project-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
-  softDeleteAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}`, { method: 'DELETE' }),
-  restoreAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}/restore`, { method: 'PATCH' }),
-  deleteAssessmentAttachment: (id: number) => request(`/assessment-attachments/${id}/permanent`, { method: 'DELETE' }),
+  softDeleteMiniProjectTranslation: (id: number) => request(`/assessment-mini-project-translations/${id}`, { method: 'DELETE' }),
+  restoreMiniProjectTranslation: (id: number) => request(`/assessment-mini-project-translations/${id}/restore`, { method: 'PATCH' }),
+  deleteMiniProjectTranslation: (id: number) => request(`/assessment-mini-project-translations/${id}/permanent`, { method: 'DELETE' }),
 
-  // ── Assessment Attachment Translations ──
-  listAssessmentAttachmentTranslations: (qs = '') => request(`/assessment-attachment-translations${qs}`, { auth: false }),
-  getAssessmentAttachmentTranslation: (id: number) => request(`/assessment-attachment-translations/${id}`, { auth: false }),
-  createAssessmentAttachmentTranslation: (data: any) => request('/assessment-attachment-translations', { method: 'POST', body: JSON.stringify(data) }),
-  updateAssessmentAttachmentTranslation: (id: number, data: any) => request(`/assessment-attachment-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  softDeleteAssessmentAttachmentTranslation: (id: number) => request(`/assessment-attachment-translations/${id}`, { method: 'DELETE' }),
-  restoreAssessmentAttachmentTranslation: (id: number) => request(`/assessment-attachment-translations/${id}/restore`, { method: 'PATCH' }),
-  deleteAssessmentAttachmentTranslation: (id: number) => request(`/assessment-attachment-translations/${id}/permanent`, { method: 'DELETE' }),
+  // ── Mini Project Solutions ──
+  listMiniProjectSolutions: (qs = '') => request(`/assessment-mini-project-solutions${qs}`, { auth: false }),
+  getMiniProjectSolution: (id: number) => request(`/assessment-mini-project-solutions/${id}`, { auth: false }),
+  createMiniProjectSolution: (data: any, videoFile?: File) => {
+    if (videoFile) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      fd.append('video_file', videoFile, videoFile.name);
+      return fetch(`${API_URL}/assessment-mini-project-solutions`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request('/assessment-mini-project-solutions', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateMiniProjectSolution: (id: number, data: any, videoFile?: File, thumbnailFile?: File) => {
+    if (videoFile || thumbnailFile) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      if (videoFile) fd.append('video_file', videoFile, videoFile.name);
+      if (thumbnailFile) fd.append('thumbnail_file', thumbnailFile, thumbnailFile.name);
+      return fetch(`${API_URL}/assessment-mini-project-solutions/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request(`/assessment-mini-project-solutions/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
+  softDeleteMiniProjectSolution: (id: number) => request(`/assessment-mini-project-solutions/${id}`, { method: 'DELETE' }),
+  restoreMiniProjectSolution: (id: number) => request(`/assessment-mini-project-solutions/${id}/restore`, { method: 'PATCH' }),
+  deleteMiniProjectSolution: (id: number) => request(`/assessment-mini-project-solutions/${id}/permanent`, { method: 'DELETE' }),
+  bulkUploadMiniProjectSolutions: (miniProjectId: number, files: File[], titles: string[], videoShortIntro?: string) => {
+    const fd = new FormData();
+    fd.append('mini_project_id', String(miniProjectId));
+    fd.append('titles', JSON.stringify(titles));
+    if (videoShortIntro) fd.append('video_short_intro', videoShortIntro);
+    files.forEach(f => fd.append('video_files', f, f.name));
+    return fetch(`${API_URL}/assessment-mini-project-solutions/bulk-upload`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+  },
 
-  // ── Assessment Solutions ──
-  listAssessmentSolutions: (qs = '') => request(`/assessment-solutions${qs}`, { auth: false }),
-  getAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}`, { auth: false }),
-  createAssessmentSolution: (data: any, file?: File) => {
+  // ── Capstone Projects ──
+  listCapstoneProjects: (qs = '') => request(`/assessment-capstone-projects${qs}`, { auth: false }),
+  getCapstoneProject: (id: number) => request(`/assessment-capstone-projects/${id}`, { auth: false }),
+  getCapstoneProjectFull: (id: number) => request(`/assessment-capstone-projects/${id}/full`, { auth: false }),
+  createCapstoneProject: (data: any) => request('/assessment-capstone-projects', { method: 'POST', body: JSON.stringify(data) }),
+  updateCapstoneProject: (id: number, data: any) => request(`/assessment-capstone-projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteCapstoneProject: (id: number) => request(`/assessment-capstone-projects/${id}`, { method: 'DELETE' }),
+  restoreCapstoneProject: (id: number) => request(`/assessment-capstone-projects/${id}/restore`, { method: 'PATCH' }),
+  deleteCapstoneProject: (id: number) => request(`/assessment-capstone-projects/${id}/permanent`, { method: 'DELETE' }),
+  createFullCapstoneProject: (data: any, file?: File, fileSolution?: File) => {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+    if (file) fd.append('file', file, file.name);
+    if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
+    return fetch(`${API_URL}/assessment-capstone-projects/create-full`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+  },
+  updateFullCapstoneProject: (id: number, data: any, file?: File, fileSolution?: File) => {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+    if (file) fd.append('file', file, file.name);
+    if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
+    return fetch(`${API_URL}/assessment-capstone-projects/${id}/update-full`, { method: 'PUT', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+  },
+
+  // ── Capstone Project Translations ──
+  listCapstoneProjectTranslations: (qs = '') => request(`/assessment-capstone-project-translations${qs}`, { auth: false }),
+  getCapstoneProjectTranslation: (id: number) => request(`/assessment-capstone-project-translations/${id}`, { auth: false }),
+  getCapstoneProjectTranslationCoverage: (qs = '') => request(`/assessment-capstone-project-translations/coverage${qs}`, { auth: false }),
+  createCapstoneProjectTranslation: (data: any, file?: File) => {
     if (file) {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       fd.append('file', file, file.name);
-      return fetch(`${API_URL}/assessment-solutions`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return fetch(`${API_URL}/assessment-capstone-project-translations`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
     }
-    return request('/assessment-solutions', { method: 'POST', body: JSON.stringify(data) });
+    return request('/assessment-capstone-project-translations', { method: 'POST', body: JSON.stringify(data) });
   },
-  updateAssessmentSolution: (id: number, data: any, file?: File) => {
+  updateCapstoneProjectTranslation: (id: number, data: any, file?: File) => {
     if (file) {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       fd.append('file', file, file.name);
-      return fetch(`${API_URL}/assessment-solutions/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return fetch(`${API_URL}/assessment-capstone-project-translations/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
     }
-    return request(`/assessment-solutions/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    return request(`/assessment-capstone-project-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
-  softDeleteAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}`, { method: 'DELETE' }),
-  restoreAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}/restore`, { method: 'PATCH' }),
-  deleteAssessmentSolution: (id: number) => request(`/assessment-solutions/${id}/permanent`, { method: 'DELETE' }),
+  softDeleteCapstoneProjectTranslation: (id: number) => request(`/assessment-capstone-project-translations/${id}`, { method: 'DELETE' }),
+  restoreCapstoneProjectTranslation: (id: number) => request(`/assessment-capstone-project-translations/${id}/restore`, { method: 'PATCH' }),
+  deleteCapstoneProjectTranslation: (id: number) => request(`/assessment-capstone-project-translations/${id}/permanent`, { method: 'DELETE' }),
 
-  // ── Assessment Solution Translations ──
-  listAssessmentSolutionTranslations: (qs = '') => request(`/assessment-solution-translations${qs}`, { auth: false }),
-  getAssessmentSolutionTranslation: (id: number) => request(`/assessment-solution-translations/${id}`, { auth: false }),
-  createAssessmentSolutionTranslation: (data: any) => request('/assessment-solution-translations', { method: 'POST', body: JSON.stringify(data) }),
-  updateAssessmentSolutionTranslation: (id: number, data: any) => request(`/assessment-solution-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  softDeleteAssessmentSolutionTranslation: (id: number) => request(`/assessment-solution-translations/${id}`, { method: 'DELETE' }),
-  restoreAssessmentSolutionTranslation: (id: number) => request(`/assessment-solution-translations/${id}/restore`, { method: 'PATCH' }),
-  deleteAssessmentSolutionTranslation: (id: number) => request(`/assessment-solution-translations/${id}/permanent`, { method: 'DELETE' }),
+  // ── Capstone Project Solutions ──
+  listCapstoneProjectSolutions: (qs = '') => request(`/assessment-capstone-project-solutions${qs}`, { auth: false }),
+  getCapstoneProjectSolution: (id: number) => request(`/assessment-capstone-project-solutions/${id}`, { auth: false }),
+  createCapstoneProjectSolution: (data: any, videoFile?: File) => {
+    if (videoFile) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      fd.append('video_file', videoFile, videoFile.name);
+      return fetch(`${API_URL}/assessment-capstone-project-solutions`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request('/assessment-capstone-project-solutions', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateCapstoneProjectSolution: (id: number, data: any, videoFile?: File, thumbnailFile?: File) => {
+    if (videoFile || thumbnailFile) {
+      const fd = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
+      if (videoFile) fd.append('video_file', videoFile, videoFile.name);
+      if (thumbnailFile) fd.append('thumbnail_file', thumbnailFile, thumbnailFile.name);
+      return fetch(`${API_URL}/assessment-capstone-project-solutions/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    }
+    return request(`/assessment-capstone-project-solutions/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
+  softDeleteCapstoneProjectSolution: (id: number) => request(`/assessment-capstone-project-solutions/${id}`, { method: 'DELETE' }),
+  restoreCapstoneProjectSolution: (id: number) => request(`/assessment-capstone-project-solutions/${id}/restore`, { method: 'PATCH' }),
+  deleteCapstoneProjectSolution: (id: number) => request(`/assessment-capstone-project-solutions/${id}/permanent`, { method: 'DELETE' }),
+  bulkUploadCapstoneProjectSolutions: (capstoneProjectId: number, files: File[], titles: string[], videoShortIntro?: string) => {
+    const fd = new FormData();
+    fd.append('capstone_project_id', String(capstoneProjectId));
+    fd.append('titles', JSON.stringify(titles));
+    if (videoShortIntro) fd.append('video_short_intro', videoShortIntro);
+    files.forEach(f => fd.append('video_files', f, f.name));
+    return fetch(`${API_URL}/assessment-capstone-project-solutions/bulk-upload`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+  },
+
 };
