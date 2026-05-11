@@ -40,7 +40,7 @@ interface WebinarTranslation {
   short_description?: string | null;
   description?: string | null;
   tags?: any;
-  thumbnail_url?: string | null;
+  thumbnail?: string | null;
   meta_title?: string | null;
   meta_description?: string | null;
   meta_keywords?: string | null;
@@ -231,7 +231,7 @@ export default function WebinarTranslationsPage() {
     // Twitter
     twitter_title: '', twitter_description: '',
     // Thumbnail URL
-    thumbnail_url: '',
+    thumbnail: '',
   };
 
   function clearFormFields() {
@@ -262,7 +262,7 @@ export default function WebinarTranslationsPage() {
     setValue('twitter_title', item.twitter_title || '');
     setValue('twitter_description', item.twitter_description || '');
     // Thumbnail
-    setValue('thumbnail_url', item.thumbnail_url || '');
+    setValue('thumbnail', item.thumbnail || '');
     resetImageState();
   }
 
@@ -286,7 +286,7 @@ export default function WebinarTranslationsPage() {
       structured_data: jsonPretty(item.structured_data) || '{}',
       og_title: item.og_title || '', og_description: item.og_description || '',
       twitter_title: item.twitter_title || '', twitter_description: item.twitter_description || '',
-      thumbnail_url: item.thumbnail_url || '',
+      thumbnail: item.thumbnail || '',
     });
     setDialogOpen(true);
   }
@@ -349,14 +349,6 @@ export default function WebinarTranslationsPage() {
     const res = await api.deleteWebinarTranslation(item.id);
     setActionLoadingId(null);
     if (res.success) { toast.success('Translation permanently deleted'); load(); refreshSummary(); }
-    else toast.error(res.error || 'Failed');
-  }
-
-  async function onToggleActive(item: WebinarTranslation) {
-    const fd = new FormData();
-    fd.append('is_active', String(!item.is_active));
-    const res = await api.updateWebinarTranslation(item.id, fd, true);
-    if (res.success) { toast.success(`${!item.is_active ? 'Activated' : 'Deactivated'}`); load(); refreshSummary(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -576,8 +568,8 @@ export default function WebinarTranslationsPage() {
                     </span>
                   </TD>
                   <TD className="py-2.5">
-                    {item.thumbnail_url ? (
-                      <img src={item.thumbnail_url} alt="" className="w-10 h-7 rounded object-cover border border-slate-200" />
+                    {item.thumbnail ? (
+                      <img src={item.thumbnail} alt="" className="w-10 h-7 rounded object-cover border border-slate-200" />
                     ) : (
                       <span className="text-slate-300 text-xs">--</span>
                     )}
@@ -597,7 +589,6 @@ export default function WebinarTranslationsPage() {
                         <>
                           <button onClick={() => openView(item)} className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
                           <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => onToggleActive(item)} className="p-1.5 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors" title={item.is_active ? 'Deactivate' : 'Activate'}>{item.is_active ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}</button>
                           <button onClick={() => onSoftDelete(item)} disabled={actionLoadingId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash">{actionLoadingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
                         </>
                       )}
@@ -639,8 +630,8 @@ export default function WebinarTranslationsPage() {
           )}
           {viewTab === 'Thumbnail' && (
             <div className="space-y-3">
-              {viewItem.thumbnail_url ? (
-                <img src={viewItem.thumbnail_url} alt="Thumbnail" className="max-w-full rounded-lg border border-slate-200" />
+              {viewItem.thumbnail ? (
+                <img src={viewItem.thumbnail} alt="Thumbnail" className="max-w-full rounded-lg border border-slate-200" />
               ) : (
                 <p className="text-sm text-slate-400 italic">No thumbnail uploaded</p>
               )}
@@ -752,7 +743,7 @@ export default function WebinarTranslationsPage() {
                 key={`thumb-${dialogKey}`}
                 label="Webinar Thumbnail"
                 hint="Recommended: 800x450px. Drag & drop or click to upload."
-                value={editing?.thumbnail_url}
+                value={editing?.thumbnail}
                 aspectRatio={800 / 450}
                 maxWidth={800}
                 maxHeight={450}

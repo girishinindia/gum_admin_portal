@@ -117,6 +117,10 @@ export default function BatchTranslationsPage() {
   // Image files
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [ogImageFile, setOgImageFile] = useState<File | null>(null);
+  const [ogImagePreview, setOgImagePreview] = useState<string | null>(null);
+  const [twitterImageFile, setTwitterImageFile] = useState<File | null>(null);
+  const [twitterImagePreview, setTwitterImagePreview] = useState<string | null>(null);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -225,6 +229,8 @@ export default function BatchTranslationsPage() {
 
   function resetImageState() {
     setThumbnailFile(null); setThumbnailPreview(null);
+    setOgImageFile(null); setOgImagePreview(null);
+    setTwitterImageFile(null); setTwitterImagePreview(null);
   }
 
   const defaultFormValues = {
@@ -318,8 +324,8 @@ export default function BatchTranslationsPage() {
       'batch_id', 'language_id', 'title', 'short_description', 'description',
       'meta_title', 'meta_description', 'meta_keywords', 'canonical_url',
       'robots_directive', 'focus_keyword',
-      'og_site_name', 'og_title', 'og_description', 'og_type', 'og_image', 'og_url',
-      'twitter_site', 'twitter_title', 'twitter_description', 'twitter_image', 'twitter_card',
+      'og_site_name', 'og_title', 'og_description', 'og_type', 'og_url',
+      'twitter_site', 'twitter_title', 'twitter_description', 'twitter_card',
     ];
     scalarFields.forEach(k => {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
@@ -334,8 +340,14 @@ export default function BatchTranslationsPage() {
       if (data[k]) fd.append(k, data[k]);
     });
 
-    // Image file (thumbnail)
+    // Image files
     if (thumbnailFile) fd.append('thumbnail', thumbnailFile, thumbnailFile.name);
+    if (ogImageFile) fd.append('og_image', ogImageFile, ogImageFile.name);
+    if (twitterImageFile) fd.append('twitter_image', twitterImageFile, twitterImageFile.name);
+
+    // Pass existing URLs if no new file uploaded (so server doesn't clear them)
+    if (!ogImageFile && data.og_image) fd.append('og_image', String(data.og_image));
+    if (!twitterImageFile && data.twitter_image) fd.append('twitter_image', String(data.twitter_image));
 
     const res = editing
       ? await api.updateBatchTranslation(editing.id, fd, true)
@@ -703,7 +715,12 @@ export default function BatchTranslationsPage() {
               <ViewField label="OG Title" value={viewItem.og_title} />
               <ViewField label="OG Description" value={viewItem.og_description} />
               <ViewField label="OG Type" value={viewItem.og_type} />
-              <ViewField label="OG Image" value={viewItem.og_image} />
+              {viewItem.og_image ? (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">OG Image</p>
+                  <img src={viewItem.og_image} alt="OG" className="w-full max-w-xs rounded-lg border border-slate-200" />
+                </div>
+              ) : <ViewField label="OG Image" value={null} />}
               <ViewField label="OG URL" value={viewItem.og_url} />
             </div>
           )}
@@ -713,7 +730,12 @@ export default function BatchTranslationsPage() {
               <ViewField label="Twitter Site" value={viewItem.twitter_site} />
               <ViewField label="Twitter Title" value={viewItem.twitter_title} />
               <ViewField label="Twitter Description" value={viewItem.twitter_description} />
-              <ViewField label="Twitter Image" value={viewItem.twitter_image} />
+              {viewItem.twitter_image ? (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Twitter Image</p>
+                  <img src={viewItem.twitter_image} alt="Twitter" className="w-full max-w-xs rounded-lg border border-slate-200" />
+                </div>
+              ) : <ViewField label="Twitter Image" value={null} />}
               <ViewField label="Twitter Card" value={viewItem.twitter_card} />
             </div>
           )}
@@ -839,7 +861,17 @@ export default function BatchTranslationsPage() {
                 <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" rows={3} placeholder="Open Graph description..." {...register('og_description')} />
               </div>
               <Input label="OG Type" placeholder="website" {...register('og_type')} />
-              <Input label="OG Image URL" placeholder="https://..." {...register('og_image')} />
+              <ImageUpload
+                key={`og-img-${dialogKey}`}
+                label="OG Image"
+                hint="Recommended: 1200×630px. Drag & drop or click to upload."
+                value={editing?.og_image}
+                aspectRatio={1200 / 630}
+                maxWidth={1200}
+                maxHeight={630}
+                shape="rounded"
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }}
+              />
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
             </div>
           )}
@@ -853,7 +885,17 @@ export default function BatchTranslationsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Twitter Description</label>
                 <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" rows={3} placeholder="Twitter card description..." {...register('twitter_description')} />
               </div>
-              <Input label="Twitter Image URL" placeholder="https://..." {...register('twitter_image')} />
+              <ImageUpload
+                key={`tw-img-${dialogKey}`}
+                label="Twitter Image"
+                hint="Recommended: 1200×628px. Drag & drop or click to upload."
+                value={editing?.twitter_image}
+                aspectRatio={1200 / 628}
+                maxWidth={1200}
+                maxHeight={628}
+                shape="rounded"
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }}
+              />
               <Input label="Twitter Card" placeholder="summary_large_image" {...register('twitter_card')} />
             </div>
           )}
