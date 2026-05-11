@@ -46,8 +46,10 @@ interface WebinarTranslation {
   meta_keywords?: string | null;
   og_title?: string | null;
   og_description?: string | null;
+  og_image?: string | null;
   twitter_title?: string | null;
   twitter_description?: string | null;
+  twitter_image?: string | null;
   focus_keyword?: string | null;
   structured_data?: any;
   is_active: boolean;
@@ -107,6 +109,10 @@ export default function WebinarTranslationsPage() {
   // Image files
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [ogImageFile, setOgImageFile] = useState<File | null>(null);
+  const [ogImagePreview, setOgImagePreview] = useState<string | null>(null);
+  const [twitterImageFile, setTwitterImageFile] = useState<File | null>(null);
+  const [twitterImagePreview, setTwitterImagePreview] = useState<string | null>(null);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -215,6 +221,8 @@ export default function WebinarTranslationsPage() {
 
   function resetImageState() {
     setThumbnailFile(null); setThumbnailPreview(null);
+    setOgImageFile(null); setOgImagePreview(null);
+    setTwitterImageFile(null); setTwitterImagePreview(null);
   }
 
   const defaultFormValues = {
@@ -227,9 +235,9 @@ export default function WebinarTranslationsPage() {
     focus_keyword: '',
     structured_data: '{}',
     // OG
-    og_title: '', og_description: '',
+    og_title: '', og_description: '', og_image: '',
     // Twitter
-    twitter_title: '', twitter_description: '',
+    twitter_title: '', twitter_description: '', twitter_image: '',
     // Thumbnail URL
     thumbnail: '',
   };
@@ -258,9 +266,11 @@ export default function WebinarTranslationsPage() {
     // OG
     setValue('og_title', item.og_title || '');
     setValue('og_description', item.og_description || '');
+    setValue('og_image', item.og_image || '');
     // Twitter
     setValue('twitter_title', item.twitter_title || '');
     setValue('twitter_description', item.twitter_description || '');
+    setValue('twitter_image', item.twitter_image || '');
     // Thumbnail
     setValue('thumbnail', item.thumbnail || '');
     resetImageState();
@@ -284,8 +294,8 @@ export default function WebinarTranslationsPage() {
       meta_title: item.meta_title || '', meta_description: item.meta_description || '', meta_keywords: item.meta_keywords || '',
       focus_keyword: item.focus_keyword || '',
       structured_data: jsonPretty(item.structured_data) || '{}',
-      og_title: item.og_title || '', og_description: item.og_description || '',
-      twitter_title: item.twitter_title || '', twitter_description: item.twitter_description || '',
+      og_title: item.og_title || '', og_description: item.og_description || '', og_image: item.og_image || '',
+      twitter_title: item.twitter_title || '', twitter_description: item.twitter_description || '', twitter_image: item.twitter_image || '',
       thumbnail: item.thumbnail || '',
     });
     setDialogOpen(true);
@@ -314,8 +324,14 @@ export default function WebinarTranslationsPage() {
       if (data[k]) fd.append(k, data[k]);
     });
 
-    // Image file (thumbnail)
+    // Image files
     if (thumbnailFile) fd.append('thumbnail', thumbnailFile, thumbnailFile.name);
+    if (ogImageFile) fd.append('og_image', ogImageFile, ogImageFile.name);
+    if (twitterImageFile) fd.append('twitter_image', twitterImageFile, twitterImageFile.name);
+
+    // Pass existing URLs if no new file uploaded (so server doesn't clear them)
+    if (!ogImageFile && data.og_image) fd.append('og_image', String(data.og_image));
+    if (!twitterImageFile && data.twitter_image) fd.append('twitter_image', String(data.twitter_image));
 
     const res = editing
       ? await api.updateWebinarTranslation(editing.id, fd, true)
@@ -649,12 +665,24 @@ export default function WebinarTranslationsPage() {
             <div className="space-y-3">
               <ViewField label="OG Title" value={viewItem.og_title} />
               <ViewField label="OG Description" value={viewItem.og_description} />
+              {viewItem.og_image ? (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">OG Image</p>
+                  <img src={viewItem.og_image} alt="OG" className="w-full max-w-xs rounded-lg border border-slate-200" />
+                </div>
+              ) : <ViewField label="OG Image" value={null} />}
             </div>
           )}
           {viewTab === 'Twitter' && (
             <div className="space-y-3">
               <ViewField label="Twitter Title" value={viewItem.twitter_title} />
               <ViewField label="Twitter Description" value={viewItem.twitter_description} />
+              {viewItem.twitter_image ? (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Twitter Image</p>
+                  <img src={viewItem.twitter_image} alt="Twitter" className="w-full max-w-xs rounded-lg border border-slate-200" />
+                </div>
+              ) : <ViewField label="Twitter Image" value={null} />}
             </div>
           )}
           {viewTab === 'Schema' && (
@@ -774,6 +802,17 @@ export default function WebinarTranslationsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">OG Description</label>
                 <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" rows={3} placeholder="OG description..." {...register('og_description')} />
               </div>
+              <ImageUpload
+                key={`og-img-${dialogKey}`}
+                label="OG Image"
+                hint="Recommended: 1200×630px. Drag & drop or click to upload."
+                value={editing?.og_image}
+                aspectRatio={1200 / 630}
+                maxWidth={1200}
+                maxHeight={630}
+                shape="rounded"
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }}
+              />
             </div>
           )}
 
@@ -785,6 +824,17 @@ export default function WebinarTranslationsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Twitter Description</label>
                 <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" rows={3} placeholder="Twitter description..." {...register('twitter_description')} />
               </div>
+              <ImageUpload
+                key={`tw-img-${dialogKey}`}
+                label="Twitter Image"
+                hint="Recommended: 1200×628px. Drag & drop or click to upload."
+                value={editing?.twitter_image}
+                aspectRatio={1200 / 628}
+                maxWidth={1200}
+                maxHeight={628}
+                shape="rounded"
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }}
+              />
             </div>
           )}
 
