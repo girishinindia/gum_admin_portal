@@ -419,7 +419,7 @@ export default function WebinarTranslationsPage() {
     if (!confirm('Generate AI content for ALL webinars with missing translations? This may take several minutes.')) return;
     setBulkActionLoading(true);
     try {
-      const res = await api.bulkGenerateMissingContent({ entity_type: 'webinar', generate_all: true, provider: 'gemini' });
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'webinar', generate_all: true, force_regenerate: true, provider: 'gemini' });
       if (res.success && res.data) {
         const { summary: s } = res.data;
         toast.success(`Generated ${s.success} item(s), ${s.skipped} complete, ${s.errors} error(s)`);
