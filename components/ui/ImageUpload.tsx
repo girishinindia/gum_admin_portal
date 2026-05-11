@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Dialog } from './Dialog';
 import { ImageEditor } from './ImageEditor';
 import { Upload, X, Edit2 } from 'lucide-react';
@@ -37,15 +37,57 @@ export function ImageUpload({
   const [editorOpen, setEditorOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+
+  function openEditor(file: File) {
+    setRawFile(file);
+    setFileName(file.name);
+    setEditorOpen(true);
+  }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    setRawFile(f);
-    setFileName(f.name);
-    setEditorOpen(true);
+    openEditor(f);
     if (inputRef.current) inputRef.current.value = '';
   }
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      openEditor(file);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleEditorSave(_blob: Blob, previewDataUrl: string) {
     // Convert data URL → File (most reliable way to ensure multer receives the file)
@@ -84,10 +126,18 @@ export function ImageUpload({
     <div className={className}>
       {label && <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>}
 
-      <label className={cn(
-        'flex items-center gap-4 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all',
-        'border-slate-200 hover:border-brand-300 hover:bg-brand-50/30',
-      )}>
+      <label
+        className={cn(
+          'flex items-center gap-4 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all',
+          isDragging
+            ? 'border-brand-500 bg-brand-50/50 ring-2 ring-brand-200'
+            : 'border-slate-200 hover:border-brand-300 hover:bg-brand-50/30',
+        )}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <div className={cn(
           'flex items-center justify-center flex-shrink-0 overflow-hidden bg-slate-100 border border-slate-200',
           isCircle ? 'w-16 h-16 rounded-full' : 'w-20 h-14 rounded-lg',
@@ -96,27 +146,29 @@ export function ImageUpload({
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={displayUrl} alt="Preview" className="w-full h-full object-cover" />
           ) : (
-            placeholder || <Upload className="w-5 h-5 text-slate-400" />
+            placeholder || <Upload className={cn('w-5 h-5', isDragging ? 'text-brand-500' : 'text-slate-400')} />
           )}
         </div>
 
         <div className="flex-1 min-w-0">
-          {hasImage ? (
+          {isDragging ? (
+            <div className="text-sm font-medium text-brand-600">Drop image here</div>
+          ) : hasImage ? (
             <>
               <div className="text-sm font-medium text-slate-900 truncate">{fileName || 'Image uploaded'}</div>
-              <div className="text-xs text-slate-500 mt-0.5">Click to change · Crop, resize & filter available</div>
+              <div className="text-xs text-slate-500 mt-0.5">Click or drag to change · Crop, resize & filter available</div>
             </>
           ) : (
             <>
               <div className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                <Upload className="w-4 h-4" /> Click to upload image
+                <Upload className="w-4 h-4" /> Click or drag to upload image
               </div>
               <div className="text-xs text-slate-500 mt-0.5">Crop, resize &amp; filter before upload</div>
             </>
           )}
         </div>
 
-        {hasImage && (
+        {hasImage && !isDragging && (
           <div className="flex gap-1 flex-shrink-0">
             <button type="button" onClick={handleReEdit} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Replace">
               <Edit2 className="w-4 h-4" />
