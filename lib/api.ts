@@ -824,7 +824,7 @@ export const api = {
     request('/ai/auto-translate-ordering', { method: 'POST', body: JSON.stringify(data) }),
 
   // AI — Assessment translations (HTML file-based)
-  autoTranslateExercise: (data: { exercise_id?: number; exercise_ids?: number[]; provider?: string }) =>
+  autoTranslateExercise: (data: { exercise_id?: number; exercise_ids?: number[]; provider?: string; force?: boolean }) =>
     request('/ai/auto-translate-exercise', { method: 'POST', body: JSON.stringify(data) }),
   autoTranslateMiniProject: (data: { mini_project_id?: number; mini_project_ids?: number[]; provider?: string }) =>
     request('/ai/auto-translate-mini-project', { method: 'POST', body: JSON.stringify(data) }),
@@ -1342,5 +1342,50 @@ export const api = {
   softDeleteReferralReward: (id: number) => request(`/referral-rewards/${id}`, { method: 'DELETE' }),
   restoreReferralReward: (id: number) => request(`/referral-rewards/${id}/restore`, { method: 'PATCH' }),
   deleteReferralReward: (id: number) => request(`/referral-rewards/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Coupons ──
+  listCoupons: (qs = '') => request(`/coupons${qs}`, { auth: false }),
+  getCoupon: (id: number) => request(`/coupons/${id}`, { auth: false }),
+  createCoupon: (data: any) => request('/coupons', { method: 'POST', body: JSON.stringify(data) }),
+  updateCoupon: (id: number, data: any) => request(`/coupons/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteCoupon: (id: number) => request(`/coupons/${id}`, { method: 'DELETE' }),
+  restoreCoupon: (id: number) => request(`/coupons/${id}/restore`, { method: 'PATCH' }),
+  deleteCoupon: (id: number) => request(`/coupons/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Coupon Courses ──
+  listCouponCourses: (qs = '') => request(`/coupon-courses${qs}`, { auth: false }),
+  getCouponCourse: (id: number) => request(`/coupon-courses/${id}`, { auth: false }),
+  createCouponCourse: (data: any) => request('/coupon-courses', { method: 'POST', body: JSON.stringify(data) }),
+  updateCouponCourse: (id: number, data: any) => request(`/coupon-courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteCouponCourse: (id: number) => request(`/coupon-courses/${id}`, { method: 'DELETE' }),
+  restoreCouponCourse: (id: number) => request(`/coupon-courses/${id}/restore`, { method: 'PATCH' }),
+  deleteCouponCourse: (id: number) => request(`/coupon-courses/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Coupon Bundles ──
+  listCouponBundles: (qs = '') => request(`/coupon-bundles${qs}`, { auth: false }),
+  getCouponBundle: (id: number) => request(`/coupon-bundles/${id}`, { auth: false }),
+  createCouponBundle: (data: any) => request('/coupon-bundles', { method: 'POST', body: JSON.stringify(data) }),
+  updateCouponBundle: (id: number, data: any) => request(`/coupon-bundles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteCouponBundle: (id: number) => request(`/coupon-bundles/${id}`, { method: 'DELETE' }),
+  restoreCouponBundle: (id: number) => request(`/coupon-bundles/${id}/restore`, { method: 'PATCH' }),
+  deleteCouponBundle: (id: number) => request(`/coupon-bundles/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Coupon Batches ──
+  listCouponBatches: (qs = '') => request(`/coupon-batches${qs}`, { auth: false }),
+  getCouponBatch: (id: number) => request(`/coupon-batches/${id}`, { auth: false }),
+  createCouponBatch: (data: any) => request('/coupon-batches', { method: 'POST', body: JSON.stringify(data) }),
+  updateCouponBatch: (id: number, data: any) => request(`/coupon-batches/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteCouponBatch: (id: number) => request(`/coupon-batches/${id}`, { method: 'DELETE' }),
+  restoreCouponBatch: (id: number) => request(`/coupon-batches/${id}/restore`, { method: 'PATCH' }),
+  deleteCouponBatch: (id: number) => request(`/coupon-batches/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Coupon Webinars ──
+  listCouponWebinars: (qs = '') => request(`/coupon-webinars${qs}`, { auth: false }),
+  getCouponWebinar: (id: number) => request(`/coupon-webinars/${id}`, { auth: false }),
+  createCouponWebinar: (data: any) => request('/coupon-webinars', { method: 'POST', body: JSON.stringify(data) }),
+  updateCouponWebinar: (id: number, data: any) => request(`/coupon-webinars/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteCouponWebinar: (id: number) => request(`/coupon-webinars/${id}`, { method: 'DELETE' }),
+  restoreCouponWebinar: (id: number) => request(`/coupon-webinars/${id}/restore`, { method: 'PATCH' }),
+  deleteCouponWebinar: (id: number) => request(`/coupon-webinars/${id}/permanent`, { method: 'DELETE' }),
 
 };

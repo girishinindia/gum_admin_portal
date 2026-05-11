@@ -464,16 +464,16 @@ export default function ExercisesPage() {
   };
 
   // ── AI Translate (translates English HTML file to all missing languages) ──
-  const handleAiTranslate = async (exerciseId?: number) => {
+  const handleAiTranslate = async (exerciseId?: number, force?: boolean) => {
     const id = exerciseId || editingId;
     if (!id) return;
     setAiTranslating(true);
     try {
-      const r = await api.autoTranslateExercise({ exercise_id: id });
+      const r = await api.autoTranslateExercise({ exercise_id: id, force });
       if (r.success) {
-        const d = r.data || {};
-        const total = (d.translated || 0) + (d.skipped || 0) + (d.failed || 0);
-        toast.success(`AI translated ${d.translated || 0} of ${total} languages`);
+        const d = r.data?.summary || r.data || {};
+        const created = d.translations_created || d.translated || 0;
+        toast.success(force ? `AI re-translated all languages for exercise` : `AI translated ${created} languages`);
         if (editingId === id) {
           const full = await api.getExerciseFull(id);
           if (full.success && full.data) {
@@ -969,12 +969,12 @@ export default function ExercisesPage() {
                   </TR>
                 </THead>
                 <TBody>
-                  {exercises.map(ex => {
+                  {exercises.map((ex, idx) => {
                     const cov = coverageMap[ex.id];
                     return (
                       <TR key={ex.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(ex.id) && 'bg-brand-50/40')}>
                         <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(ex.id)} onChange={() => toggleSelect(ex.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
-                        <TD className="py-2.5 text-slate-500">{ex.display_order}</TD>
+                        <TD className="py-2.5 text-slate-500">{(page - 1) * pageSize + idx + 1}</TD>
                         <TD className={cn('py-2.5 max-w-xs truncate', showTrash && 'text-slate-400 line-through')} title={ex.english_title || ex.title || ex.slug}>
                           {ex.english_title || ex.title || ex.slug || '---'}
                         </TD>
@@ -1009,9 +1009,21 @@ export default function ExercisesPage() {
                                 onClick={() => handleAiTranslate(ex.id)}
                                 disabled={aiTranslating}
                                 className="ml-0.5 text-purple-500 hover:text-purple-700"
-                                title="AI Translate"
+                                title="AI Translate Missing"
                               >
                                 <Sparkles className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm('Re-translate all languages for this exercise?')) {
+                                    handleAiTranslate(ex.id, true);
+                                  }
+                                }}
+                                disabled={aiTranslating}
+                                className="ml-0.5 text-orange-500 hover:text-orange-700"
+                                title="Re-translate All Languages"
+                              >
+                                <RotateCcw className="h-3 w-3" />
                               </button>
                             </div>
                           ) : (
@@ -1352,11 +1364,28 @@ export default function ExercisesPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleAiTranslate()}
+                        onClick={() => handleAiTranslate(undefined, false)}
                         disabled={aiTranslating}
                       >
                         {aiTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Sparkles className="h-4 w-4 mr-1 text-purple-500" />}
                         AI Translate Remaining ({missingLangs})
+                      </Button>
+                    )}
+                    {translatedLangs > 1 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (window.confirm('Re-translate all languages? This will overwrite existing translations with fresh AI translations.')) {
+                            handleAiTranslate(undefined, true);
+                          }
+                        }}
+                        disabled={aiTranslating}
+                        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200"
+                        title="Re-generate all translations (overwrite existing)"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                        Re-translate All
                       </Button>
                     )}
                     {translatedLangs > 1 && (
