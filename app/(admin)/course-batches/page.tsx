@@ -93,7 +93,16 @@ export default function CourseBatchesPage() {
   const [courses, setCourses] = useState<any[]>([]);
 
   // Coverage
-  const [coverage, setCoverage] = useState<Record<number, any>>({});
+  interface CoverageItem {
+    batch_id: number;
+    total_languages: number;
+    translated_count: number;
+    missing_count: number;
+    is_complete: boolean;
+    translated_languages: { id: number; name: string; iso_code: string }[];
+    missing_languages: { id: number; name: string; iso_code: string }[];
+  }
+  const [coverage, setCoverage] = useState<Record<number, CoverageItem>>({});
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const router = useRouter();
@@ -164,11 +173,8 @@ export default function CourseBatchesPage() {
   async function loadCoverage() {
     const res = await api.getBatchTranslationCoverage();
     if (res.success && Array.isArray(res.data)) {
-      const map: Record<number, any> = {};
-      res.data.forEach((c: any) => {
-        if (!map[c.batch_id]) map[c.batch_id] = [];
-        map[c.batch_id].push(c);
-      });
+      const map: Record<number, CoverageItem> = {};
+      res.data.forEach((c: CoverageItem) => { map[c.batch_id] = c; });
       setCoverage(map);
     }
   }
@@ -629,24 +635,37 @@ export default function CourseBatchesPage() {
                     <TD className="py-2.5">
                       {(() => {
                         const cov = coverage[c.id];
-                        const count = cov ? cov.length : 0;
+                        if (!cov) return <span className="text-slate-300 text-xs">—</span>;
+                        const complete = cov.is_complete;
                         return (
                           <div className="flex items-center gap-1.5">
                             <span className={cn(
                               'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full',
-                              count > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                              complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
                             )}>
-                              {count > 0 && <Check className="w-3 h-3" />}
-                              {count}
+                              {complete ? <Check className="w-3 h-3" /> : null}
+                              {cov.translated_count}/{cov.total_languages}
                             </span>
-                            <button
-                              onClick={() => handleAIGenerateSingle(c.id, count > 0)}
-                              disabled={bulkActionLoading}
-                              className={cn('p-1 rounded-md transition-colors', count > 0 ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50' : 'text-violet-500 hover:text-violet-700 hover:bg-violet-50')}
-                              title={count > 0 ? 'Regenerate translations' : 'Generate translations'}
-                            >
-                              {count > 0 ? <RotateCcw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-                            </button>
+                            {!complete && (
+                              <button
+                                onClick={() => handleAIGenerateSingle(c.id, cov.translated_count > 0)}
+                                disabled={bulkActionLoading}
+                                className="p-1 rounded-md text-violet-500 hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                                title="Generate missing translations"
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {complete && (
+                              <button
+                                onClick={() => handleAIGenerateSingle(c.id, true)}
+                                disabled={bulkActionLoading}
+                                className="p-1 rounded-md text-amber-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+                                title="Regenerate translations"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         );
                       })()}
