@@ -103,6 +103,18 @@ export default function WebinarsPage() {
   // Courses list for filter & form
   const [courses, setCourses] = useState<any[]>([]);
 
+  // Coverage
+  interface CoverageItem {
+    webinar_id: number;
+    total_languages: number;
+    translated_count: number;
+    missing_count: number;
+    is_complete: boolean;
+    translated_languages: { id: number; name: string; iso_code: string }[];
+    missing_languages: { id: number; name: string; iso_code: string }[];
+  }
+  const [coverage, setCoverage] = useState<Record<number, CoverageItem>>({});
+
   const toolbarRef = useRef<DataToolbarHandle>(null);
 
   const { register, handleSubmit, reset, setValue, watch } = useForm();
@@ -133,10 +145,11 @@ export default function WebinarsPage() {
     api.listCourses('?is_active=true&limit=200').then(res => {
       if (res.success) setCourses(res.data || []);
     });
+    loadCoverage();
   }, []);
 
   useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterStatus, filterWebinarStatus, filterOwner, filterCourse, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus, filterWebinarStatus, filterOwner, filterCourse, showTrash]);
+  useEffect(() => { load(); loadCoverage(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterStatus, filterWebinarStatus, filterOwner, filterCourse, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -168,7 +181,48 @@ export default function WebinarsPage() {
     if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
   }
 
-  // AI generate all translations for a webinar
+  async function loadCoverage() {
+    const res = await api.webinarTranslationCoverage();
+    if (res.success && Array.isArray(res.data)) {
+      const map: Record<number, CoverageItem> = {};
+      res.data.forEach((c: CoverageItem) => { map[c.webinar_id] = c; });
+      setCoverage(map);
+    }
+  }
+
+  async function handleFillAllMissing() {
+    if (!confirm('This will generate AI content for ALL webinars with missing or empty translations. This may take several minutes. Continue?')) return;
+    setBulkActionLoading(true);
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'webinar', generate_all: true, provider: 'gemini' });
+      if (res.success && res.data) {
+        const { summary: s } = res.data;
+        toast.success(`Generated content for ${s.success} item(s), ${s.skipped} already complete, ${s.errors} error(s)`);
+        load(); loadCoverage();
+      } else { toast.error(res.error || 'Bulk generation failed'); }
+    } catch { toast.error('Bulk generation failed'); }
+    setBulkActionLoading(false);
+  }
+
+  async function handleAIGenerateSingle(entityId: number, forceRegenerate: boolean = false) {
+    setBulkActionLoading(true);
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'webinar', entity_ids: [entityId], provider: 'gemini', force_regenerate: forceRegenerate });
+      if (res.success && res.data) {
+        const { summary: s, results: r } = res.data;
+        if (s.skipped > 0 && s.success === 0) {
+          toast.success('All translations already complete!');
+        } else {
+          const langsGenerated = r?.reduce((acc: number, item: any) => acc + (item.languages_generated || 0), 0) || 0;
+          toast.success(`${forceRegenerate ? 'Regenerated' : 'Generated'} ${langsGenerated} translation(s)`);
+        }
+        load(); loadCoverage();
+      } else { toast.error(res.error || 'Generation failed'); }
+    } catch { toast.error('Generation failed'); }
+    setBulkActionLoading(false);
+  }
+
+  // AI generate all translations for a webinar (dialog mode)
   async function handleAIGenerate(webinarId: number) {
     setAiGenerating(true);
     try {
@@ -176,6 +230,7 @@ export default function WebinarsPage() {
       if (res.success) {
         toast.success('AI translations generated successfully');
         if (translationWebinar?.id === webinarId) loadTranslations(webinarId);
+        loadCoverage();
       } else {
         toast.error(res.error || 'AI generation failed');
       }
@@ -334,7 +389,7 @@ export default function WebinarsPage() {
       : await api.createWebinar(payload);
     if (res.success) {
       toast.success(editing ? 'Webinar updated' : 'Webinar created');
-      setDialogOpen(false); load(); refreshSummary();
+      setDialogOpen(false); load(); refreshSummary(); loadCoverage();
     } else toast.error(res.error || 'Failed');
   }
 
@@ -343,7 +398,7 @@ export default function WebinarsPage() {
     setActionLoadingId(c.id);
     const res = await api.softDeleteWebinar(c.id);
     setActionLoadingId(null);
-    if (res.success) { toast.success('Webinar moved to trash'); load(); refreshSummary(); }
+    if (res.success) { toast.success('Webinar moved to trash'); load(); refreshSummary(); loadCoverage(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -351,7 +406,7 @@ export default function WebinarsPage() {
     setActionLoadingId(c.id);
     const res = await api.restoreWebinar(c.id);
     setActionLoadingId(null);
-    if (res.success) { toast.success('Webinar restored'); load(); refreshSummary(); }
+    if (res.success) { toast.success('Webinar restored'); load(); refreshSummary(); loadCoverage(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -360,7 +415,7 @@ export default function WebinarsPage() {
     setActionLoadingId(c.id);
     const res = await api.deleteWebinar(c.id);
     setActionLoadingId(null);
-    if (res.success) { toast.success('Webinar permanently deleted'); load(); refreshSummary(); }
+    if (res.success) { toast.success('Webinar permanently deleted'); load(); refreshSummary(); loadCoverage(); }
     else toast.error(res.error || 'Failed');
   }
 
@@ -400,7 +455,7 @@ export default function WebinarsPage() {
     }
     toast.success(`${ok} item(s) moved to trash`);
     setSelectedIds(new Set());
-    load(); refreshSummary();
+    load(); refreshSummary(); loadCoverage();
     setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
   }
@@ -418,7 +473,7 @@ export default function WebinarsPage() {
     }
     toast.success(`${ok} item(s) restored`);
     setSelectedIds(new Set());
-    load(); refreshSummary();
+    load(); refreshSummary(); loadCoverage();
     setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
   }
@@ -436,7 +491,7 @@ export default function WebinarsPage() {
     }
     toast.success(`${ok} item(s) permanently deleted`);
     setSelectedIds(new Set());
-    load(); refreshSummary();
+    load(); refreshSummary(); loadCoverage();
     setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
   }
@@ -462,6 +517,7 @@ export default function WebinarsPage() {
         description="Manage webinars, scheduling, and translations"
         actions={
           <div className="flex items-center gap-2">
+            {!showTrash && <Button variant="outline" onClick={handleFillAllMissing} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI Fill All Missing</Button>}
             {!showTrash && <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add Webinar</Button>}
           </div>
         }
@@ -670,14 +726,42 @@ export default function WebinarsPage() {
                   </TD>
                   {!showTrash && (
                     <TD className="py-2.5">
-                      <button
-                        onClick={() => openTranslations(c)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-700 transition-colors"
-                        title="Manage translations"
-                      >
-                        <Globe className="w-3 h-3" />
-                        Manage
-                      </button>
+                      {(() => {
+                        const cov = coverage[c.id];
+                        if (!cov) return <span className="text-slate-300 text-xs">—</span>;
+                        const complete = cov.is_complete;
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn(
+                              'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full',
+                              complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                            )}>
+                              {complete ? <Check className="w-3 h-3" /> : null}
+                              {cov.translated_count}/{cov.total_languages}
+                            </span>
+                            {!complete && (
+                              <button
+                                onClick={() => handleAIGenerateSingle(c.id, cov.translated_count > 0)}
+                                disabled={bulkActionLoading}
+                                className="p-1 rounded-md text-violet-500 hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                                title="Generate missing translations"
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {complete && (
+                              <button
+                                onClick={() => handleAIGenerateSingle(c.id, true)}
+                                disabled={bulkActionLoading}
+                                className="p-1 rounded-md text-amber-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+                                title="Regenerate translations"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </TD>
                   )}
                   {showTrash && (

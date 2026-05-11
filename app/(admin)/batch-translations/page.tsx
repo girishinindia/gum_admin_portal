@@ -441,6 +441,23 @@ export default function BatchTranslationsPage() {
     setBulkActionLoading(false);
   }
 
+  async function handleAIFillSelected() {
+    // Get unique batch_ids from selected translations
+    const batchIds = [...new Set(items.filter(i => selectedIds.has(i.id)).map(i => i.batch_id))];
+    if (batchIds.length === 0) return;
+    if (!confirm(`Generate AI translations for ${batchIds.length} batch(es) from ${selectedIds.size} selected translation(s)?`)) return;
+    setBulkActionLoading(true);
+    try {
+      const res = await api.bulkGenerateMissingContent({ entity_type: 'course_batch', entity_ids: batchIds, provider: 'gemini' });
+      if (res.success && res.data) {
+        const { summary: s } = res.data;
+        toast.success(`Generated ${s.success} item(s), ${s.skipped} complete, ${s.errors} error(s)`);
+        setSelectedIds(new Set()); load(); refreshSummary();
+      } else toast.error(res.error || 'AI generation failed');
+    } catch { toast.error('AI generation failed'); }
+    setBulkActionLoading(false);
+  }
+
   function handleSort(field: SortField) {
     if (sortField === field) setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortOrder('asc'); }
@@ -558,7 +575,10 @@ export default function BatchTranslationsPage() {
                     <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Permanently</Button>
                   </>
                 ) : (
-                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Selected</Button>
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleAIFillSelected} disabled={bulkActionLoading}><Sparkles className="w-3.5 h-3.5" /> AI Fill Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}><Trash2 className="w-3.5 h-3.5" /> Delete Selected</Button>
+                  </>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
               </div>
