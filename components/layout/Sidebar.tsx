@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle, Settings, Database, Landmark, BookText, ClipboardList, PanelLeftClose, PanelLeftOpen, ClipboardCheck, Code2, Briefcase, Rocket, Calendar, Gift, Ticket, Percent, ShoppingCart, CreditCard, Receipt, TrendingUp, BarChart3, Trophy, Medal, Star, Bell, Wallet, Banknote, MessageSquare, Radio, ScrollText, Headphones, Megaphone } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle, Settings, Database, Landmark, BookText, ClipboardList, PanelLeftClose, PanelLeftOpen, ClipboardCheck, Code2, Briefcase, Rocket, Calendar, Gift, Ticket, Percent, ShoppingCart, CreditCard, Receipt, TrendingUp, BarChart3, Trophy, Medal, Star, Bell, Wallet, Banknote, MessageSquare, Radio, ScrollText, Headphones, Megaphone, Mail, BellRing } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -423,6 +423,8 @@ const navGroups: NavGroup[] = [
     iconColor: 'text-cyan-500',
     items: [
       { href: '/notifications', label: 'Notifications', icon: Bell, iconColor: 'text-cyan-500' },
+      { href: '/email-templates', label: 'Email Templates', icon: Mail, iconColor: 'text-cyan-500' },
+      { href: '/notification-preferences', label: 'Preferences', icon: BellRing, iconColor: 'text-cyan-500' },
     ],
   },
   {

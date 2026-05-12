@@ -1645,6 +1645,24 @@ export const api = {
   markAllNotificationsAsRead: (userId: number) => request('/notifications/mark-all-read', { method: 'PATCH', body: JSON.stringify({ user_id: userId }) }),
   getUnreadNotificationCount: (userId: number) => request(`/notifications/unread-count/${userId}`),
 
+  // ── Email Templates ──
+  listEmailTemplates: (qs?: string) => request(`/email-templates${qs || ''}`),
+  getEmailTemplate: (id: number) => request(`/email-templates/${id}`),
+  getEmailTemplateSummary: () => request('/email-templates/summary'),
+  createEmailTemplate: (data: any) => request('/email-templates', { method: 'POST', body: JSON.stringify(data) }),
+  updateEmailTemplate: (id: number, data: any) => request(`/email-templates/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteEmailTemplate: (id: number) => request(`/email-templates/${id}`, { method: 'DELETE' }),
+  restoreEmailTemplate: (id: number) => request(`/email-templates/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteEmailTemplate: (id: number) => request(`/email-templates/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Notification Preferences ──
+  listNotificationPreferences: (qs?: string) => request(`/notification-preferences${qs || ''}`),
+  getNotificationPreference: (id: number) => request(`/notification-preferences/${id}`),
+  getNotificationPreferenceSummary: () => request('/notification-preferences/summary'),
+  getNotificationPreferencesByUser: (userId: number) => request(`/notification-preferences/user/${userId}`),
+  updateNotificationPreference: (id: number, data: any) => request(`/notification-preferences/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  bulkUpdateNotificationPreferences: (userId: number, data: any) => request(`/notification-preferences/user/${userId}/bulk`, { method: 'PATCH', body: JSON.stringify(data) }),
+
   // ── Instructor Earnings ──
   getInstructorEarnings: (params?: Record<string, any>) => {
     const q = new URLSearchParams();
