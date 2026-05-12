@@ -32,15 +32,14 @@ type RewardSortField = 'id' | 'reward_type' | 'reward_amount' | 'status' | 'cred
 // ─── Constants ───────────────────────────────────────────────────
 const REFERRER_REWARD_TYPE_OPTIONS = [
   { value: 'wallet_credit', label: 'Wallet Credit' },
-  { value: 'cash', label: 'Cash' },
-  { value: 'points', label: 'Points' },
+  { value: 'discount_code', label: 'Discount Code' },
+  { value: 'cashback', label: 'Cashback' },
 ];
 
 const REWARD_TYPE_OPTIONS = [
   { value: 'wallet_credit', label: 'Wallet Credit' },
-  { value: 'cash', label: 'Cash' },
-  { value: 'credit', label: 'Credit' },
-  { value: 'points', label: 'Points' },
+  { value: 'discount_code', label: 'Discount Code' },
+  { value: 'cashback', label: 'Cashback' },
 ];
 
 const USAGE_STATUS_OPTIONS = [
@@ -53,8 +52,8 @@ const USAGE_STATUS_OPTIONS = [
 const REWARD_STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
   { value: 'credited', label: 'Credited' },
-  { value: 'failed', label: 'Failed' },
   { value: 'expired', label: 'Expired' },
+  { value: 'cancelled', label: 'Cancelled' },
 ];
 
 const USAGE_STATUS_COLORS: Record<string, string> = {
@@ -67,15 +66,14 @@ const USAGE_STATUS_COLORS: Record<string, string> = {
 const REWARD_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-50 text-amber-700',
   credited: 'bg-emerald-50 text-emerald-700',
-  failed: 'bg-red-50 text-red-700',
   expired: 'bg-slate-100 text-slate-600',
+  cancelled: 'bg-red-50 text-red-700',
 };
 
 const REWARD_TYPE_COLORS: Record<string, string> = {
   wallet_credit: 'bg-blue-50 text-blue-700',
-  cash: 'bg-green-50 text-green-700',
-  credit: 'bg-teal-50 text-teal-700',
-  points: 'bg-violet-50 text-violet-700',
+  discount_code: 'bg-teal-50 text-teal-700',
+  cashback: 'bg-green-50 text-green-700',
 };
 
 const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";

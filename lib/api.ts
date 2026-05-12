@@ -1408,4 +1408,858 @@ export const api = {
   restoreInstructorPromotionCourse: (id: number) => request(`/instructor-promotion-courses/${id}/restore`, { method: 'PATCH' }),
   deleteInstructorPromotionCourse: (id: number) => request(`/instructor-promotion-courses/${id}/permanent`, { method: 'DELETE' }),
 
+  // ── Cart Items ──
+  listCartItems: (qs = '') => request(`/cart-items${qs}`, { auth: false }),
+  getCartItem: (id: number) => request(`/cart-items/${id}`, { auth: false }),
+  getCartByUser: (userId: number) => request(`/cart-items/user/${userId}`, { auth: false }),
+  createCartItem: (data: any) => request('/cart-items', { method: 'POST', body: JSON.stringify(data) }),
+  updateCartItem: (id: number, data: any) => request(`/cart-items/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteCartItem: (id: number) => request(`/cart-items/${id}`, { method: 'DELETE' }),
+  restoreCartItem: (id: number) => request(`/cart-items/${id}/restore`, { method: 'PATCH' }),
+  deleteCartItem: (id: number) => request(`/cart-items/${id}/permanent`, { method: 'DELETE' }),
+  clearCart: (userId: number) => request(`/cart-items/clear/${userId}`, { method: 'DELETE' }),
+
+  // ── Wishlists ──
+  listWishlists: (qs = '') => request(`/wishlists${qs}`, { auth: false }),
+  getWishlist: (id: number) => request(`/wishlists/${id}`, { auth: false }),
+  getWishlistByUser: (userId: number) => request(`/wishlists/user/${userId}`, { auth: false }),
+  createWishlist: (data: any) => request('/wishlists', { method: 'POST', body: JSON.stringify(data) }),
+  updateWishlist: (id: number, data: any) => request(`/wishlists/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteWishlist: (id: number) => request(`/wishlists/${id}`, { method: 'DELETE' }),
+  restoreWishlist: (id: number) => request(`/wishlists/${id}/restore`, { method: 'PATCH' }),
+  deleteWishlist: (id: number) => request(`/wishlists/${id}/permanent`, { method: 'DELETE' }),
+  moveWishlistToCart: (id: number) => request(`/wishlists/move-to-cart/${id}`, { method: 'POST' }),
+
+  // ── Orders ──
+  listOrders: (qs = '') => request(`/orders${qs}`, { auth: false }),
+  getOrder: (id: number) => request(`/orders/${id}`, { auth: false }),
+  getOrderItems: (orderId: number) => request(`/orders/${orderId}/items`, { auth: false }),
+  createOrder: (data: any) => request('/orders', { method: 'POST', body: JSON.stringify(data) }),
+  updateOrder: (id: number, data: any) => request(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteOrder: (id: number) => request(`/orders/${id}`, { method: 'DELETE' }),
+  restoreOrder: (id: number) => request(`/orders/${id}/restore`, { method: 'PATCH' }),
+  deleteOrder: (id: number) => request(`/orders/${id}/permanent`, { method: 'DELETE' }),
+  cancelOrder: (id: number, data?: any) => request(`/orders/${id}/cancel`, { method: 'PATCH', body: data ? JSON.stringify(data) : undefined }),
+  confirmOrder: (id: number) => request(`/orders/${id}/confirm`, { method: 'PATCH' }),
+
+  // ── Payments ──
+  listPayments: (qs = '') => request(`/payments${qs}`, { auth: false }),
+  getPayment: (id: number) => request(`/payments/${id}`, { auth: false }),
+  getPaymentsByOrder: (orderId: number) => request(`/payments/order/${orderId}`, { auth: false }),
+  createPayment: (data: any) => request('/payments', { method: 'POST', body: JSON.stringify(data) }),
+  updatePayment: (id: number, data: any) => request(`/payments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeletePayment: (id: number) => request(`/payments/${id}`, { method: 'DELETE' }),
+  restorePayment: (id: number) => request(`/payments/${id}/restore`, { method: 'PATCH' }),
+  deletePayment: (id: number) => request(`/payments/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Transactions ──
+  listTransactions: (qs = '') => request(`/transactions${qs}`, { auth: false }),
+  getTransaction: (id: number) => request(`/transactions/${id}`, { auth: false }),
+  getTransactionsByOrder: (orderId: number) => request(`/transactions/order/${orderId}`, { auth: false }),
+  getTransactionsByUser: (userId: number) => request(`/transactions/user/${userId}`, { auth: false }),
+  createTransaction: (data: any) => request('/transactions', { method: 'POST', body: JSON.stringify(data) }),
+  updateTransaction: (id: number, data: any) => request(`/transactions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteTransaction: (id: number) => request(`/transactions/${id}`, { method: 'DELETE' }),
+  restoreTransaction: (id: number) => request(`/transactions/${id}/restore`, { method: 'PATCH' }),
+  deleteTransaction: (id: number) => request(`/transactions/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Enrollments ──
+  listEnrollments: (qs = '') => request(`/enrollments${qs}`, { auth: false }),
+  getEnrollment: (id: number) => request(`/enrollments/${id}`, { auth: false }),
+  getEnrollmentsByUser: (userId: number) => request(`/enrollments/user/${userId}`, { auth: false }),
+  getEnrollmentProgress: (id: number) => request(`/enrollments/${id}/progress`, { auth: false }),
+  createEnrollment: (data: any) => request('/enrollments', { method: 'POST', body: JSON.stringify(data) }),
+  updateEnrollment: (id: number, data: any) => request(`/enrollments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteEnrollment: (id: number) => request(`/enrollments/${id}`, { method: 'DELETE' }),
+  restoreEnrollment: (id: number) => request(`/enrollments/${id}/restore`, { method: 'PATCH' }),
+  deleteEnrollment: (id: number) => request(`/enrollments/${id}/permanent`, { method: 'DELETE' }),
+  updateEnrollmentProgress: (id: number, data: any) => request(`/enrollments/${id}/progress`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // ── Invoices ──
+  listInvoices: (qs = '') => request(`/invoices${qs}`, { auth: false }),
+  getInvoice: (id: number) => request(`/invoices/${id}`, { auth: false }),
+  getInvoicesByOrder: (orderId: number) => request(`/invoices/order/${orderId}`, { auth: false }),
+  createInvoice: (data: any) => request('/invoices', { method: 'POST', body: JSON.stringify(data) }),
+  updateInvoice: (id: number, data: any) => request(`/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteInvoice: (id: number) => request(`/invoices/${id}`, { method: 'DELETE' }),
+  restoreInvoice: (id: number) => request(`/invoices/${id}/restore`, { method: 'PATCH' }),
+  deleteInvoice: (id: number) => request(`/invoices/${id}/permanent`, { method: 'DELETE' }),
+  issueInvoice: (id: number) => request(`/invoices/${id}/issue`, { method: 'PATCH' }),
+  cancelInvoice: (id: number) => request(`/invoices/${id}/cancel-invoice`, { method: 'PATCH' }),
+
+  // ── Refunds ──
+  listRefunds: (qs = '') => request(`/refunds${qs}`, { auth: false }),
+  getRefund: (id: number) => request(`/refunds/${id}`, { auth: false }),
+  getRefundsByOrder: (orderId: number) => request(`/refunds/order/${orderId}`, { auth: false }),
+  createRefund: (data: any) => request('/refunds', { method: 'POST', body: JSON.stringify(data) }),
+  updateRefund: (id: number, data: any) => request(`/refunds/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteRefund: (id: number) => request(`/refunds/${id}`, { method: 'DELETE' }),
+  restoreRefund: (id: number) => request(`/refunds/${id}/restore`, { method: 'PATCH' }),
+  deleteRefund: (id: number) => request(`/refunds/${id}/permanent`, { method: 'DELETE' }),
+  approveRefund: (id: number) => request(`/refunds/${id}/approve`, { method: 'PATCH' }),
+  rejectRefund: (id: number, data: any) => request(`/refunds/${id}/reject`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // ── Checkout ──
+  getCheckoutConfig: () => request('/checkout/config', { auth: false }),
+  initiateCheckout: (data: any) => request('/checkout/initiate', { method: 'POST', body: JSON.stringify(data) }),
+  verifyCheckoutPayment: (data: any) => request('/checkout/verify', { method: 'POST', body: JSON.stringify(data) }),
+  processCheckoutRefund: (data: any) => request('/checkout/refund', { method: 'POST', body: JSON.stringify(data) }),
+
+  // ── Revenue Dashboard ──
+  getRevenueDashboard: (period = 30) => request(`/revenue-dashboard/stats?period=${period}`),
+
+  // ── Student Progress ──
+  getStudentProgressOverview: (period = 30) => request(`/student-progress/overview?period=${period}`),
+  getStudentProgressStudents: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    if (params.search) q.set('search', params.search);
+    if (params.sort_by) q.set('sort_by', params.sort_by);
+    if (params.sort_dir) q.set('sort_dir', params.sort_dir);
+    return request(`/student-progress/students?${q.toString()}`);
+  },
+  getStudentProgressDetail: (userId: number) => request(`/student-progress/students/${userId}`),
+  getQuizAnalytics: (period = 30) => request(`/student-progress/quiz-analytics?period=${period}`),
+  getVideoWatchHistory: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    if (params.user_id) q.set('user_id', String(params.user_id));
+    return request(`/student-progress/video-history?${q.toString()}`);
+  },
+  getQuizAttempts: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    if (params.user_id) q.set('user_id', String(params.user_id));
+    if (params.status) q.set('status', params.status);
+    if (params.quiz_type) q.set('quiz_type', params.quiz_type);
+    return request(`/student-progress/quiz-attempts?${q.toString()}`);
+  },
+  getProjectSubmissions: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    if (params.user_id) q.set('user_id', String(params.user_id));
+    if (params.status) q.set('status', params.status);
+    if (params.project_type) q.set('project_type', params.project_type);
+    return request(`/student-progress/submissions?${q.toString()}`);
+  },
+
+  // ── Certificate Templates ──
+  listCertificateTemplates: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== null && v !== '') q.set(k, String(v)); }
+    return request(`/certificate-templates?${q.toString()}`);
+  },
+  getCertificateTemplate: (id: number) => request(`/certificate-templates/${id}`),
+  createCertificateTemplate: (data: FormData) => request('/certificate-templates', { method: 'POST', body: data, isFormData: true }),
+  updateCertificateTemplate: (id: number, data: FormData) => request(`/certificate-templates/${id}`, { method: 'PATCH', body: data, isFormData: true }),
+  softDeleteCertificateTemplate: (id: number) => request(`/certificate-templates/${id}`, { method: 'DELETE' }),
+  restoreCertificateTemplate: (id: number) => request(`/certificate-templates/${id}/restore`, { method: 'PATCH' }),
+  deleteCertificateTemplate: (id: number) => request(`/certificate-templates/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Issued Certificates ──
+  listIssuedCertificates: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== null && v !== '') q.set(k, String(v)); }
+    return request(`/issued-certificates?${q.toString()}`);
+  },
+  getIssuedCertificate: (id: number) => request(`/issued-certificates/${id}`),
+  issueCertificate: (data: any) => request('/issued-certificates/issue', { method: 'POST', body: JSON.stringify(data) }),
+  bulkIssueCertificates: (data: any) => request('/issued-certificates/bulk-issue', { method: 'POST', body: JSON.stringify(data) }),
+  revokeCertificate: (id: number, data: any) => request(`/issued-certificates/${id}/revoke`, { method: 'PATCH', body: JSON.stringify(data) }),
+  verifyCertificate: (certNumber: string) => request(`/issued-certificates/verify/${certNumber}`),
+  softDeleteIssuedCertificate: (id: number) => request(`/issued-certificates/${id}`, { method: 'DELETE' }),
+  restoreIssuedCertificate: (id: number) => request(`/issued-certificates/${id}/restore`, { method: 'PATCH' }),
+  deleteIssuedCertificate: (id: number) => request(`/issued-certificates/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Badges ──
+  listBadges: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== null && v !== '') q.set(k, String(v)); }
+    return request(`/badges?${q.toString()}`);
+  },
+  getBadge: (id: number) => request(`/badges/${id}`),
+  createBadge: (data: FormData) => request('/badges', { method: 'POST', body: data, isFormData: true }),
+  updateBadge: (id: number, data: FormData) => request(`/badges/${id}`, { method: 'PATCH', body: data, isFormData: true }),
+  softDeleteBadge: (id: number) => request(`/badges/${id}`, { method: 'DELETE' }),
+  restoreBadge: (id: number) => request(`/badges/${id}/restore`, { method: 'PATCH' }),
+  deleteBadge: (id: number) => request(`/badges/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── User Badges ──
+  listUserBadges: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== null && v !== '') q.set(k, String(v)); }
+    return request(`/user-badges?${q.toString()}`);
+  },
+  getUserBadge: (id: number) => request(`/user-badges/${id}`),
+  getUserBadgesByUser: (userId: number) => request(`/user-badges/user/${userId}`),
+  awardBadge: (data: any) => request('/user-badges/award', { method: 'POST', body: JSON.stringify(data) }),
+  bulkAwardBadge: (data: any) => request('/user-badges/bulk-award', { method: 'POST', body: JSON.stringify(data) }),
+  removeUserBadge: (id: number) => request(`/user-badges/${id}`, { method: 'DELETE' }),
+
+  // ── Reviews ──
+  listReviews: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== null && v !== '') q.set(k, String(v)); }
+    return request(`/reviews?${q.toString()}`);
+  },
+  getReview: (id: number) => request(`/reviews/${id}`),
+  createReview: (data: any) => request('/reviews', { method: 'POST', body: JSON.stringify(data) }),
+  updateReview: (id: number, data: any) => request(`/reviews/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  changeReviewStatus: (id: number, status: string) => request(`/reviews/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  softDeleteReview: (id: number) => request(`/reviews/${id}/soft-delete`, { method: 'PATCH' }),
+  restoreReview: (id: number) => request(`/reviews/${id}/restore`, { method: 'PATCH' }),
+  deleteReview: (id: number) => request(`/reviews/${id}`, { method: 'DELETE' }),
+  recalculateReviewRatings: (item_type: string, item_id: number) => request('/reviews/recalculate', { method: 'POST', body: JSON.stringify({ item_type, item_id }) }),
+  getReviewStats: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== null && v !== '') q.set(k, String(v)); }
+    return request(`/reviews/stats?${q.toString()}`);
+  },
+
+  // ── Review Helpfulness ──
+  listReviewHelpfulness: (params: Record<string, any> = {}) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== null && v !== '') q.set(k, String(v)); }
+    return request(`/review-helpfulness?${q.toString()}`);
+  },
+  voteReviewHelpfulness: (data: any) => request('/review-helpfulness', { method: 'POST', body: JSON.stringify(data) }),
+  deleteReviewHelpfulness: (id: number) => request(`/review-helpfulness/${id}`, { method: 'DELETE' }),
+
+  // ── Notifications ──
+  getNotifications: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/notifications?${q.toString()}`);
+  },
+  getNotification: (id: number) => request(`/notifications/${id}`),
+  createNotification: (data: any) => request('/notifications', { method: 'POST', body: JSON.stringify(data) }),
+  updateNotification: (id: number, data: any) => request(`/notifications/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteNotification: (id: number) => request(`/notifications/${id}`, { method: 'DELETE' }),
+  restoreNotification: (id: number) => request(`/notifications/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteNotification: (id: number) => request(`/notifications/${id}/permanent`, { method: 'DELETE' }),
+  markNotificationAsRead: (id: number) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllNotificationsAsRead: (userId: number) => request('/notifications/mark-all-read', { method: 'PATCH', body: JSON.stringify({ user_id: userId }) }),
+  getUnreadNotificationCount: (userId: number) => request(`/notifications/unread-count/${userId}`),
+
+  // ── Instructor Earnings ──
+  getInstructorEarnings: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/instructor-earnings?${q.toString()}`);
+  },
+  getInstructorEarning: (id: number) => request(`/instructor-earnings/${id}`),
+  createInstructorEarning: (data: any) => request('/instructor-earnings', { method: 'POST', body: JSON.stringify(data) }),
+  updateInstructorEarning: (id: number, data: any) => request(`/instructor-earnings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteInstructorEarning: (id: number) => request(`/instructor-earnings/${id}`, { method: 'DELETE' }),
+  restoreInstructorEarning: (id: number) => request(`/instructor-earnings/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteInstructorEarning: (id: number) => request(`/instructor-earnings/${id}/permanent`, { method: 'DELETE' }),
+  getInstructorEarningSummary: (instructorId: number) => request(`/instructor-earnings/summary/${instructorId}`),
+
+  // ── Payout Requests ──
+  getPayoutRequests: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/payout-requests?${q.toString()}`);
+  },
+  getPayoutRequest: (id: number) => request(`/payout-requests/${id}`),
+  createPayoutRequest: (data: any) => request('/payout-requests', { method: 'POST', body: JSON.stringify(data) }),
+  updatePayoutRequest: (id: number, data: any) => request(`/payout-requests/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  approvePayoutRequest: (id: number, data: any) => request(`/payout-requests/${id}/approve`, { method: 'PATCH', body: JSON.stringify(data) }),
+  rejectPayoutRequest: (id: number, data: any) => request(`/payout-requests/${id}/reject`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeletePayoutRequest: (id: number) => request(`/payout-requests/${id}`, { method: 'DELETE' }),
+  restorePayoutRequest: (id: number) => request(`/payout-requests/${id}/restore`, { method: 'PATCH' }),
+  permanentDeletePayoutRequest: (id: number) => request(`/payout-requests/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Payout Settlements ──
+  getPayoutSettlements: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/payout-settlements?${q.toString()}`);
+  },
+  getPayoutSettlement: (id: number) => request(`/payout-settlements/${id}`),
+  createPayoutSettlement: (data: any) => request('/payout-settlements', { method: 'POST', body: JSON.stringify(data) }),
+  updatePayoutSettlement: (id: number, data: any) => request(`/payout-settlements/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  completePayoutSettlement: (id: number, data: any) => request(`/payout-settlements/${id}/complete`, { method: 'PATCH', body: JSON.stringify(data) }),
+  failPayoutSettlement: (id: number, data: any) => request(`/payout-settlements/${id}/fail`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeletePayoutSettlement: (id: number) => request(`/payout-settlements/${id}`, { method: 'DELETE' }),
+  restorePayoutSettlement: (id: number) => request(`/payout-settlements/${id}/restore`, { method: 'PATCH' }),
+  permanentDeletePayoutSettlement: (id: number) => request(`/payout-settlements/${id}/permanent`, { method: 'DELETE' }),
+
+  // ── Discussion Threads ──
+  getDiscussionThreads: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/discussion-threads?${q.toString()}`);
+  },
+  getDiscussionThread: (id: number) => request(`/discussion-threads/${id}`),
+  createDiscussionThread: (data: any) => request('/discussion-threads', { method: 'POST', body: JSON.stringify(data) }),
+  updateDiscussionThread: (id: number, data: any) => request(`/discussion-threads/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteDiscussionThread: (id: number) => request(`/discussion-threads/${id}`, { method: 'DELETE' }),
+  restoreDiscussionThread: (id: number) => request(`/discussion-threads/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteDiscussionThread: (id: number) => request(`/discussion-threads/${id}/permanent`, { method: 'DELETE' }),
+  closeDiscussionThread: (id: number) => request(`/discussion-threads/${id}/close`, { method: 'PATCH' }),
+  resolveDiscussionThread: (id: number) => request(`/discussion-threads/${id}/resolve`, { method: 'PATCH' }),
+  pinDiscussionThread: (id: number) => request(`/discussion-threads/${id}/pin`, { method: 'PATCH' }),
+
+  // ── Discussion Replies ──
+  getDiscussionReplies: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/discussion-replies?${q.toString()}`);
+  },
+  getDiscussionReply: (id: number) => request(`/discussion-replies/${id}`),
+  createDiscussionReply: (data: any) => request('/discussion-replies', { method: 'POST', body: JSON.stringify(data) }),
+  updateDiscussionReply: (id: number, data: any) => request(`/discussion-replies/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteDiscussionReply: (id: number) => request(`/discussion-replies/${id}`, { method: 'DELETE' }),
+  restoreDiscussionReply: (id: number) => request(`/discussion-replies/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteDiscussionReply: (id: number) => request(`/discussion-replies/${id}/permanent`, { method: 'DELETE' }),
+  acceptDiscussionReply: (id: number) => request(`/discussion-replies/${id}/accept`, { method: 'PATCH' }),
+
+  // ── Live Sessions ──
+  getLiveSessions: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/live-sessions?${q.toString()}`);
+  },
+  getLiveSession: (id: number) => request(`/live-sessions/${id}`),
+  createLiveSession: (data: any) => request('/live-sessions', { method: 'POST', body: JSON.stringify(data) }),
+  updateLiveSession: (id: number, data: any) => request(`/live-sessions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteLiveSession: (id: number) => request(`/live-sessions/${id}`, { method: 'DELETE' }),
+  restoreLiveSession: (id: number) => request(`/live-sessions/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteLiveSession: (id: number) => request(`/live-sessions/${id}/permanent`, { method: 'DELETE' }),
+  startLiveSession: (id: number) => request(`/live-sessions/${id}/start`, { method: 'PATCH' }),
+  endLiveSession: (id: number) => request(`/live-sessions/${id}/end`, { method: 'PATCH' }),
+  cancelLiveSession: (id: number) => request(`/live-sessions/${id}/cancel`, { method: 'PATCH' }),
+  rescheduleLiveSession: (id: number, data: any) => request(`/live-sessions/${id}/reschedule`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // ── Session Attendance ──
+  getSessionAttendances: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/session-attendance?${q.toString()}`);
+  },
+  getSessionAttendance: (id: number) => request(`/session-attendance/${id}`),
+  createSessionAttendance: (data: any) => request('/session-attendance', { method: 'POST', body: JSON.stringify(data) }),
+  updateSessionAttendance: (id: number, data: any) => request(`/session-attendance/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteSessionAttendance: (id: number) => request(`/session-attendance/${id}`, { method: 'DELETE' }),
+  restoreSessionAttendance: (id: number) => request(`/session-attendance/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSessionAttendance: (id: number) => request(`/session-attendance/${id}/permanent`, { method: 'DELETE' }),
+  markSessionAttendance: (data: any) => request('/session-attendance/mark', { method: 'POST', body: JSON.stringify(data) }),
+
+  // ── Session Recordings ──
+  getSessionRecordings: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/session-recordings?${q.toString()}`);
+  },
+  getSessionRecording: (id: number) => request(`/session-recordings/${id}`),
+  createSessionRecording: (data: any) => request('/session-recordings', { method: 'POST', body: JSON.stringify(data) }),
+  updateSessionRecording: (id: number, data: any) => request(`/session-recordings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteSessionRecording: (id: number) => request(`/session-recordings/${id}`, { method: 'DELETE' }),
+  restoreSessionRecording: (id: number) => request(`/session-recordings/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSessionRecording: (id: number) => request(`/session-recordings/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // FAQ CATEGORIES
+  // ══════════════════════════════════════════════
+  getFaqCategories: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/faq-categories?${q.toString()}`);
+  },
+  getFaqCategory: (id: number) => request(`/faq-categories/${id}`),
+  createFaqCategory: (data: any) => request('/faq-categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateFaqCategory: (id: number, data: any) => request(`/faq-categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteFaqCategory: (id: number) => request(`/faq-categories/${id}`, { method: 'DELETE' }),
+  restoreFaqCategory: (id: number) => request(`/faq-categories/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteFaqCategory: (id: number) => request(`/faq-categories/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // FAQS
+  // ══════════════════════════════════════════════
+  getFaqs: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/faqs?${q.toString()}`);
+  },
+  getFaq: (id: number) => request(`/faqs/${id}`),
+  createFaq: (data: any) => request('/faqs', { method: 'POST', body: JSON.stringify(data) }),
+  updateFaq: (id: number, data: any) => request(`/faqs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteFaq: (id: number) => request(`/faqs/${id}`, { method: 'DELETE' }),
+  restoreFaq: (id: number) => request(`/faqs/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteFaq: (id: number) => request(`/faqs/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // FAQ CATEGORY TRANSLATIONS
+  // ══════════════════════════════════════════════
+  getFaqCategoryTranslations: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/faq-category-translations?${q.toString()}`);
+  },
+  getFaqCategoryTranslation: (id: number) => request(`/faq-category-translations/${id}`),
+  getFaqCategoryTranslationCoverage: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/faq-category-translations/coverage?${q.toString()}`);
+  },
+  createFaqCategoryTranslation: (data: any) => request('/faq-category-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updateFaqCategoryTranslation: (id: number, data: any) => request(`/faq-category-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteFaqCategoryTranslation: (id: number) => request(`/faq-category-translations/${id}`, { method: 'DELETE' }),
+  restoreFaqCategoryTranslation: (id: number) => request(`/faq-category-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteFaqCategoryTranslation: (id: number) => request(`/faq-category-translations/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // FAQ TRANSLATIONS
+  // ══════════════════════════════════════════════
+  getFaqTranslations: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/faq-translations?${q.toString()}`);
+  },
+  getFaqTranslation: (id: number) => request(`/faq-translations/${id}`),
+  getFaqTranslationCoverage: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/faq-translations/coverage?${q.toString()}`);
+  },
+  createFaqTranslation: (data: any) => request('/faq-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updateFaqTranslation: (id: number, data: any) => request(`/faq-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteFaqTranslation: (id: number) => request(`/faq-translations/${id}`, { method: 'DELETE' }),
+  restoreFaqTranslation: (id: number) => request(`/faq-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteFaqTranslation: (id: number) => request(`/faq-translations/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // BLOG CATEGORIES
+  // ══════════════════════════════════════════════
+  getBlogCategories: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/blog-categories?${q.toString()}`);
+  },
+  getBlogCategory: (id: number) => request(`/blog-categories/${id}`),
+  createBlogCategory: (data: any) => request('/blog-categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateBlogCategory: (id: number, data: any) => request(`/blog-categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteBlogCategory: (id: number) => request(`/blog-categories/${id}`, { method: 'DELETE' }),
+  restoreBlogCategory: (id: number) => request(`/blog-categories/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteBlogCategory: (id: number) => request(`/blog-categories/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // BLOG POSTS
+  // ══════════════════════════════════════════════
+  getBlogPosts: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/blog-posts?${q.toString()}`);
+  },
+  getBlogPost: (id: number) => request(`/blog-posts/${id}`),
+  createBlogPost: (data: FormData) => request('/blog-posts', { method: 'POST', body: data }),
+  updateBlogPost: (id: number, data: FormData) => request(`/blog-posts/${id}`, { method: 'PATCH', body: data }),
+  publishBlogPost: (id: number) => request(`/blog-posts/${id}/publish`, { method: 'PATCH' }),
+  archiveBlogPost: (id: number) => request(`/blog-posts/${id}/archive`, { method: 'PATCH' }),
+  softDeleteBlogPost: (id: number) => request(`/blog-posts/${id}`, { method: 'DELETE' }),
+  restoreBlogPost: (id: number) => request(`/blog-posts/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteBlogPost: (id: number) => request(`/blog-posts/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // BLOG REVIEWS
+  // ══════════════════════════════════════════════
+  getBlogReviews: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/blog-reviews?${q.toString()}`);
+  },
+  getBlogReview: (id: number) => request(`/blog-reviews/${id}`),
+  getBlogReviewStats: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/blog-reviews/stats?${q.toString()}`);
+  },
+  createBlogReview: (data: any) => request('/blog-reviews', { method: 'POST', body: JSON.stringify(data) }),
+  updateBlogReview: (id: number, data: any) => request(`/blog-reviews/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  changeBlogReviewStatus: (id: number, status: string) => request(`/blog-reviews/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  softDeleteBlogReview: (id: number) => request(`/blog-reviews/${id}/soft-delete`, { method: 'PATCH' }),
+  restoreBlogReview: (id: number) => request(`/blog-reviews/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteBlogReview: (id: number) => request(`/blog-reviews/${id}`, { method: 'DELETE' }),
+  recalculateBlogReviewRatings: (blogPostId: number) => request('/blog-reviews/recalculate', { method: 'POST', body: JSON.stringify({ blog_post_id: blogPostId }) }),
+
+  // ══════════════════════════════════════════════
+  // POLICY TYPES
+  // ══════════════════════════════════════════════
+  getPolicyTypes: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/policy-types?${q.toString()}`);
+  },
+  getPolicyType: (id: number) => request(`/policy-types/${id}`),
+  createPolicyType: (data: any) => request('/policy-types', { method: 'POST', body: JSON.stringify(data) }),
+  updatePolicyType: (id: number, data: any) => request(`/policy-types/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeletePolicyType: (id: number) => request(`/policy-types/${id}`, { method: 'DELETE' }),
+  restorePolicyType: (id: number) => request(`/policy-types/${id}/restore`, { method: 'PATCH' }),
+  permanentDeletePolicyType: (id: number) => request(`/policy-types/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // POLICY TYPE TRANSLATIONS
+  // ══════════════════════════════════════════════
+  getPolicyTypeTranslations: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/policy-type-translations?${q.toString()}`);
+  },
+  getPolicyTypeTranslation: (id: number) => request(`/policy-type-translations/${id}`),
+  getPolicyTypeTranslationCoverage: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/policy-type-translations/coverage?${q.toString()}`);
+  },
+  createPolicyTypeTranslation: (data: any) => request('/policy-type-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updatePolicyTypeTranslation: (id: number, data: any) => request(`/policy-type-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeletePolicyTypeTranslation: (id: number) => request(`/policy-type-translations/${id}`, { method: 'DELETE' }),
+  restorePolicyTypeTranslation: (id: number) => request(`/policy-type-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeletePolicyTypeTranslation: (id: number) => request(`/policy-type-translations/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // POLICIES
+  // ══════════════════════════════════════════════
+  getPolicies: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/policies?${q.toString()}`);
+  },
+  getPolicy: (id: number) => request(`/policies/${id}`),
+  createPolicy: (data: any) => request('/policies', { method: 'POST', body: JSON.stringify(data) }),
+  updatePolicy: (id: number, data: any) => request(`/policies/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  publishPolicy: (id: number) => request(`/policies/${id}/publish`, { method: 'PATCH' }),
+  archivePolicy: (id: number) => request(`/policies/${id}/archive`, { method: 'PATCH' }),
+  softDeletePolicy: (id: number) => request(`/policies/${id}`, { method: 'DELETE' }),
+  restorePolicy: (id: number) => request(`/policies/${id}/restore`, { method: 'PATCH' }),
+  permanentDeletePolicy: (id: number) => request(`/policies/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // POLICY TRANSLATIONS
+  // ══════════════════════════════════════════════
+  getPolicyTranslations: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/policy-translations?${q.toString()}`);
+  },
+  getPolicyTranslation: (id: number) => request(`/policy-translations/${id}`),
+  getPolicyTranslationCoverage: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/policy-translations/coverage?${q.toString()}`);
+  },
+  createPolicyTranslation: (data: any) => request('/policy-translations', { method: 'POST', body: JSON.stringify(data) }),
+  updatePolicyTranslation: (id: number, data: any) => request(`/policy-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeletePolicyTranslation: (id: number) => request(`/policy-translations/${id}`, { method: 'DELETE' }),
+  restorePolicyTranslation: (id: number) => request(`/policy-translations/${id}/restore`, { method: 'PATCH' }),
+  permanentDeletePolicyTranslation: (id: number) => request(`/policy-translations/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // TICKET CATEGORIES
+  // ══════════════════════════════════════════════
+  getTicketCategories: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/ticket-categories?${q.toString()}`);
+  },
+  getTicketCategory: (id: number) => request(`/ticket-categories/${id}`),
+  createTicketCategory: (data: any) => request('/ticket-categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateTicketCategory: (id: number, data: any) => request(`/ticket-categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteTicketCategory: (id: number) => request(`/ticket-categories/${id}`, { method: 'DELETE' }),
+  restoreTicketCategory: (id: number) => request(`/ticket-categories/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteTicketCategory: (id: number) => request(`/ticket-categories/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // TICKET PRIORITIES
+  // ══════════════════════════════════════════════
+  getTicketPriorities: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/ticket-priorities?${q.toString()}`);
+  },
+  getTicketPriority: (id: number) => request(`/ticket-priorities/${id}`),
+  createTicketPriority: (data: any) => request('/ticket-priorities', { method: 'POST', body: JSON.stringify(data) }),
+  updateTicketPriority: (id: number, data: any) => request(`/ticket-priorities/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteTicketPriority: (id: number) => request(`/ticket-priorities/${id}`, { method: 'DELETE' }),
+  restoreTicketPriority: (id: number) => request(`/ticket-priorities/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteTicketPriority: (id: number) => request(`/ticket-priorities/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // SUPPORT TICKETS
+  // ══════════════════════════════════════════════
+  getSupportTickets: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/support-tickets?${q.toString()}`);
+  },
+  getSupportTicket: (id: number) => request(`/support-tickets/${id}`),
+  getSupportTicketStats: () => request('/support-tickets/stats'),
+  createSupportTicket: (data: any) => request('/support-tickets', { method: 'POST', body: JSON.stringify(data) }),
+  updateSupportTicket: (id: number, data: any) => request(`/support-tickets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  changeSupportTicketStatus: (id: number, status: string, notes?: string) => request(`/support-tickets/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, notes }) }),
+  assignSupportTicket: (id: number, assigned_to: number | null) => request(`/support-tickets/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ assigned_to }) }),
+  softDeleteSupportTicket: (id: number) => request(`/support-tickets/${id}`, { method: 'DELETE' }),
+  restoreSupportTicket: (id: number) => request(`/support-tickets/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSupportTicket: (id: number) => request(`/support-tickets/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // USER TICKETS (user-facing, no RBAC)
+  // ══════════════════════════════════════════════
+  getUserTicketCategories: () => request('/user-tickets/categories'),
+  getMyTickets: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/user-tickets?${q.toString()}`);
+  },
+  getMyTicket: (id: number) => request(`/user-tickets/${id}`),
+  submitUserTicket: (data: any) => request('/user-tickets', { method: 'POST', body: JSON.stringify(data) }),
+  replyToUserTicket: (id: number, message: string) => request(`/user-tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ message }) }),
+  closeUserTicket: (id: number) => request(`/user-tickets/${id}/close`, { method: 'PATCH' }),
+
+  // ══════════════════════════════════════════════
+  // TICKET MESSAGES
+  // ══════════════════════════════════════════════
+  getTicketMessages: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/ticket-messages?${q.toString()}`);
+  },
+  getTicketMessage: (id: number) => request(`/ticket-messages/${id}`),
+  createTicketMessage: (data: any) => request('/ticket-messages', { method: 'POST', body: JSON.stringify(data) }),
+  updateTicketMessage: (id: number, data: any) => request(`/ticket-messages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteTicketMessage: (id: number) => request(`/ticket-messages/${id}`, { method: 'DELETE' }),
+  restoreTicketMessage: (id: number) => request(`/ticket-messages/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteTicketMessage: (id: number) => request(`/ticket-messages/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // TICKET ATTACHMENTS
+  // ══════════════════════════════════════════════
+  getTicketAttachments: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/ticket-attachments?${q.toString()}`);
+  },
+  getTicketAttachment: (id: number) => request(`/ticket-attachments/${id}`),
+  createTicketAttachment: (data: any) => request('/ticket-attachments', { method: 'POST', body: JSON.stringify(data) }),
+  deleteTicketAttachment: (id: number) => request(`/ticket-attachments/${id}`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // STICKER CATEGORIES
+  // ══════════════════════════════════════════════
+  getStickerCategories: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/sticker-categories?${q.toString()}`);
+  },
+  getStickerCategory: (id: number) => request(`/sticker-categories/${id}`),
+  createStickerCategory: (data: any) => request('/sticker-categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateStickerCategory: (id: number, data: any) => request(`/sticker-categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteStickerCategory: (id: number) => request(`/sticker-categories/${id}`, { method: 'DELETE' }),
+  restoreStickerCategory: (id: number) => request(`/sticker-categories/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteStickerCategory: (id: number) => request(`/sticker-categories/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // STICKERS
+  // ══════════════════════════════════════════════
+  getStickers: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/stickers?${q.toString()}`);
+  },
+  getSticker: (id: number) => request(`/stickers/${id}`),
+  createSticker: (data: any, isFormData = false) => request('/stickers', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateSticker: (id: number, data: any, isFormData = false) => request(`/stickers/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  softDeleteSticker: (id: number) => request(`/stickers/${id}`, { method: 'DELETE' }),
+  restoreSticker: (id: number) => request(`/stickers/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteSticker: (id: number) => request(`/stickers/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // EMOJI CATEGORIES
+  // ══════════════════════════════════════════════
+  getEmojiCategories: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/emoji-categories?${q.toString()}`);
+  },
+  getEmojiCategory: (id: number) => request(`/emoji-categories/${id}`),
+  createEmojiCategory: (data: any) => request('/emoji-categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateEmojiCategory: (id: number, data: any) => request(`/emoji-categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteEmojiCategory: (id: number) => request(`/emoji-categories/${id}`, { method: 'DELETE' }),
+  restoreEmojiCategory: (id: number) => request(`/emoji-categories/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteEmojiCategory: (id: number) => request(`/emoji-categories/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // CUSTOM EMOJIS
+  // ══════════════════════════════════════════════
+  getCustomEmojis: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/custom-emojis?${q.toString()}`);
+  },
+  getCustomEmoji: (id: number) => request(`/custom-emojis/${id}`),
+  createCustomEmoji: (data: any, isFormData = false) => request('/custom-emojis', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateCustomEmoji: (id: number, data: any, isFormData = false) => request(`/custom-emojis/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  softDeleteCustomEmoji: (id: number) => request(`/custom-emojis/${id}`, { method: 'DELETE' }),
+  restoreCustomEmoji: (id: number) => request(`/custom-emojis/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteCustomEmoji: (id: number) => request(`/custom-emojis/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // QUICK REPLIES
+  // ══════════════════════════════════════════════
+  getQuickReplies: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/quick-replies?${q.toString()}`);
+  },
+  getQuickReply: (id: number) => request(`/quick-replies/${id}`),
+  createQuickReply: (data: any) => request('/quick-replies', { method: 'POST', body: JSON.stringify(data) }),
+  updateQuickReply: (id: number, data: any) => request(`/quick-replies/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteQuickReply: (id: number) => request(`/quick-replies/${id}`, { method: 'DELETE' }),
+  restoreQuickReply: (id: number) => request(`/quick-replies/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteQuickReply: (id: number) => request(`/quick-replies/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // CHAT ROOMS
+  // ══════════════════════════════════════════════
+  getChatRooms: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/chat-rooms?${q.toString()}`);
+  },
+  getChatRoom: (id: number) => request(`/chat-rooms/${id}`),
+  createChatRoom: (data: any) => request('/chat-rooms', { method: 'POST', body: JSON.stringify(data) }),
+  updateChatRoom: (id: number, data: any) => request(`/chat-rooms/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteChatRoom: (id: number) => request(`/chat-rooms/${id}`, { method: 'DELETE' }),
+  restoreChatRoom: (id: number) => request(`/chat-rooms/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteChatRoom: (id: number) => request(`/chat-rooms/${id}/permanent`, { method: 'DELETE' }),
+  createBatchRoom: (data: any) => request('/chat-rooms/batch-room', { method: 'POST', body: JSON.stringify(data) }),
+  syncBatchMembers: (roomId: number) => request(`/chat-rooms/${roomId}/sync-batch`, { method: 'POST' }),
+
+  // ══════════════════════════════════════════════
+  // CHAT MEMBERS
+  // ══════════════════════════════════════════════
+  getChatMembers: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/chat-members?${q.toString()}`);
+  },
+  getChatMember: (id: number) => request(`/chat-members/${id}`),
+  addChatMember: (data: any) => request('/chat-members', { method: 'POST', body: JSON.stringify(data) }),
+  updateChatMember: (id: number, data: any) => request(`/chat-members/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  removeChatMember: (id: number) => request(`/chat-members/${id}`, { method: 'DELETE' }),
+  bulkAddChatMembers: (data: any) => request('/chat-members/bulk', { method: 'POST', body: JSON.stringify(data) }),
+
+  // ══════════════════════════════════════════════
+  // CHAT MESSAGES
+  // ══════════════════════════════════════════════
+  getChatMessages: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/chat-messages?${q.toString()}`);
+  },
+  getChatMessage: (id: number) => request(`/chat-messages/${id}`),
+  getChatMessagesByRoom: (roomId: number, params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/chat-messages/room/${roomId}?${q.toString()}`);
+  },
+  getPinnedMessages: (roomId: number) => request(`/chat-messages/room/${roomId}/pinned`),
+  getMessageThread: (messageId: number) => request(`/chat-messages/${messageId}/thread`),
+  sendChatMessage: (data: any, isFormData = false) => request('/chat-messages', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateChatMessage: (id: number, data: any) => request(`/chat-messages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  togglePinMessage: (id: number) => request(`/chat-messages/${id}/pin`, { method: 'PATCH' }),
+  softDeleteChatMessage: (id: number) => request(`/chat-messages/${id}`, { method: 'DELETE' }),
+  permanentDeleteChatMessage: (id: number) => request(`/chat-messages/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // CHAT REACTIONS
+  // ══════════════════════════════════════════════
+  getMessageReactions: (messageId: number) => request(`/chat-reactions/message/${messageId}`),
+  toggleReaction: (data: any) => request('/chat-reactions', { method: 'POST', body: JSON.stringify(data) }),
+  removeReaction: (id: number) => request(`/chat-reactions/${id}`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
+  // CHAT READ RECEIPTS
+  // ══════════════════════════════════════════════
+  getRoomReadReceipts: (roomId: number) => request(`/chat-read-receipts/room/${roomId}`),
+  markMessagesRead: (data: any) => request('/chat-read-receipts', { method: 'POST', body: JSON.stringify(data) }),
+  getUnreadCounts: () => request('/chat-read-receipts/unread-count'),
+
+  // ══════════════════════════════════════════════
+  // CHAT INVITES
+  // ══════════════════════════════════════════════
+  getChatInvites: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/chat-invites?${q.toString()}`);
+  },
+  getChatInvite: (id: number) => request(`/chat-invites/${id}`),
+  createChatInvite: (data: any) => request('/chat-invites', { method: 'POST', body: JSON.stringify(data) }),
+  revokeChatInvite: (id: number) => request(`/chat-invites/${id}/revoke`, { method: 'PATCH' }),
+  deleteChatInvite: (id: number) => request(`/chat-invites/${id}`, { method: 'DELETE' }),
+  previewInvite: (token: string) => request(`/chat-invites/preview/${token}`),
+  acceptInvite: (token: string) => request(`/chat-invites/accept/${token}`, { method: 'POST' }),
+  joinRoomByCode: (inviteCode: string) => request('/chat-invites/join-by-code', { method: 'POST', body: JSON.stringify({ invite_code: inviteCode }) }),
+
+  // ══════════════════════════════════════════════
+  // ANNOUNCEMENTS
+  // ══════════════════════════════════════════════
+  getAnnouncements: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/announcements?${q.toString()}`);
+  },
+  getAnnouncement: (id: number) => request(`/announcements/${id}`),
+  createAnnouncement: (data: any) => request('/announcements', { method: 'POST', body: JSON.stringify(data) }),
+  updateAnnouncement: (id: number, data: any) => request(`/announcements/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteAnnouncement: (id: number) => request(`/announcements/${id}`, { method: 'DELETE' }),
+  restoreAnnouncement: (id: number) => request(`/announcements/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteAnnouncement: (id: number) => request(`/announcements/${id}/permanent`, { method: 'DELETE' }),
+  publishAnnouncement: (id: number) => request(`/announcements/${id}/publish`, { method: 'POST' }),
+  archiveAnnouncement: (id: number) => request(`/announcements/${id}/archive`, { method: 'POST' }),
+  getAnnouncementStats: (id: number) => request(`/announcements/${id}/stats`),
+  getAnnouncementReads: (id: number, params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/announcements/${id}/reads?${q.toString()}`);
+  },
+
+  // ══════════════════════════════════════════════
+  // WALLETS
+  // ══════════════════════════════════════════════
+  getWallets: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/wallets?${q.toString()}`);
+  },
+  getWallet: (id: number) => request(`/wallets/${id}`),
+  getWalletByUserId: (userId: number) => request(`/wallets/user/${userId}`),
+  createWallet: (data: any) => request('/wallets', { method: 'POST', body: JSON.stringify(data) }),
+  updateWallet: (id: number, data: any) => request(`/wallets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteWallet: (id: number) => request(`/wallets/${id}`, { method: 'DELETE' }),
+  restoreWallet: (id: number) => request(`/wallets/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteWallet: (id: number) => request(`/wallets/${id}/permanent`, { method: 'DELETE' }),
+  toggleFreezeWallet: (id: number) => request(`/wallets/${id}/freeze`, { method: 'POST' }),
+  walletManualCredit: (id: number, data: any) => request(`/wallets/${id}/credit`, { method: 'POST', body: JSON.stringify(data) }),
+  walletManualDebit: (id: number, data: any) => request(`/wallets/${id}/debit`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // ══════════════════════════════════════════════
+  // WALLET TRANSACTIONS
+  // ══════════════════════════════════════════════
+  getWalletTransactions: (params?: Record<string, any>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return request(`/wallet-transactions?${q.toString()}`);
+  },
+  getWalletTransaction: (id: number) => request(`/wallet-transactions/${id}`),
+  reverseWalletTransaction: (id: number) => request(`/wallet-transactions/${id}/reverse`, { method: 'POST' }),
+  softDeleteWalletTransaction: (id: number) => request(`/wallet-transactions/${id}`, { method: 'DELETE' }),
+  restoreWalletTransaction: (id: number) => request(`/wallet-transactions/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteWalletTransaction: (id: number) => request(`/wallet-transactions/${id}/permanent`, { method: 'DELETE' }),
+
 };

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle, Settings, Database, Landmark, BookText, ClipboardList, PanelLeftClose, PanelLeftOpen, ClipboardCheck, Code2, Briefcase, Rocket, Calendar, Gift, Ticket, Percent } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle, Settings, Database, Landmark, BookText, ClipboardList, PanelLeftClose, PanelLeftOpen, ClipboardCheck, Code2, Briefcase, Rocket, Calendar, Gift, Ticket, Percent, ShoppingCart, CreditCard, Receipt, TrendingUp, BarChart3, Trophy, Medal, Star, Bell, Wallet, Banknote, MessageSquare, Radio, ScrollText, Headphones, Megaphone } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -338,6 +338,52 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    key: 'discussion-qa',
+    title: 'Discussion & Q&A',
+    icon: MessageSquare,
+    iconColor: 'text-teal-500',
+    items: [
+      { href: '/discussions', label: 'Discussion Forums', icon: MessageSquare, iconColor: 'text-teal-500' },
+    ],
+  },
+  {
+    key: 'live-classes',
+    title: 'Live Classes',
+    icon: Radio,
+    iconColor: 'text-rose-500',
+    items: [
+      { href: '/live-classes', label: 'Live Sessions', icon: Radio, iconColor: 'text-rose-500' },
+    ],
+  },
+  {
+    key: 'faqs-blog',
+    title: 'FAQs & Blog',
+    icon: HelpCircle,
+    iconColor: 'text-cyan-500',
+    items: [
+      { href: '/faqs', label: 'FAQ Management', icon: HelpCircle, iconColor: 'text-cyan-500' },
+      { href: '/blog', label: 'Blog Management', icon: FileEdit, iconColor: 'text-violet-500' },
+    ],
+  },
+  {
+    key: 'policies',
+    title: 'Policy Management',
+    icon: ScrollText,
+    iconColor: 'text-teal-500',
+    items: [
+      { href: '/policies', label: 'Policies', icon: ScrollText, iconColor: 'text-teal-500' },
+    ],
+  },
+  {
+    key: 'support-tickets',
+    title: 'Support Tickets',
+    icon: Headphones,
+    iconColor: 'text-pink-500',
+    items: [
+      { href: '/support-tickets', label: 'Support Tickets', icon: Headphones, iconColor: 'text-pink-500' },
+    ],
+  },
+  {
     key: 'referral-coupons',
     title: 'Referral & Coupons',
     icon: Gift,
@@ -354,6 +400,87 @@ const navGroups: NavGroup[] = [
     iconColor: 'text-emerald-500',
     items: [
       { href: '/instructor-promotions', label: 'Instructor Promotions', icon: Percent, iconColor: 'text-emerald-500' },
+    ],
+  },
+  {
+    key: 'enrollment-orders',
+    title: 'Enrollment & Orders',
+    icon: ShoppingCart,
+    iconColor: 'text-indigo-500',
+    items: [
+      { href: '/orders', label: 'Orders', icon: ShoppingCart, iconColor: 'text-indigo-500' },
+      { href: '/payment-management', label: 'Payments & Transactions', icon: CreditCard, iconColor: 'text-emerald-500' },
+      { href: '/enrollments', label: 'Enrollments', icon: GraduationCap, iconColor: 'text-blue-500' },
+      { href: '/invoice-management', label: 'Invoices & Refunds', icon: Receipt, iconColor: 'text-amber-500' },
+      { href: '/revenue-dashboard', label: 'Revenue Dashboard', icon: TrendingUp, iconColor: 'text-rose-500' },
+      { href: '/student-progress', label: 'Student Progress', icon: BarChart3, iconColor: 'text-violet-500' },
+    ],
+  },
+  {
+    key: 'notifications',
+    title: 'Notifications',
+    icon: Bell,
+    iconColor: 'text-cyan-500',
+    items: [
+      { href: '/notifications', label: 'Notifications', icon: Bell, iconColor: 'text-cyan-500' },
+    ],
+  },
+  {
+    key: 'instructor-payouts',
+    title: 'Instructor Payouts',
+    icon: Banknote,
+    iconColor: 'text-emerald-500',
+    items: [
+      { href: '/instructor-earnings', label: 'Instructor Earnings', icon: Wallet, iconColor: 'text-amber-500' },
+      { href: '/instructor-payouts', label: 'Payout Management', icon: Banknote, iconColor: 'text-emerald-500' },
+    ],
+  },
+  {
+    key: 'certificates-badges',
+    title: 'Certificates & Badges',
+    icon: Award,
+    iconColor: 'text-amber-500',
+    items: [
+      { href: '/certificate-templates', label: 'Certificate Templates', icon: GraduationCap, iconColor: 'text-emerald-500' },
+      { href: '/issued-certificates', label: 'Issued Certificates', icon: Award, iconColor: 'text-amber-500' },
+      { href: '/badges', label: 'Badges', icon: Trophy, iconColor: 'text-yellow-500' },
+      { href: '/user-badges', label: 'User Badges', icon: Medal, iconColor: 'text-purple-500' },
+    ],
+  },
+  {
+    key: 'reviews-ratings',
+    title: 'Reviews & Ratings',
+    icon: Star,
+    iconColor: 'text-yellow-500',
+    items: [
+      { href: '/reviews', label: 'Reviews', icon: Star, iconColor: 'text-yellow-500' },
+    ],
+  },
+  {
+    key: 'chat-system',
+    title: 'Chat System',
+    icon: MessageSquare,
+    iconColor: 'text-cyan-500',
+    items: [
+      { href: '/chat-management', label: 'Chat Management', icon: MessageSquare, iconColor: 'text-cyan-500' },
+    ],
+  },
+  {
+    key: 'announcements',
+    title: 'Announcements',
+    icon: Megaphone,
+    iconColor: 'text-orange-500',
+    items: [
+      { href: '/announcements', label: 'Announcements', icon: Megaphone, iconColor: 'text-orange-500' },
+    ],
+  },
+  {
+    key: 'wallet-management',
+    title: 'Wallet Management',
+    icon: Wallet,
+    iconColor: 'text-indigo-500',
+    items: [
+      { href: '/wallet-management', label: 'Wallet Management', icon: Wallet, iconColor: 'text-indigo-500' },
     ],
   },
 ];
