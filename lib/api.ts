@@ -2280,4 +2280,11 @@ export const api = {
   restoreWalletTransaction: (id: number) => request(`/wallet-transactions/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteWalletTransaction: (id: number) => request(`/wallet-transactions/${id}/permanent`, { method: 'DELETE' }),
 
+  // ══════════════════════════════════════════════
+  // CRON / SCHEDULED JOBS
+  // ══════════════════════════════════════════════
+  getCronStatus: () => request('/cron/status'),
+  getCronJobs: () => request('/cron/jobs'),
+  triggerCronJob: (name: string) => request(`/cron/${name}/trigger`, { method: 'POST' }),
+
 };
