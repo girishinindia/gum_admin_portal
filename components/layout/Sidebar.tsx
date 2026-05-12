@@ -45,6 +45,9 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/my-permissions',  label: 'My Access',     icon: ShieldCheck, iconColor: 'text-emerald-500' },
       { href: '/users',           label: 'Users',         icon: Users,      iconColor: 'text-blue-500' },
+      { href: '/employee-profiles', label: 'Employee Profiles', icon: Briefcase,  iconColor: 'text-cyan-500' },
+      { href: '/instructor-profiles', label: 'Instructor Profiles', icon: GraduationCap, iconColor: 'text-orange-500' },
+      { href: '/student-profiles', label: 'Student Profiles', icon: BookOpen,  iconColor: 'text-indigo-500' },
       { href: '/roles',           label: 'Roles',         icon: Shield,     iconColor: 'text-amber-500', superAdminOnly: true },
       { href: '/permissions',     label: 'Permissions',   icon: KeyRound,   iconColor: 'text-rose-500',  superAdminOnly: true },
       { href: '/activity-logs',   label: 'Activity Logs', icon: FileText,   iconColor: 'text-violet-500' },
