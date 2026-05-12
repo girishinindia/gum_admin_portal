@@ -1388,4 +1388,24 @@ export const api = {
   restoreCouponWebinar: (id: number) => request(`/coupon-webinars/${id}/restore`, { method: 'PATCH' }),
   deleteCouponWebinar: (id: number) => request(`/coupon-webinars/${id}/permanent`, { method: 'DELETE' }),
 
+  // ── Instructor Promotions ──
+  listInstructorPromotions: (qs = '') => request(`/instructor-promotions${qs}`, { auth: false }),
+  getInstructorPromotion: (id: number) => request(`/instructor-promotions/${id}`, { auth: false }),
+  createInstructorPromotion: (data: any) => request('/instructor-promotions', { method: 'POST', body: JSON.stringify(data) }),
+  updateInstructorPromotion: (id: number, data: any) => request(`/instructor-promotions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteInstructorPromotion: (id: number) => request(`/instructor-promotions/${id}`, { method: 'DELETE' }),
+  restoreInstructorPromotion: (id: number) => request(`/instructor-promotions/${id}/restore`, { method: 'PATCH' }),
+  deleteInstructorPromotion: (id: number) => request(`/instructor-promotions/${id}/permanent`, { method: 'DELETE' }),
+  approveInstructorPromotion: (id: number) => request(`/instructor-promotions/${id}/approve`, { method: 'PATCH' }),
+  rejectInstructorPromotion: (id: number, data: any) => request(`/instructor-promotions/${id}/reject`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // ── Instructor Promotion Courses ──
+  listInstructorPromotionCourses: (qs = '') => request(`/instructor-promotion-courses${qs}`, { auth: false }),
+  getInstructorPromotionCourse: (id: number) => request(`/instructor-promotion-courses/${id}`, { auth: false }),
+  createInstructorPromotionCourse: (data: any) => request('/instructor-promotion-courses', { method: 'POST', body: JSON.stringify(data) }),
+  updateInstructorPromotionCourse: (id: number, data: any) => request(`/instructor-promotion-courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  softDeleteInstructorPromotionCourse: (id: number) => request(`/instructor-promotion-courses/${id}`, { method: 'DELETE' }),
+  restoreInstructorPromotionCourse: (id: number) => request(`/instructor-promotion-courses/${id}/restore`, { method: 'PATCH' }),
+  deleteInstructorPromotionCourse: (id: number) => request(`/instructor-promotion-courses/${id}/permanent`, { method: 'DELETE' }),
+
 };
