@@ -156,6 +156,11 @@ export default function CourseTranslationsPage() {
   const [appBannerPreview, setAppBannerPreview] = useState<string | null>(null);
   const [videoThumbnailFile, setVideoThumbnailFile] = useState<File | null>(null);
   const [videoThumbnailPreview, setVideoThumbnailPreview] = useState<string | null>(null);
+  // Phase 15.2 — OG + Twitter image uploads
+  const [ogImageFile, setOgImageFile] = useState<File | null>(null);
+  const [ogImagePreview, setOgImagePreview] = useState<string | null>(null);
+  const [twitterImageFile, setTwitterImageFile] = useState<File | null>(null);
+  const [twitterImagePreview, setTwitterImagePreview] = useState<string | null>(null);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -280,6 +285,8 @@ export default function CourseTranslationsPage() {
     setAppThumbnailFile(null); setAppThumbnailPreview(null);
     setAppBannerFile(null); setAppBannerPreview(null);
     setVideoThumbnailFile(null); setVideoThumbnailPreview(null);
+    setOgImageFile(null); setOgImagePreview(null);
+    setTwitterImageFile(null); setTwitterImagePreview(null);
   }
 
   const defaultFormValues = {
@@ -440,6 +447,9 @@ export default function CourseTranslationsPage() {
     if (appThumbnailFile) fd.append('app_thumbnail_file', appThumbnailFile, appThumbnailFile.name);
     if (appBannerFile) fd.append('app_banner_file', appBannerFile, appBannerFile.name);
     if (videoThumbnailFile) fd.append('video_thumbnail_file', videoThumbnailFile, videoThumbnailFile.name);
+    // Phase 15.2 — OG + Twitter image uploads
+    if (ogImageFile)      fd.append('og_image_file',      ogImageFile,      ogImageFile.name);
+    if (twitterImageFile) fd.append('twitter_image_file', twitterImageFile, twitterImageFile.name);
 
     const res = editing
       ? await api.updateCourseTranslation(editing.id, fd, true)
@@ -1115,7 +1125,9 @@ export default function CourseTranslationsPage() {
                 <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="Open Graph description..." {...register('og_description')} />
               </div>
               <Input label="OG Type" placeholder="website" {...register('og_type')} />
-              <Input label="OG Image URL" placeholder="https://..." {...register('og_image')} />
+              <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200×630px"
+                value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }} />
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
             </div>
           )}
@@ -1129,7 +1141,9 @@ export default function CourseTranslationsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Twitter Description</label>
                 <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="Twitter card description..." {...register('twitter_description')} />
               </div>
-              <Input label="Twitter Image URL" placeholder="https://..." {...register('twitter_image')} />
+              <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200×628px"
+                value={editing?.twitter_image} aspectRatio={1200 / 628} maxWidth={1200} maxHeight={628} shape="rounded"
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />
               <Input label="Twitter Card" placeholder="summary_large_image" {...register('twitter_card')} />
             </div>
           )}

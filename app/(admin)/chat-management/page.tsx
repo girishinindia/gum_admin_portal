@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
@@ -213,12 +214,24 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
   entityLabel: string;
   apiList: (params: any) => Promise<any>;
   apiGet: (id: number) => Promise<any>;
-  apiCreate: (data: any) => Promise<any>;
-  apiUpdate: (id: number, data: any) => Promise<any>;
+  // Phase 15.3 — accept an optional isFormData flag for multipart uploads.
+  apiCreate: (data: any, isFormData?: boolean) => Promise<any>;
+  apiUpdate: (id: number, data: any, isFormData?: boolean) => Promise<any>;
   apiSoftDelete: (id: number) => Promise<any>;
   apiRestore: (id: number) => Promise<any>;
   apiDelete: (id: number) => Promise<any>;
-  fields: { key: string; label: string; type?: 'text' | 'number' | 'checkbox'; required?: boolean }[];
+  fields: {
+    key: string;
+    label: string;
+    type?: 'text' | 'number' | 'checkbox' | 'image';
+    required?: boolean;
+    /** When type='image', this is the multer field name expected by the backend (e.g. 'image', 'thumbnail'). */
+    uploadFieldName?: string;
+    /** Preferred image dimensions for the editor; cosmetic only. */
+    imageAspectRatio?: number;
+    imageMaxWidth?: number;
+    imageMaxHeight?: number;
+  }[];
   filterFields?: { key: string; label: string; options: { value: string; label: string }[] }[];
 }) {
   const [items, setItems] = useState<any[]>([]);
@@ -235,6 +248,8 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
   const [searchDebounce, setSearchDebounce] = useState('');
   const [showTrash, setShowTrash] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  // Phase 15.3 — track an upload File per image-typed field by its uploadFieldName.
+  const [imageFiles, setImageFiles] = useState<Record<string, File | null>>({});
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset } = useForm();
 
@@ -252,12 +267,34 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
     setLoading(false);
   }
 
-  function openCreate() { setEditing(null); const defaults: any = {}; fields.forEach(f => defaults[f.key] = f.type === 'checkbox' ? false : f.type === 'number' ? '' : ''); reset(defaults); setDialogKey(k => k + 1); setDialogOpen(true); }
-  function openEdit(item: any) { setEditing(item); const vals: any = {}; fields.forEach(f => vals[f.key] = item[f.key] ?? ''); reset(vals); setDialogKey(k => k + 1); setDialogOpen(true); }
+  function openCreate() { setEditing(null); const defaults: any = {}; fields.forEach(f => defaults[f.key] = f.type === 'checkbox' ? false : f.type === 'number' ? '' : ''); reset(defaults); setImageFiles({}); setDialogKey(k => k + 1); setDialogOpen(true); }
+  function openEdit(item: any) { setEditing(item); const vals: any = {}; fields.forEach(f => vals[f.key] = item[f.key] ?? ''); reset(vals); setImageFiles({}); setDialogKey(k => k + 1); setDialogOpen(true); }
 
   async function onSubmit(data: any) {
+    // Phase 15.3 — if any image field has a File, submit as FormData; otherwise JSON.
+    const hasFiles = Object.values(imageFiles).some((f) => f instanceof File);
+
+    if (hasFiles) {
+      const fd = new FormData();
+      fields.forEach((f) => {
+        const v = data[f.key];
+        if (f.type === 'checkbox')      fd.append(f.key, String(!!v));
+        else if (f.type === 'image')    { /* file is appended below */ }
+        else if (v !== '' && v !== undefined && v !== null) fd.append(f.key, f.type === 'number' ? String(parseInt(v)) : v);
+      });
+      for (const [fieldName, file] of Object.entries(imageFiles)) {
+        if (file) fd.append(fieldName, file, file.name);
+      }
+      const res = editing ? await apiUpdate(editing.id, fd, true) : await apiCreate(fd, true);
+      if (res.success) { toast.success(editing ? `${entityLabel} updated` : `${entityLabel} created`); setDialogOpen(false); load(); } else toast.error(res.error);
+      return;
+    }
+
     const payload: any = {};
-    fields.forEach(f => { if (data[f.key] !== '' && data[f.key] !== undefined) payload[f.key] = f.type === 'number' ? parseInt(data[f.key]) : data[f.key]; });
+    fields.forEach((f) => {
+      if (f.type === 'image') return;   // skip — only sent via FormData
+      if (data[f.key] !== '' && data[f.key] !== undefined) payload[f.key] = f.type === 'number' ? parseInt(data[f.key]) : data[f.key];
+    });
     const res = editing ? await apiUpdate(editing.id, payload) : await apiCreate(payload);
     if (res.success) { toast.success(editing ? `${entityLabel} updated` : `${entityLabel} created`); setDialogOpen(false); load(); } else toast.error(res.error);
   }
@@ -330,9 +367,23 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
         <form key={dialogKey} onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {fields.map(f => (
             <div key={f.key}>
-              <label className="text-sm font-medium text-slate-700">{f.label}{f.required ? ' *' : ''}</label>
+              {f.type !== 'image' && (
+                <label className="text-sm font-medium text-slate-700">{f.label}{f.required ? ' *' : ''}</label>
+              )}
               {f.type === 'checkbox' ? (
                 <div className="flex items-center gap-2 mt-1"><input type="checkbox" {...register(f.key)} className="rounded border-slate-300" /></div>
+              ) : f.type === 'image' ? (
+                <ImageUpload
+                  key={`${f.key}-${dialogKey}`}
+                  label={`${f.label}${f.required ? ' *' : ''}`}
+                  hint="Drag &amp; drop or click — crop, resize, then save"
+                  value={editing?.[f.key]}
+                  aspectRatio={f.imageAspectRatio}
+                  maxWidth={f.imageMaxWidth ?? 512}
+                  maxHeight={f.imageMaxHeight ?? 512}
+                  shape="rounded"
+                  onChange={(file) => setImageFiles((prev) => ({ ...prev, [f.uploadFieldName ?? f.key]: file }))}
+                />
               ) : (
                 <Input {...register(f.key, { required: f.required })} type={f.type || 'text'} placeholder={f.label} />
               )}
@@ -535,12 +586,13 @@ export default function ChatManagementPage() {
       {mainTab === 'sticker_categories' && (
         <SimpleCrudTab entityLabel="Sticker Category"
           apiList={api.getStickerCategories} apiGet={api.getStickerCategory}
-          apiCreate={api.createStickerCategory} apiUpdate={(id, d) => api.updateStickerCategory(id, d)}
+          apiCreate={(d, isFD) => api.createStickerCategory(d, isFD)} apiUpdate={(id, d, isFD) => api.updateStickerCategory(id, d, isFD)}
           apiSoftDelete={api.softDeleteStickerCategory} apiRestore={api.restoreStickerCategory} apiDelete={api.permanentDeleteStickerCategory}
           fields={[
             { key: 'name', label: 'Name', required: true },
             { key: 'slug', label: 'Slug', required: true },
-            { key: 'thumbnail_url', label: 'Thumbnail URL' },
+            // Phase 15.3 — drag-drop upload; backend multer field name is 'thumbnail'
+            { key: 'thumbnail_url', label: 'Thumbnail', type: 'image', uploadFieldName: 'thumbnail', imageAspectRatio: 1, imageMaxWidth: 512, imageMaxHeight: 512 },
             { key: 'display_order', label: 'Order', type: 'number' },
           ]}
         />
@@ -549,13 +601,14 @@ export default function ChatManagementPage() {
       {mainTab === 'stickers' && (
         <SimpleCrudTab entityLabel="Sticker"
           apiList={api.getStickers} apiGet={api.getSticker}
-          apiCreate={(d) => api.createSticker(d)} apiUpdate={(id, d) => api.updateSticker(id, d)}
+          apiCreate={(d, isFD) => api.createSticker(d, isFD)} apiUpdate={(id, d, isFD) => api.updateSticker(id, d, isFD)}
           apiSoftDelete={api.softDeleteSticker} apiRestore={api.restoreSticker} apiDelete={api.permanentDeleteSticker}
           fields={[
             { key: 'name', label: 'Name', required: true },
             { key: 'slug', label: 'Slug' },
             { key: 'category_id', label: 'Category ID', type: 'number', required: true },
-            { key: 'image_url', label: 'Image URL' },
+            // Phase 15.3 — drag-drop upload; backend multer field name is 'image'
+            { key: 'image_url', label: 'Sticker Image', type: 'image', uploadFieldName: 'image', imageAspectRatio: 1, imageMaxWidth: 512, imageMaxHeight: 512 },
             { key: 'is_animated', label: 'Animated', type: 'checkbox' },
             { key: 'display_order', label: 'Order', type: 'number' },
           ]}
@@ -579,13 +632,14 @@ export default function ChatManagementPage() {
       {mainTab === 'custom_emojis' && (
         <SimpleCrudTab entityLabel="Custom Emoji"
           apiList={api.getCustomEmojis} apiGet={api.getCustomEmoji}
-          apiCreate={(d) => api.createCustomEmoji(d)} apiUpdate={(id, d) => api.updateCustomEmoji(id, d)}
+          apiCreate={(d, isFD) => api.createCustomEmoji(d, isFD)} apiUpdate={(id, d, isFD) => api.updateCustomEmoji(id, d, isFD)}
           apiSoftDelete={api.softDeleteCustomEmoji} apiRestore={api.restoreCustomEmoji} apiDelete={api.permanentDeleteCustomEmoji}
           fields={[
             { key: 'name', label: 'Name', required: true },
             { key: 'shortcode', label: 'Shortcode', required: true },
             { key: 'category_id', label: 'Category ID', type: 'number', required: true },
-            { key: 'image_url', label: 'Image URL' },
+            // Phase 15.3 — drag-drop upload; backend multer field name is 'image'
+            { key: 'image_url', label: 'Emoji Image', type: 'image', uploadFieldName: 'image', imageAspectRatio: 1, imageMaxWidth: 256, imageMaxHeight: 256 },
             { key: 'is_animated', label: 'Animated', type: 'checkbox' },
             { key: 'display_order', label: 'Order', type: 'number' },
           ]}

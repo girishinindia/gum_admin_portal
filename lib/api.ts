@@ -2060,8 +2060,8 @@ export const api = {
     return request(`/sticker-categories?${q.toString()}`);
   },
   getStickerCategory: (id: number) => request(`/sticker-categories/${id}`),
-  createStickerCategory: (data: any) => request('/sticker-categories', { method: 'POST', body: JSON.stringify(data) }),
-  updateStickerCategory: (id: number, data: any) => request(`/sticker-categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  createStickerCategory: (data: any, isFormData = false) => request('/sticker-categories', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateStickerCategory: (id: number, data: any, isFormData = false) => request(`/sticker-categories/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   softDeleteStickerCategory: (id: number) => request(`/sticker-categories/${id}`, { method: 'DELETE' }),
   restoreStickerCategory: (id: number) => request(`/sticker-categories/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteStickerCategory: (id: number) => request(`/sticker-categories/${id}/permanent`, { method: 'DELETE' }),

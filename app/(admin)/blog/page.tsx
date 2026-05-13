@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
@@ -621,6 +622,10 @@ function PostsTab() {
 
   const [categories, setCategories] = useState<any[]>([]);
   const [featuredImageFile, setFeaturedImageFile] = useState<File | null>(null);
+  const [featuredImagePreview, setFeaturedImagePreview] = useState<string | null>(null);
+  // Phase 15.2 — OG image upload
+  const [ogImageFile, setOgImageFile] = useState<File | null>(null);
+  const [ogImagePreview, setOgImagePreview] = useState<string | null>(null);
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset, setValue, watch } = useForm();
@@ -688,7 +693,7 @@ function PostsTab() {
   }
 
   function openCreate() {
-    setEditing(null); setDialogKey(k => k + 1); setFeaturedImageFile(null);
+    setEditing(null); setDialogKey(k => k + 1); setFeaturedImageFile(null); setFeaturedImagePreview(null); setOgImageFile(null); setOgImagePreview(null);
     reset({
       title: '', slug: '', excerpt: '', content: '', category_id: '', author_id: '', author_type: 'system',
       status: 'draft', tags: '', meta_title: '', meta_description: '', meta_keywords: '', og_image_url: '',
@@ -698,7 +703,7 @@ function PostsTab() {
   }
 
   function openEdit(p: any) {
-    setEditing(p); setDialogKey(k => k + 1); setFeaturedImageFile(null);
+    setEditing(p); setDialogKey(k => k + 1); setFeaturedImageFile(null); setFeaturedImagePreview(null); setOgImageFile(null); setOgImagePreview(null);
     const tagsStr = Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || '');
     reset({
       title: p.title || '', slug: p.slug || '', excerpt: p.excerpt || '', content: p.content || '',
@@ -723,7 +728,8 @@ function PostsTab() {
     if (data.meta_title) fd.append('meta_title', data.meta_title);
     if (data.meta_description) fd.append('meta_description', data.meta_description);
     if (data.meta_keywords) fd.append('meta_keywords', data.meta_keywords);
-    if (data.og_image_url) fd.append('og_image_url', data.og_image_url);
+    // Phase 15.2 — only forward the URL if no new upload (lets users keep an external URL)
+    if (data.og_image_url && !ogImageFile) fd.append('og_image_url', data.og_image_url);
     fd.append('is_featured', String(!!data.is_featured));
     fd.append('is_active', String(!!data.is_active));
 
@@ -733,6 +739,7 @@ function PostsTab() {
       fd.append('tags', JSON.stringify(tagsArr));
     }
 
+    if (ogImageFile) fd.append('og_image', ogImageFile, ogImageFile.name);
     if (featuredImageFile) {
       fd.append('featured_image', featuredImageFile);
     }
@@ -1170,20 +1177,9 @@ function PostsTab() {
               </select>
             </div>
           </div>
-          <div>
-            <label className="block mb-1.5 text-sm font-medium text-slate-700">Featured Image</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={e => setFeaturedImageFile(e.target.files?.[0] || null)}
-              className="w-full text-sm text-slate-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer"
-            />
-            {editing?.featured_image_url && !featuredImageFile && (
-              <div className="mt-2">
-                <img src={editing.featured_image_url} alt="Current" className="max-h-24 rounded-lg border border-slate-200" />
-              </div>
-            )}
-          </div>
+          <ImageUpload key={`feat-${dialogKey}`} label="Featured Image" hint="Recommended: 1200×630px · drag &amp; drop, crop, then save"
+            value={editing?.featured_image_url} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
+            onChange={(file, preview) => { setFeaturedImageFile(file); setFeaturedImagePreview(preview); }} />
           <div>
             <label className="block mb-1.5 text-sm font-medium text-slate-700">Tags (comma-separated)</label>
             <Input {...register('tags')} placeholder="tag1, tag2, tag3" />
@@ -1202,9 +1198,12 @@ function PostsTab() {
             <label className="block mb-1.5 text-sm font-medium text-slate-700">Meta Description</label>
             <textarea {...register('meta_description')} rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" placeholder="SEO description" />
           </div>
+          <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200×630px · or paste a URL in the URL field below"
+            value={editing?.og_image_url} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
+            onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }} />
           <div>
-            <label className="block mb-1.5 text-sm font-medium text-slate-700">OG Image URL</label>
-            <Input {...register('og_image_url')} placeholder="https://..." />
+            <label className="block mb-1.5 text-sm font-medium text-slate-700">OG Image URL (manual fallback)</label>
+            <Input {...register('og_image_url')} placeholder="https://… (only used when no file is uploaded)" />
           </div>
           <div className="grid grid-cols-2 gap-5">
             <div className="flex items-center pt-2">
