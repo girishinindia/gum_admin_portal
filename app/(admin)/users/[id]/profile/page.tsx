@@ -24,8 +24,7 @@ import {
   Briefcase, Share2, Wrench, Languages, FileText, FolderKanban, Globe2, Sparkles,
   Pencil, RefreshCw, Check, UserCheck,
 } from 'lucide-react';
-import EmployeeProfileTab from '@/components/profile-tabs/EmployeeProfileTab';
-import StudentProfileTab from '@/components/profile-tabs/StudentProfileTab';
+// Phase 13 — employee + student profile tabs removed with their tables.
 import InstructorProfileTab from '@/components/profile-tabs/InstructorProfileTab';
 
 // ── Tab definitions ──
@@ -43,8 +42,6 @@ const TABS = [
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'resume', label: 'Resume', icon: Globe2 },
   { id: 'preferences', label: 'Preferences', icon: Bell },
-  { id: 'employee', label: 'Employee Profile', icon: Briefcase },
-  { id: 'student', label: 'Student Profile', icon: GraduationCap },
   { id: 'instructor', label: 'Instructor Profile', icon: UserCheck },
 ] as const;
 
@@ -1002,7 +999,7 @@ export default function UserProfilePage() {
             <div className="py-2">
               {TABS.filter(tab => {
                 // Show only the profile tab matching the user's type
-                const profileTabs = ['employee', 'student', 'instructor'];
+                const profileTabs = ['instructor'];
                 if (profileTabs.includes(tab.id)) return tab.id === userData?.type;
                 return true;
               }).map(tab => {
@@ -1027,7 +1024,7 @@ export default function UserProfilePage() {
               })}
             </div>
             {/* Save button in sidebar — only for main form tabs (not profile tabs which have their own save) */}
-            {canEdit && !['employee', 'student', 'instructor'].includes(activeTab) && (
+            {canEdit && !['instructor'].includes(activeTab) && (
               <div className="px-3 pb-3 border-t border-slate-100 pt-3">
                 <Button type="button" onClick={handleSubmit(onSubmit)} disabled={saving} className="w-full">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -1041,12 +1038,10 @@ export default function UserProfilePage() {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {/* 1:1 Profile Tabs — each has its own form + save button */}
-          {activeTab === 'employee' && <EmployeeProfileTab userId={userId} canEdit={canEdit} />}
-          {activeTab === 'student' && <StudentProfileTab userId={userId} canEdit={canEdit} />}
           {activeTab === 'instructor' && <InstructorProfileTab userId={userId} canEdit={canEdit} />}
 
           {/* Main form tabs */}
-          {!['employee', 'student', 'instructor'].includes(activeTab) && (
+          {!['instructor'].includes(activeTab) && (
           <form onSubmit={handleSubmit(onSubmit)}>
           <Card>
               <div className="px-6 py-5 border-b border-slate-100">

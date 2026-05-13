@@ -231,30 +231,7 @@ const MODULE_HELP: Record<string, ModuleHelp> = {
       { label: 'Fix names', prompt: '"Update Twitter to X, Facebook to Meta where appropriate"' },
     ],
   },
-  employee_profiles: {
-    generate: [
-      '"Generate 5 sample employee profiles with realistic Indian names, designations, departments"',
-      '"Generate employee profiles for the Engineering department with proper pay grades"',
-    ],
-    update: [
-      { label: 'Set grades', prompt: '"Set pay_grade based on designation: Junior=L1, Senior=L3, Lead=L5"' },
-      { label: 'Fix salary', prompt: '"Set basic_salary_monthly as ctc_annual/12 * 0.4 for all selected"' },
-      { label: 'Set dates', prompt: '"Set joining_date to 2024-01-15 for employees missing a joining date"' },
-      { label: 'Set mode', prompt: '"Set work_mode to hybrid for all selected employees"' },
-    ],
-  },
-  student_profiles: {
-    generate: [
-      '"Generate 5 student profiles with Indian names, enrollment numbers, education levels"',
-      '"Generate student profiles for B.Tech Computer Science students"',
-    ],
-    update: [
-      { label: 'Set level', prompt: '"Set education_level_id based on the student enrollment year"' },
-      { label: 'Add goals', prompt: '"Add learning_goal description based on each student\'s program"' },
-      { label: 'Fix codes', prompt: '"Generate enrollment numbers in format: STU-2024-001"' },
-      { label: 'Set active', prompt: '"Set is_active=true for all current-year students"' },
-    ],
-  },
+  // Phase 13 — employee_profiles + student_profiles dropped.
   instructor_profiles: {
     generate: [
       '"Generate 5 instructor profiles with qualifications, specializations, Indian names"',

@@ -38,6 +38,21 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   {
+    key: 'dashboards',
+    title: 'Dashboards',
+    icon: LayoutDashboard,
+    iconColor: 'text-blue-600',
+    items: [
+      { href: '/dashboard',             label: 'Overview',           icon: LayoutDashboard, iconColor: 'text-blue-600' },
+      { href: '/dashboards/sales',      label: 'Sales & Revenue',    icon: TrendingUp,      iconColor: 'text-emerald-600' },
+      { href: '/dashboards/finance',    label: 'Payouts & Finance',  icon: Banknote,        iconColor: 'text-amber-600' },
+      { href: '/dashboards/operations', label: 'Operations',         icon: Activity,        iconColor: 'text-rose-600' },
+      { href: '/dashboards/catalog',    label: 'Catalog & Content',  icon: BookOpen,        iconColor: 'text-indigo-600' },
+      { href: '/dashboards/engagement', label: 'Student Engagement', icon: Star,            iconColor: 'text-violet-600' },
+      { href: '/revenue-dashboard',     label: 'Revenue (live MV)',  icon: BarChart3,       iconColor: 'text-cyan-600' },
+    ],
+  },
+  {
     key: 'admin',
     title: 'Admin',
     icon: Settings,
@@ -45,9 +60,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/my-permissions',  label: 'My Access',     icon: ShieldCheck, iconColor: 'text-emerald-500' },
       { href: '/users',           label: 'Users',         icon: Users,      iconColor: 'text-blue-500' },
-      { href: '/employee-profiles', label: 'Employee Profiles', icon: Briefcase,  iconColor: 'text-cyan-500' },
       { href: '/instructor-profiles', label: 'Instructor Profiles', icon: GraduationCap, iconColor: 'text-orange-500' },
-      { href: '/student-profiles', label: 'Student Profiles', icon: BookOpen,  iconColor: 'text-indigo-500' },
       { href: '/roles',           label: 'Roles',         icon: Shield,     iconColor: 'text-amber-500', superAdminOnly: true },
       { href: '/permissions',     label: 'Permissions',   icon: KeyRound,   iconColor: 'text-rose-500',  superAdminOnly: true },
       { href: '/activity-logs',   label: 'Activity Logs', icon: FileText,   iconColor: 'text-violet-500' },
@@ -642,29 +655,10 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-2">
-        {/* Dashboard — always visible at top */}
-        <div className={cn('pt-2 pb-0.5', collapsed ? 'px-2' : 'px-3')}>
-          <Link
-            href="/dashboard"
-            title="Dashboard"
-            className={cn(
-              'flex items-center gap-3 rounded-lg text-sm font-medium transition-all relative group',
-              collapsed ? 'justify-center px-2 py-1.5' : 'px-3 py-1.5',
-              pathname === '/dashboard'
-                ? 'bg-white/80 text-brand-800 shadow-sm'
-                : 'text-slate-700 hover:bg-white/50 hover:text-slate-900'
-            )}
-          >
-            {pathname === '/dashboard' && !collapsed && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-600 rounded-r-full" />
-            )}
-            <LayoutDashboard
-              className={cn('w-[18px] h-[18px] flex-shrink-0', pathname === '/dashboard' ? 'text-brand-600' : 'text-brand-500')}
-              strokeWidth={pathname === '/dashboard' ? 2.5 : 2}
-            />
-            {!collapsed && 'Dashboard'}
-          </Link>
-        </div>
+        {/* Phase 14.10 — the standalone "Dashboard" link used to live here,
+            but it duplicated the "Dashboards" group below. The command-center
+            page (/dashboard) is now the "Overview" entry inside the
+            Dashboards group, so the two no longer fight for visual space. */}
 
         {navGroups.map((group, groupIdx) => {
           const groupItems = group.items || [];

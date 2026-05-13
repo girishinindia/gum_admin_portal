@@ -183,6 +183,7 @@ export default function ActivityLogsPage() {
               <TR className="hover:bg-transparent">
                 <TH className="w-16">ID</TH>
                 <TH>Action</TH>
+                <TH>User</TH>
                 <TH>Target / Details</TH>
                 <TH>IP Address</TH>
                 <TH>Time</TH>
@@ -199,9 +200,12 @@ export default function ActivityLogsPage() {
                     </Badge>
                   </TD>
                   <TD className="py-2.5">
+                    <UserCell actor={log.actor} fallbackIdentifier={log.identifier} fallbackId={log.user_id ?? log.actor_id} />
+                  </TD>
+                  <TD className="py-2.5">
                     <div>
                       <span className="text-sm text-slate-900">
-                        {log.target_name || log.resource_name || log.identifier || log.message || '—'}
+                        {log.target_name || log.resource_name || log.message || '—'}
                       </span>
                       {log.endpoint && (
                         <div className="mt-0.5">
@@ -247,11 +251,29 @@ export default function ActivityLogsPage() {
               </div>
             </div>
 
+            {/* Actor card (Phase 14.11) */}
+            {viewing.actor && (
+              <div className="mb-5 -mt-2 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+                {viewing.actor.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={viewing.actor.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
+                    {(viewing.actor.full_name || viewing.actor.email || '?').trim().split(/\s+/).map((s: string) => s[0]).slice(0, 2).join('').toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{viewing.actor.full_name || viewing.actor.email}</div>
+                  <div className="text-xs text-slate-500 truncate">{viewing.actor.email} {viewing.actor.mobile ? ` · ${viewing.actor.mobile}` : ''} · ID {viewing.actor.id}</div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
               {viewing.action && <DetailRow label="Action" value={formatActionLabel(viewing.action)} />}
               {viewing.level && <DetailRow label="Level" value={viewing.level} />}
               {(viewing.target_name || viewing.resource_name) && <DetailRow label="Target / Resource" value={viewing.target_name || viewing.resource_name} />}
-              {viewing.identifier && <DetailRow label="Identifier" value={viewing.identifier} />}
+              {viewing.identifier && <DetailRow label="Identifier (entered)" value={viewing.identifier} />}
               {viewing.ip_address && <DetailRow label="IP Address" value={viewing.ip_address} />}
               {viewing.device_type && <DetailRow label="Device" value={viewing.device_type} />}
               {viewing.endpoint && <DetailRow label="Endpoint" value={`${viewing.http_method || ''} ${viewing.endpoint}`.trim()} />}
@@ -285,4 +307,43 @@ function DetailRow({ label, value }: { label: string; value?: string | null }) {
       <dd className="mt-0.5 text-sm text-slate-800">{value || '—'}</dd>
     </div>
   );
+}
+
+/**
+ * Phase 14.11 — Render the actor (who did the action) for any log row.
+ *   actor   → enriched by the API: { id, full_name, email, mobile, avatar_url }
+ *   fallbackIdentifier → e.g. the email/mobile entered at login when user_id was null
+ *   fallbackId         → numeric ID with no row in users (likely deleted)
+ */
+function UserCell({ actor, fallbackIdentifier, fallbackId }: { actor: any; fallbackIdentifier?: string | null; fallbackId?: number | string | null }) {
+  if (actor) {
+    const initials = (actor.full_name ?? `${actor.first_name ?? ''} ${actor.last_name ?? ''}`)
+      .trim().split(/\s+/).map((s: string) => s[0]).slice(0, 2).join('').toUpperCase() || '?';
+    return (
+      <div className="flex items-center gap-2 min-w-0">
+        {actor.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={actor.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-semibold text-slate-600">{initials}</div>
+        )}
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-slate-900 truncate">{actor.full_name || actor.email || `#${actor.id}`}</div>
+          <div className="text-[11px] text-slate-500 truncate">{actor.email || actor.mobile || `User #${actor.id}`}</div>
+        </div>
+      </div>
+    );
+  }
+  if (fallbackIdentifier) {
+    return (
+      <div className="min-w-0">
+        <div className="text-sm text-slate-700 truncate">{fallbackIdentifier}</div>
+        <div className="text-[11px] text-slate-400">unauthenticated · pre-login</div>
+      </div>
+    );
+  }
+  if (fallbackId != null) {
+    return <div className="text-sm text-slate-500">User #{fallbackId} <span className="text-[11px] text-slate-400">· deleted</span></div>;
+  }
+  return <span className="text-sm text-slate-400">system</span>;
 }

@@ -75,6 +75,10 @@ async function request<T = any>(
   return json;
 }
 
+// Phase 14 — expose `request` as `apiRequest` so hooks can hit any path
+// without having to add a one-liner to the bulky `api` object.
+export { request as apiRequest };
+
 async function refreshTokens(): Promise<boolean> {
   try {
     const res = await fetch(`${API_URL}/auth/refresh`, {
@@ -858,27 +862,8 @@ export const api = {
   restoreBranchDepartment: (id: number) => request(`/branch-departments/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteBranchDepartment: (id: number) => request(`/branch-departments/${id}/permanent`, { method: 'DELETE' }),
 
-  // Employee Profiles
-  listEmployeeProfiles: (qs = '') => request(`/employee-profiles${qs}`),
-  getEmployeeProfile: (id: number) => request(`/employee-profiles/${id}`),
-  getEmployeeProfileByUserId: (userId: number) => request(`/employee-profiles/user/${userId}`),
-  upsertEmployeeProfile: (userId: number, data: any) => request(`/employee-profiles/user/${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
-  createEmployeeProfile: (data: any) => request('/employee-profiles', { method: 'POST', body: JSON.stringify(data) }),
-  updateEmployeeProfile: (id: number, data: any) => request(`/employee-profiles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  deleteEmployeeProfile: (id: number) => request(`/employee-profiles/${id}`, { method: 'DELETE' }),
-  restoreEmployeeProfile: (id: number) => request(`/employee-profiles/${id}/restore`, { method: 'PATCH' }),
-  permanentDeleteEmployeeProfile: (id: number) => request(`/employee-profiles/${id}/permanent`, { method: 'DELETE' }),
-
-  // Student Profiles
-  listStudentProfiles: (qs = '') => request(`/student-profiles${qs}`),
-  getStudentProfile: (id: number) => request(`/student-profiles/${id}`),
-  getStudentProfileByUserId: (userId: number) => request(`/student-profiles/user/${userId}`),
-  upsertStudentProfile: (userId: number, data: any) => request(`/student-profiles/user/${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
-  createStudentProfile: (data: any) => request('/student-profiles', { method: 'POST', body: JSON.stringify(data) }),
-  updateStudentProfile: (id: number, data: any) => request(`/student-profiles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  deleteStudentProfile: (id: number) => request(`/student-profiles/${id}`, { method: 'DELETE' }),
-  restoreStudentProfile: (id: number) => request(`/student-profiles/${id}/restore`, { method: 'PATCH' }),
-  permanentDeleteStudentProfile: (id: number) => request(`/student-profiles/${id}/permanent`, { method: 'DELETE' }),
+  // Phase 13 — employee_profiles + student_profiles tables dropped; their
+  // API helpers used to live here.
 
   // Instructor Profiles
   listInstructorProfiles: (qs = '') => request(`/instructor-profiles${qs}`),
