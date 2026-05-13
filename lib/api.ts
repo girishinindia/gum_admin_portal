@@ -491,8 +491,8 @@ export const api = {
   // Courses
   listCourses: (qs = '') => request(`/courses${qs}`, { auth: false }),
   getCourse: (id: number) => request(`/courses/${id}`, { auth: false }),
-  createCourse: (data: any) => request('/courses', { method: 'POST', body: JSON.stringify(data) }),
-  updateCourse: (id: number, data: any) => request(`/courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  createCourse: (data: any, isFormData = false) => request('/courses', { method: 'POST', body: isFormData ? (data as any) : JSON.stringify(data), isFormData }),
+  updateCourse: (id: number, data: any, isFormData = false) => request(`/courses/${id}`, { method: 'PATCH', body: isFormData ? (data as any) : JSON.stringify(data), isFormData }),
   deleteCourse: (id: number) => request(`/courses/${id}`, { method: 'DELETE' }),
   restoreCourse: (id: number) => request(`/courses/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteCourse: (id: number) => request(`/courses/${id}/permanent`, { method: 'DELETE' }),

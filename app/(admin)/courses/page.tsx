@@ -18,6 +18,8 @@ import { Plus, BookOpen, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown, Ch
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePageSize } from '@/hooks/usePageSize';
+import { ImageUpload } from '@/components/ui/ImageUpload';
+import { FileUpload } from '@/components/ui/FileUpload';
 
 type SortField = 'id' | 'code' | 'slug' | 'name' | 'display_order' | 'sort_order' | 'price' | 'is_active' | 'difficulty_level' | 'course_status';
 
@@ -106,6 +108,12 @@ export default function CoursesPage() {
   const { register, handleSubmit, reset, setValue, watch } = useForm();
   const [slugManual, setSlugManual] = useState(false);
   const watchedCode = watch('code');
+
+  // File upload state for course media (drag-drop)
+  const [trailerThumbFile, setTrailerThumbFile] = useState<File | null>(null);
+  const [brochureFile, setBrochureFile] = useState<File | null>(null);
+  const [trailerThumbUrl, setTrailerThumbUrl] = useState<string | null>(null);
+  const [brochureUrl, setBrochureUrl] = useState<string | null>(null);
 
   // Auto-generate slug from code
   useEffect(() => {
@@ -244,6 +252,8 @@ export default function CoursesPage() {
 
   function openCreate() {
     setEditing(null); setDialogKey(k => k + 1); setSlugManual(false); setActiveTab('basic');
+    setTrailerThumbFile(null); setBrochureFile(null);
+    setTrailerThumbUrl(null); setBrochureUrl(null);
     reset({
       code: '', name: '', slug: '', is_active: true,
       price: '', original_price: '', discount_percentage: '', is_free: false,
@@ -258,6 +268,9 @@ export default function CoursesPage() {
 
   function openEdit(c: any) {
     setEditing(c); setDialogKey(k => k + 1); setSlugManual(true); setActiveTab('basic');
+    setTrailerThumbFile(null); setBrochureFile(null);
+    setTrailerThumbUrl(c.trailer_thumbnail_url || null);
+    setBrochureUrl(c.brochure_url || null);
     reset({
       code: c.code || '', name: c.name || '', slug: c.slug || '',
       is_active: c.is_active ?? true,
@@ -285,6 +298,8 @@ export default function CoursesPage() {
     const payload: Record<string, any> = {};
     Object.keys(data).forEach(k => {
       const v = data[k];
+      // Skip URL fields managed by upload control — handled separately below
+      if (k === 'trailer_thumbnail_url' || k === 'brochure_url') return;
       if (v === '' || v === undefined || v === null) return;
       // Convert booleans properly
       if (typeof v === 'boolean') { payload[k] = v; return; }
@@ -294,9 +309,34 @@ export default function CoursesPage() {
       payload[k] = v;
     });
 
-    const res = editing
-      ? await api.updateCourse(editing.id, payload)
-      : await api.createCourse(payload);
+    const hasFiles = !!(trailerThumbFile || brochureFile);
+    let res;
+    if (hasFiles) {
+      // Build multipart form data
+      const fd = new FormData();
+      Object.entries(payload).forEach(([k, v]) => {
+        if (v === null || v === undefined) return;
+        fd.append(k, typeof v === 'boolean' ? String(v) : String(v));
+      });
+      // Existing URLs (preserved if user did not pick a new file)
+      if (trailerThumbUrl && !trailerThumbFile) fd.append('trailer_thumbnail_url', trailerThumbUrl);
+      if (brochureUrl && !brochureFile) fd.append('brochure_url', brochureUrl);
+      // New files
+      if (trailerThumbFile) fd.append('trailer_thumbnail', trailerThumbFile, trailerThumbFile.name);
+      if (brochureFile) fd.append('brochure', brochureFile, brochureFile.name);
+      res = editing
+        ? await api.updateCourse(editing.id, fd, true)
+        : await api.createCourse(fd, true);
+    } else {
+      // JSON path — include preserved URLs (or explicit nulls if user cleared them)
+      if (trailerThumbUrl) payload.trailer_thumbnail_url = trailerThumbUrl;
+      else if (editing?.trailer_thumbnail_url && trailerThumbUrl === null) payload.trailer_thumbnail_url = null;
+      if (brochureUrl) payload.brochure_url = brochureUrl;
+      else if (editing?.brochure_url && brochureUrl === null) payload.brochure_url = null;
+      res = editing
+        ? await api.updateCourse(editing.id, payload)
+        : await api.createCourse(payload);
+    }
     if (res.success) {
       toast.success(editing ? 'Course updated' : 'Course created');
       setDialogOpen(false); load(); refreshSummary();
@@ -967,11 +1007,32 @@ export default function CoursesPage() {
 
           {/* Tab: Media */}
           {activeTab === 'media' && (
-            <div className="space-y-3">
-              <Input label="Trailer Video URL" placeholder="https://youtube.com/watch?v=..." {...register('trailer_video_url')} />
-              <Input label="Trailer Thumbnail URL" placeholder="https://example.com/thumb.jpg" {...register('trailer_thumbnail_url')} />
-              <Input label="Video URL" placeholder="https://example.com/video.mp4" {...register('video_url')} />
-              <Input label="Brochure URL" placeholder="https://example.com/brochure.pdf" {...register('brochure_url')} />
+            <div className="space-y-4">
+              <Input label="Trailer Video URL" placeholder="https://youtube.com/watch?v=..." {...register('trailer_video_url')} hint="External trailer link (YouTube/Vimeo). Not uploaded to CDN." />
+              <ImageUpload
+                label="Trailer Thumbnail"
+                hint="Recommended 1280×720 (16:9). Drag & drop or click to upload."
+                value={trailerThumbUrl}
+                aspectRatio={16 / 9}
+                maxWidth={1280}
+                maxHeight={720}
+                onChange={(file) => {
+                  setTrailerThumbFile(file);
+                  if (file === null) setTrailerThumbUrl(null);
+                }}
+              />
+              <Input label="Video URL" placeholder="https://example.com/video.mp4" {...register('video_url')} hint="External hosted video link. Not uploaded to CDN." />
+              <FileUpload
+                label="Brochure (PDF)"
+                hint="PDF brochure — max 25 MB. Replaces existing file on upload."
+                value={brochureUrl}
+                accept="application/pdf,.pdf"
+                maxSizeMb={25}
+                onChange={(file) => {
+                  setBrochureFile(file);
+                  if (file === null) setBrochureUrl(null);
+                }}
+              />
             </div>
           )}
 
