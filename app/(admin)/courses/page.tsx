@@ -20,6 +20,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePageSize } from '@/hooks/usePageSize';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { FileUpload } from '@/components/ui/FileUpload';
+import { VideoUpload } from '@/components/ui/VideoUpload';
 
 type SortField = 'id' | 'code' | 'slug' | 'name' | 'display_order' | 'sort_order' | 'price' | 'is_active' | 'difficulty_level' | 'course_status';
 
@@ -114,6 +115,11 @@ export default function CoursesPage() {
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [trailerThumbUrl, setTrailerThumbUrl] = useState<string | null>(null);
   const [brochureUrl, setBrochureUrl] = useState<string | null>(null);
+  // Phase 15.5 — Video uploads (file → Bunny Stream, URL → stored as-is)
+  const [trailerVideoFile, setTrailerVideoFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [trailerVideoUrl, setTrailerVideoUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   // Auto-generate slug from code
   useEffect(() => {
@@ -254,6 +260,8 @@ export default function CoursesPage() {
     setEditing(null); setDialogKey(k => k + 1); setSlugManual(false); setActiveTab('basic');
     setTrailerThumbFile(null); setBrochureFile(null);
     setTrailerThumbUrl(null); setBrochureUrl(null);
+    setTrailerVideoFile(null); setVideoFile(null);
+    setTrailerVideoUrl(null); setVideoUrl(null);
     reset({
       code: '', name: '', slug: '', is_active: true,
       price: '', original_price: '', discount_percentage: '', is_free: false,
@@ -271,6 +279,9 @@ export default function CoursesPage() {
     setTrailerThumbFile(null); setBrochureFile(null);
     setTrailerThumbUrl(c.trailer_thumbnail_url || null);
     setBrochureUrl(c.brochure_url || null);
+    setTrailerVideoFile(null); setVideoFile(null);
+    setTrailerVideoUrl(c.trailer_video_url || null);
+    setVideoUrl(c.video_url || null);
     reset({
       code: c.code || '', name: c.name || '', slug: c.slug || '',
       is_active: c.is_active ?? true,
@@ -296,10 +307,16 @@ export default function CoursesPage() {
   async function onSubmit(data: any) {
     // Clean up empty strings to not send them as values
     const payload: Record<string, any> = {};
+    const urlFieldsManagedByUpload = new Set([
+      'trailer_thumbnail_url',
+      'brochure_url',
+      'trailer_video_url',
+      'video_url',
+    ]);
     Object.keys(data).forEach(k => {
       const v = data[k];
       // Skip URL fields managed by upload control — handled separately below
-      if (k === 'trailer_thumbnail_url' || k === 'brochure_url') return;
+      if (urlFieldsManagedByUpload.has(k)) return;
       if (v === '' || v === undefined || v === null) return;
       // Convert booleans properly
       if (typeof v === 'boolean') { payload[k] = v; return; }
@@ -309,7 +326,7 @@ export default function CoursesPage() {
       payload[k] = v;
     });
 
-    const hasFiles = !!(trailerThumbFile || brochureFile);
+    const hasFiles = !!(trailerThumbFile || brochureFile || trailerVideoFile || videoFile);
     let res;
     if (hasFiles) {
       // Build multipart form data
@@ -321,9 +338,13 @@ export default function CoursesPage() {
       // Existing URLs (preserved if user did not pick a new file)
       if (trailerThumbUrl && !trailerThumbFile) fd.append('trailer_thumbnail_url', trailerThumbUrl);
       if (brochureUrl && !brochureFile) fd.append('brochure_url', brochureUrl);
+      if (trailerVideoUrl && !trailerVideoFile) fd.append('trailer_video_url', trailerVideoUrl);
+      if (videoUrl && !videoFile) fd.append('video_url', videoUrl);
       // New files
       if (trailerThumbFile) fd.append('trailer_thumbnail', trailerThumbFile, trailerThumbFile.name);
       if (brochureFile) fd.append('brochure', brochureFile, brochureFile.name);
+      if (trailerVideoFile) fd.append('trailer_video', trailerVideoFile, trailerVideoFile.name);
+      if (videoFile) fd.append('video', videoFile, videoFile.name);
       res = editing
         ? await api.updateCourse(editing.id, fd, true)
         : await api.createCourse(fd, true);
@@ -333,6 +354,10 @@ export default function CoursesPage() {
       else if (editing?.trailer_thumbnail_url && trailerThumbUrl === null) payload.trailer_thumbnail_url = null;
       if (brochureUrl) payload.brochure_url = brochureUrl;
       else if (editing?.brochure_url && brochureUrl === null) payload.brochure_url = null;
+      if (trailerVideoUrl) payload.trailer_video_url = trailerVideoUrl;
+      else if (editing?.trailer_video_url && trailerVideoUrl === null) payload.trailer_video_url = null;
+      if (videoUrl) payload.video_url = videoUrl;
+      else if (editing?.video_url && videoUrl === null) payload.video_url = null;
       res = editing
         ? await api.updateCourse(editing.id, payload)
         : await api.createCourse(payload);
@@ -1008,7 +1033,20 @@ export default function CoursesPage() {
           {/* Tab: Media */}
           {activeTab === 'media' && (
             <div className="space-y-4">
-              <Input label="Trailer Video URL" placeholder="https://youtube.com/watch?v=..." {...register('trailer_video_url')} hint="External trailer link (YouTube/Vimeo). Not uploaded to CDN." />
+              <VideoUpload
+                label="Trailer Video"
+                hint="Drag & drop a file to upload to Bunny Stream, or paste a YouTube/Vimeo URL."
+                value={trailerVideoUrl}
+                maxSizeMb={2048}
+                onFileChange={(file) => {
+                  setTrailerVideoFile(file);
+                  if (file === null) setTrailerVideoUrl(null);
+                }}
+                onUrlChange={(url) => {
+                  setTrailerVideoUrl(url);
+                  setTrailerVideoFile(null);
+                }}
+              />
               <ImageUpload
                 label="Trailer Thumbnail"
                 hint="Recommended 1280×720 (16:9). Drag & drop or click to upload."
@@ -1021,7 +1059,20 @@ export default function CoursesPage() {
                   if (file === null) setTrailerThumbUrl(null);
                 }}
               />
-              <Input label="Video URL" placeholder="https://example.com/video.mp4" {...register('video_url')} hint="External hosted video link. Not uploaded to CDN." />
+              <VideoUpload
+                label="Course Video"
+                hint="Main course video — uploaded to Bunny Stream for secure, token-gated playback."
+                value={videoUrl}
+                maxSizeMb={2048}
+                onFileChange={(file) => {
+                  setVideoFile(file);
+                  if (file === null) setVideoUrl(null);
+                }}
+                onUrlChange={(url) => {
+                  setVideoUrl(url);
+                  setVideoFile(null);
+                }}
+              />
               <FileUpload
                 label="Brochure (PDF)"
                 hint="PDF brochure — max 25 MB. Replaces existing file on upload."
