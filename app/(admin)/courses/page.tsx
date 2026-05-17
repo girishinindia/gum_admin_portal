@@ -896,18 +896,37 @@ export default function CoursesPage() {
               </div>
             </div>
 
-            {/* Media URLs */}
-            {(viewing.trailer_video_url || viewing.trailer_thumbnail_url || viewing.video_url || viewing.brochure_url) && (
-              <div className="mt-6 pt-4 border-t border-slate-100">
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Media</p>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                  <DetailRow label="Trailer Video URL" value={viewing.trailer_video_url} />
-                  <DetailRow label="Trailer Thumbnail URL" value={viewing.trailer_thumbnail_url} />
-                  <DetailRow label="Video URL" value={viewing.video_url} />
-                  <DetailRow label="Brochure URL" value={viewing.brochure_url} />
-                </div>
+            {/* Media — Phase 44.3 preview tiles
+                Instead of dumping raw URLs as text (the previous design
+                made admins copy/paste long CDN URLs to verify uploads),
+                render each asset as a real preview the user can see at
+                a glance. Empty fields show a dashed "Not uploaded"
+                placeholder so missing media is obvious. */}
+            <div className="mt-6 pt-4 border-t border-slate-100">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Media</p>
+              <div className="grid grid-cols-2 gap-4">
+                <_MediaTile
+                  label="Trailer Thumbnail"
+                  url={viewing.trailer_thumbnail_url}
+                  type="image"
+                />
+                <_MediaTile
+                  label="Trailer Video"
+                  url={viewing.trailer_video_url}
+                  type="video"
+                />
+                <_MediaTile
+                  label="Course Video"
+                  url={viewing.video_url}
+                  type="video"
+                />
+                <_MediaTile
+                  label="Brochure"
+                  url={viewing.brochure_url}
+                  type="pdf"
+                />
               </div>
-            )}
+            </div>
 
             {/* Timestamps */}
             <div className="mt-6 pt-4 border-t border-slate-100">
@@ -1120,9 +1139,10 @@ export default function CoursesPage() {
             <div className="space-y-4">
               <VideoUpload
                 label="Trailer Video"
-                hint="Drag & drop a file to upload to Bunny Stream, or paste a YouTube/Vimeo URL."
+                hint="Drag & drop a file to upload directly to Bunny Stream — files only, no external links."
                 value={trailerVideoUrl}
                 maxSizeMb={2048}
+                allowUrlMode={false}
                 onFileChange={(file) => {
                   setTrailerVideoFile(file);
                   if (file === null) setTrailerVideoUrl(null);
@@ -1146,9 +1166,10 @@ export default function CoursesPage() {
               />
               <VideoUpload
                 label="Course Video"
-                hint="Main course video — uploaded to Bunny Stream for secure, token-gated playback."
+                hint="Main course video — uploaded to Bunny Stream for secure, token-gated playback. Files only."
                 value={videoUrl}
                 maxSizeMb={2048}
+                allowUrlMode={false}
                 onFileChange={(file) => {
                   setVideoFile(file);
                   if (file === null) setVideoUrl(null);
@@ -1228,6 +1249,81 @@ function DetailRow({ label, value }: { label: string; value?: string | null }) {
     <div>
       <dt className="text-xs font-medium text-slate-400 uppercase tracking-wider">{label}</dt>
       <dd className="mt-0.5 text-sm text-slate-800">{value || '--'}</dd>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   _MediaTile — Phase 44.3 preview card for the view dialog.
+
+   • image: <img> thumbnail, click → open full-size in a new tab.
+   • video: <iframe> inline for both Bunny embed URLs and external
+            mp4/youtube links (iframes handle both fine; for raw .mp4
+            the browser falls back to its native player).
+   • pdf:   PDF icon + "Open PDF →" button (we don't inline-render
+            PDFs to keep the dialog snappy; clicking opens in a tab).
+
+   Empty values render a dashed "Not uploaded" placeholder so admins
+   immediately see which assets are missing.
+   ────────────────────────────────────────────────────────────────── */
+function _MediaTile({
+  label,
+  url,
+  type,
+}: {
+  label: string;
+  url?: string | null;
+  type: 'image' | 'video' | 'pdf';
+}) {
+  const has = !!(url && url.trim().length > 0);
+
+  return (
+    <div>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{label}</p>
+
+      {!has && (
+        <div className="aspect-video w-full rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center">
+          <span className="text-xs text-slate-400">Not uploaded</span>
+        </div>
+      )}
+
+      {has && type === 'image' && (
+        <a href={url!} target="_blank" rel="noopener noreferrer" className="block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url!}
+            alt={label}
+            className="aspect-video w-full rounded-lg object-cover bg-slate-100 border border-slate-200 hover:opacity-90 transition-opacity"
+          />
+          <span className="block mt-1 text-[11px] text-slate-500 truncate">Click to open full-size</span>
+        </a>
+      )}
+
+      {has && type === 'video' && (
+        <div className="aspect-video w-full rounded-lg overflow-hidden bg-slate-900 border border-slate-200">
+          <iframe
+            src={url!}
+            className="w-full h-full"
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+            title={label}
+          />
+        </div>
+      )}
+
+      {has && type === 'pdf' && (
+        <a
+          href={url!}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="aspect-video w-full rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors flex flex-col items-center justify-center gap-2"
+        >
+          <div className="w-12 h-14 rounded border border-rose-300 bg-rose-50 flex items-center justify-center text-rose-600 text-xs font-bold">
+            PDF
+          </div>
+          <span className="text-xs font-semibold text-sky-600">Open PDF →</span>
+        </a>
+      )}
     </div>
   );
 }

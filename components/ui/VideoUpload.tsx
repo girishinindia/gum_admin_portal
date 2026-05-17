@@ -30,6 +30,14 @@ interface VideoUploadProps {
   className?:    string;
   onFileChange:  (file: File | null) => void;
   onUrlChange:   (url: string | null) => void;
+  /**
+   * Phase 44.3 — when `false`, the "use external URL" toggle and the
+   * URL text input are removed entirely. Used by the Courses module
+   * which must only accept files uploaded to Bunny Stream (no
+   * YouTube/Vimeo pasting). Defaults to `true` so existing callers
+   * keep the original dual-mode behaviour.
+   */
+  allowUrlMode?: boolean;
 }
 
 function humanFileSize(bytes: number): string {
@@ -51,10 +59,15 @@ export function VideoUpload({
   className,
   onFileChange,
   onUrlChange,
+  allowUrlMode = true,
 }: VideoUploadProps) {
   // mode tracks whether the active input is a file pick or a URL.
   // If the existing value looks like an external (non-Bunny) URL, default to URL mode.
-  const initialMode: 'file' | 'url' = value && !isBunnyEmbed(value) ? 'url' : 'file';
+  // Phase 44.3 — when `allowUrlMode` is false we force file mode regardless
+  // of the incoming value's shape; the toggle is hidden and pasting is
+  // not possible.
+  const initialMode: 'file' | 'url' =
+    allowUrlMode && value && !isBunnyEmbed(value) ? 'url' : 'file';
   const [mode, setMode] = useState<'file' | 'url'>(initialMode);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -133,16 +146,19 @@ export function VideoUpload({
       {label && (
         <div className="flex items-center justify-between mb-1.5">
           <label className="block text-sm font-medium text-slate-700">{label}</label>
-          <button
-            type="button"
-            onClick={() => {
-              setMode((m) => (m === 'file' ? 'url' : 'file'));
-              setError(null);
-            }}
-            className="text-xs text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1"
-          >
-            {mode === 'file' ? (<><Link2 className="w-3 h-3" />use external URL</>) : (<><Upload className="w-3 h-3" />upload file instead</>)}
-          </button>
+          {/* Phase 44.3 — toggle only renders when URL mode is allowed. */}
+          {allowUrlMode && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode((m) => (m === 'file' ? 'url' : 'file'));
+                setError(null);
+              }}
+              className="text-xs text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1"
+            >
+              {mode === 'file' ? (<><Link2 className="w-3 h-3" />use external URL</>) : (<><Upload className="w-3 h-3" />upload file instead</>)}
+            </button>
+          )}
         </div>
       )}
 
