@@ -548,9 +548,13 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
               <textarea {...register('description')} rows={3} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 resize-none" placeholder="Session description..." />
             </div>
+            {/* Phase 44 — these 5 columns are NOT NULL in live_sessions
+                (no DB defaults). Marking the inputs as `required` blocks
+                the submit until they're filled, so we never POST a row
+                that Supabase would reject for constraint violation. */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item Type</label>
-              <select {...register('item_type')} className={selectClass + ' w-full'}>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item Type <span className="text-rose-500">*</span></label>
+              <select {...register('item_type', { required: true })} required className={selectClass + ' w-full'}>
                 <option value="">Select type</option>
                 <option value="course">Course</option>
                 <option value="batch">Batch</option>
@@ -558,12 +562,12 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item ID</label>
-              <Input {...register('item_id')} type="number" placeholder="Item ID" />
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item ID <span className="text-rose-500">*</span></label>
+              <Input {...register('item_id', { required: true })} required type="number" min={1} placeholder="Item ID" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Instructor ID</label>
-              <Input {...register('instructor_id')} type="number" placeholder="Instructor ID" />
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Instructor ID <span className="text-rose-500">*</span></label>
+              <Input {...register('instructor_id', { required: true })} required type="number" min={1} placeholder="Instructor ID" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
@@ -576,8 +580,8 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Scheduled At</label>
-              <Input {...register('scheduled_at')} type="datetime-local" />
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Scheduled At <span className="text-rose-500">*</span></label>
+              <Input {...register('scheduled_at', { required: true })} required type="datetime-local" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Duration (minutes)</label>

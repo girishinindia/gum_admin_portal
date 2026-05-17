@@ -72,6 +72,30 @@ async function request<T = any>(
   }
 
   const json = await res.json().catch(() => ({ success: false, error: 'Invalid response' }));
+
+  // Phase 44 — surface API failures instead of swallowing them.
+  //
+  // Before this guard, the wrapper returned the parsed body even when
+  // the HTTP status was 4xx/5xx OR the envelope's `success` flag was
+  // false. Callers do `await api.xxx(...)` and assume the promise only
+  // resolves on success — so they'd hit `toast.success(...)` even
+  // though the row never landed in the DB. The most visible symptom
+  // was Live Sessions: "Session created" toast + empty list (Supabase
+  // confirmed 0 rows). The same bug was silently hiding every other
+  // failed write across the admin portal.
+  //
+  // Behaviour now matches what callers already expect:
+  //   • 2xx + `success !== false` → resolve with the body
+  //   • anything else → throw an Error with the server's `error` /
+  //     `message`, which every page's `catch (e) { toast.error(e.message) }`
+  //     turns into a real, readable failure toast.
+  if (!res.ok || json?.success === false) {
+    const message =
+      (typeof json?.error === 'string'   && json.error)   ||
+      (typeof json?.message === 'string' && json.message) ||
+      `Request failed (${res.status})`;
+    throw new Error(message);
+  }
   return json;
 }
 
