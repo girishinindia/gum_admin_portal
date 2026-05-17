@@ -42,11 +42,16 @@ const DIFFICULTY_OPTIONS = [
   { value: 'all_levels', label: 'All Levels' },
 ];
 
+// Phase 44.2 — keep this list in lockstep with `chk_courses_status` on
+// the courses table. All 6 values are now allowed at the DB level:
+// see gum_api/sql/55_courses_status_add_coming_soon.sql.
 const STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'published', label: 'Published' },
-  { value: 'archived', label: 'Archived' },
-  { value: 'coming_soon', label: 'Coming Soon' },
+  { value: 'draft',         label: 'Draft' },
+  { value: 'under_review',  label: 'Under Review' },
+  { value: 'published',     label: 'Published' },
+  { value: 'archived',      label: 'Archived' },
+  { value: 'suspended',     label: 'Suspended' },
+  { value: 'coming_soon',   label: 'Coming Soon' },
 ];
 
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -58,10 +63,12 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 };
 
 const COURSE_STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-600',
-  published: 'bg-emerald-50 text-emerald-700',
-  archived: 'bg-amber-50 text-amber-700',
-  coming_soon: 'bg-violet-50 text-violet-700',
+  draft:        'bg-slate-100 text-slate-600',
+  under_review: 'bg-sky-50 text-sky-700',
+  published:    'bg-emerald-50 text-emerald-700',
+  archived:     'bg-amber-50 text-amber-700',
+  suspended:    'bg-rose-50 text-rose-700',
+  coming_soon:  'bg-violet-50 text-violet-700',
 };
 
 export default function CoursesPage() {
@@ -305,6 +312,24 @@ export default function CoursesPage() {
   }
 
   async function onSubmit(data: any) {
+    // Phase 44.2 — belt-and-braces guard against the "free + priced"
+    // conflict. The UI already disables the paid inputs when is_free is
+    // on, but an admin could re-enable them via DevTools or paste-edit
+    // the form. Normalise here so the row that lands in Postgres is
+    // self-consistent.
+    if (data.is_free) {
+      data.price               = 0;
+      data.original_price      = 0;
+      data.discount_percentage = 0;
+    } else {
+      // Conversely, if any price is non-zero, we can't claim the
+      // course is free. Force-uncheck.
+      const p  = Number(data.price || 0);
+      const op = Number(data.original_price || 0);
+      const dp = Number(data.discount_percentage || 0);
+      if (p > 0 || op > 0 || dp > 0) data.is_free = false;
+    }
+
     // Clean up empty strings to not send them as values
     const payload: Record<string, any> = {};
     const urlFieldsManagedByUpload = new Set([
@@ -965,21 +990,81 @@ export default function CoursesPage() {
             </div>
           )}
 
-          {/* Tab: Pricing */}
-          {activeTab === 'pricing' && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-3">
-                <Input label="Price" type="number" step="0.01" placeholder="0.00" {...register('price')} />
-                <Input label="Original Price" type="number" step="0.01" placeholder="0.00" {...register('original_price')} />
-                <Input label="Discount %" type="number" step="0.01" placeholder="0" {...register('discount_percentage')} />
+          {/* Tab: Pricing
+              Phase 44.2 — mutual exclusion between "is_free" and the
+              three paid fields (price / original_price / discount %).
+              A course is EITHER free OR paid — both states at once is
+              a billing bug waiting to happen (price > 0 with is_free
+              would still charge users on the storefront because the
+              cart code checks the price). When is_free is on we wipe
+              and disable the paid inputs; when any paid input is
+              non-zero we force is_free off. */}
+          {activeTab === 'pricing' && (() => {
+            const isFree = !!watch('is_free');
+            const priceVal = Number(watch('price') || 0);
+            const origVal  = Number(watch('original_price') || 0);
+            const discVal  = Number(watch('discount_percentage') || 0);
+            const hasPaidValue = priceVal > 0 || origVal > 0 || discVal > 0;
+            return (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <Input
+                    label="Price"
+                    type="number" step="0.01" min={0}
+                    placeholder={isFree ? '—' : '0.00'}
+                    disabled={isFree}
+                    {...register('price')}
+                  />
+                  <Input
+                    label="Original Price"
+                    type="number" step="0.01" min={0}
+                    placeholder={isFree ? '—' : '0.00'}
+                    disabled={isFree}
+                    {...register('original_price')}
+                  />
+                  <Input
+                    label="Discount %"
+                    type="number" step="0.01" min={0} max={100}
+                    placeholder={isFree ? '—' : '0'}
+                    disabled={isFree}
+                    {...register('discount_percentage')}
+                  />
+                </div>
+                <Input label="Refund Days" type="number" placeholder="0" {...register('refund_days')} />
+                <label className={cn(
+                  'flex items-center gap-2 cursor-pointer select-none',
+                  hasPaidValue && 'opacity-60 cursor-not-allowed',
+                )}>
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed"
+                    // Disable the checkbox when any paid value is set so
+                    // the admin can't tick "free" while a price exists.
+                    disabled={hasPaidValue}
+                    {...register('is_free', {
+                      onChange: (e) => {
+                        // Toggling to "free" → zero out the paid trio.
+                        // We use setValue so the form state is fully in
+                        // sync (the disabled inputs above would skip the
+                        // submit otherwise).
+                        if (e.target.checked) {
+                          setValue('price',                '0', { shouldDirty: true });
+                          setValue('original_price',       '0', { shouldDirty: true });
+                          setValue('discount_percentage',  '0', { shouldDirty: true });
+                        }
+                      },
+                    })}
+                  />
+                  <span className="text-sm font-medium text-slate-700">This is a free course</span>
+                  {hasPaidValue && (
+                    <span className="text-xs text-slate-500 ml-2">
+                      — clear the price fields above to mark it free
+                    </span>
+                  )}
+                </label>
               </div>
-              <Input label="Refund Days" type="number" placeholder="0" {...register('refund_days')} />
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" {...register('is_free')} />
-                <span className="text-sm font-medium text-slate-700">This is a free course</span>
-              </label>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Tab: Details */}
           {activeTab === 'details' && (
