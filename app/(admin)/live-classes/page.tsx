@@ -635,31 +635,40 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
         </form>
       </Dialog>
 
-      {/* ═══ SESSION VIEW DIALOG ═══ */}
+      {/* ═══ SESSION VIEW DIALOG ═══
+           Phase 44.1 — Dialog body has no built-in padding (see
+           components/ui/Dialog.tsx — the inner `max-h…overflow-y-auto`
+           div has no `p-*`). Every other admin page wraps its detail
+           view in `p-6 space-y-5` (see enrollments/page.tsx:533). The
+           three view dialogs on this page were missing that wrapper,
+           so the grid sat flush against the modal edges. Adding the
+           wrapper matches the canonical pattern. */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} title="Session Details" size="lg">
         {viewLoading ? (
-          <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-6 rounded" />)}</div>
+          <div className="p-6 space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-6 rounded" />)}</div>
         ) : viewItem ? (
-          <div className="grid grid-cols-2 gap-4">
-            <DetailRow label="ID" value={String(viewItem.id)} />
-            <DetailRow label="Title" value={viewItem.title} />
-            <DetailRow label="Description" value={viewItem.description} />
-            <DetailRow label="Item Type" value={capitalize(viewItem.item_type || '')} />
-            <DetailRow label="Item ID" value={String(viewItem.item_id || '--')} />
-            <DetailRow label="Instructor" value={viewItem.instructor?.name || String(viewItem.instructor_id || '--')} />
-            <DetailRow label="Status" value={capitalize(viewItem.session_status || '')} />
-            <DetailRow label="Platform" value={capitalize(viewItem.meeting_platform || '')} />
-            <DetailRow label="Scheduled At" value={formatDateTime(viewItem.scheduled_at)} />
-            <DetailRow label="Duration" value={viewItem.duration_minutes ? `${viewItem.duration_minutes} min` : '--'} />
-            <DetailRow label="Meeting URL" value={viewItem.meeting_url} />
-            <DetailRow label="Meeting ID" value={viewItem.meeting_id} />
-            <DetailRow label="Meeting Password" value={viewItem.meeting_password} />
-            <DetailRow label="Max Attendees" value={String(viewItem.max_attendees || '--')} />
-            <DetailRow label="Recurring" value={viewItem.is_recurring ? 'Yes' : 'No'} />
-            <DetailRow label="Recurrence Rule" value={viewItem.recurrence_rule ? JSON.stringify(viewItem.recurrence_rule) : '--'} />
-            <DetailRow label="Parent Session ID" value={String(viewItem.parent_session_id || '--')} />
-            <DetailRow label="Created" value={fromNow(viewItem.created_at)} />
-            <DetailRow label="Updated" value={fromNow(viewItem.updated_at)} />
+          <div className="p-6">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+              <DetailRow label="ID" value={String(viewItem.id)} />
+              <DetailRow label="Title" value={viewItem.title} />
+              <DetailRow label="Description" value={viewItem.description} />
+              <DetailRow label="Item Type" value={capitalize(viewItem.item_type || '')} />
+              <DetailRow label="Item ID" value={String(viewItem.item_id || '--')} />
+              <DetailRow label="Instructor" value={viewItem.instructor?.name || String(viewItem.instructor_id || '--')} />
+              <DetailRow label="Status" value={capitalize(viewItem.session_status || '')} />
+              <DetailRow label="Platform" value={capitalize(viewItem.meeting_platform || '')} />
+              <DetailRow label="Scheduled At" value={formatDateTime(viewItem.scheduled_at)} />
+              <DetailRow label="Duration" value={viewItem.duration_minutes ? `${viewItem.duration_minutes} min` : '--'} />
+              <DetailRow label="Meeting URL" value={viewItem.meeting_url} />
+              <DetailRow label="Meeting ID" value={viewItem.meeting_id} />
+              <DetailRow label="Meeting Password" value={viewItem.meeting_password} />
+              <DetailRow label="Max Attendees" value={String(viewItem.max_attendees || '--')} />
+              <DetailRow label="Recurring" value={viewItem.is_recurring ? 'Yes' : 'No'} />
+              <DetailRow label="Recurrence Rule" value={viewItem.recurrence_rule ? JSON.stringify(viewItem.recurrence_rule) : '--'} />
+              <DetailRow label="Parent Session ID" value={String(viewItem.parent_session_id || '--')} />
+              <DetailRow label="Created" value={fromNow(viewItem.created_at)} />
+              <DetailRow label="Updated" value={fromNow(viewItem.updated_at)} />
+            </div>
           </div>
         ) : null}
       </Dialog>
@@ -1012,20 +1021,22 @@ function AttendanceTab() {
       {/* ═══ ATTENDANCE VIEW DIALOG ═══ */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} title="Attendance Details" size="md">
         {viewLoading ? (
-          <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-6 rounded" />)}</div>
+          <div className="p-6 space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-6 rounded" />)}</div>
         ) : viewItem ? (
-          <div className="grid grid-cols-2 gap-4">
-            <DetailRow label="ID" value={String(viewItem.id)} />
-            <DetailRow label="Session" value={viewItem.session?.title || `#${viewItem.session_id}`} />
-            <DetailRow label="User" value={viewItem.user?.name || `#${viewItem.user_id}`} />
-            <DetailRow label="Status" value={capitalize(viewItem.attendance_status || '')} />
-            <DetailRow label="Joined At" value={formatDateTime(viewItem.joined_at)} />
-            <DetailRow label="Left At" value={formatDateTime(viewItem.left_at)} />
-            <DetailRow label="Duration Attended" value={viewItem.duration_attended ? `${viewItem.duration_attended} min` : '--'} />
-            <DetailRow label="Rating" value={viewItem.rating ? `${viewItem.rating}/5` : '--'} />
-            <DetailRow label="Feedback" value={viewItem.feedback} />
-            <DetailRow label="Created" value={fromNow(viewItem.created_at)} />
-            <DetailRow label="Updated" value={fromNow(viewItem.updated_at)} />
+          <div className="p-6">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+              <DetailRow label="ID" value={String(viewItem.id)} />
+              <DetailRow label="Session" value={viewItem.session?.title || `#${viewItem.session_id}`} />
+              <DetailRow label="User" value={viewItem.user?.name || `#${viewItem.user_id}`} />
+              <DetailRow label="Status" value={capitalize(viewItem.attendance_status || '')} />
+              <DetailRow label="Joined At" value={formatDateTime(viewItem.joined_at)} />
+              <DetailRow label="Left At" value={formatDateTime(viewItem.left_at)} />
+              <DetailRow label="Duration Attended" value={viewItem.duration_attended ? `${viewItem.duration_attended} min` : '--'} />
+              <DetailRow label="Rating" value={viewItem.rating ? `${viewItem.rating}/5` : '--'} />
+              <DetailRow label="Feedback" value={viewItem.feedback} />
+              <DetailRow label="Created" value={fromNow(viewItem.created_at)} />
+              <DetailRow label="Updated" value={fromNow(viewItem.updated_at)} />
+            </div>
           </div>
         ) : null}
       </Dialog>
@@ -1342,19 +1353,21 @@ function RecordingsTab() {
       {/* ═══ RECORDING VIEW DIALOG ═══ */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} title="Recording Details" size="md">
         {viewLoading ? (
-          <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-6 rounded" />)}</div>
+          <div className="p-6 space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-6 rounded" />)}</div>
         ) : viewItem ? (
-          <div className="grid grid-cols-2 gap-4">
-            <DetailRow label="ID" value={String(viewItem.id)} />
-            <DetailRow label="Session" value={viewItem.session?.title || `#${viewItem.session_id}`} />
-            <DetailRow label="Title" value={viewItem.title} />
-            <DetailRow label="Status" value={capitalize(viewItem.recording_status || '')} />
-            <DetailRow label="Recording URL" value={viewItem.recording_url} />
-            <DetailRow label="Bunny Video ID" value={viewItem.bunny_video_id} />
-            <DetailRow label="Duration" value={viewItem.duration_seconds ? formatDuration(viewItem.duration_seconds) : '--'} />
-            <DetailRow label="File Size" value={viewItem.file_size_bytes ? formatFileSize(viewItem.file_size_bytes) : '--'} />
-            <DetailRow label="Created" value={fromNow(viewItem.created_at)} />
-            <DetailRow label="Updated" value={fromNow(viewItem.updated_at)} />
+          <div className="p-6">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+              <DetailRow label="ID" value={String(viewItem.id)} />
+              <DetailRow label="Session" value={viewItem.session?.title || `#${viewItem.session_id}`} />
+              <DetailRow label="Title" value={viewItem.title} />
+              <DetailRow label="Status" value={capitalize(viewItem.recording_status || '')} />
+              <DetailRow label="Recording URL" value={viewItem.recording_url} />
+              <DetailRow label="Bunny Video ID" value={viewItem.bunny_video_id} />
+              <DetailRow label="Duration" value={viewItem.duration_seconds ? formatDuration(viewItem.duration_seconds) : '--'} />
+              <DetailRow label="File Size" value={viewItem.file_size_bytes ? formatFileSize(viewItem.file_size_bytes) : '--'} />
+              <DetailRow label="Created" value={fromNow(viewItem.created_at)} />
+              <DetailRow label="Updated" value={fromNow(viewItem.updated_at)} />
+            </div>
           </div>
         ) : null}
       </Dialog>
