@@ -107,7 +107,13 @@ export default function CourseBatchesPage() {
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const router = useRouter();
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
+
+  // Phase 44.4 — today's ISO date for `min=` attrs on the schedule
+  // inputs. We compute it once per render so the constraint moves with
+  // the user across midnight (yesterday's value would block today's
+  // pick from the date popover).
+  const todayISO = new Date().toISOString().slice(0, 10);
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
@@ -269,6 +275,23 @@ export default function CourseBatchesPage() {
   }
 
   async function onSubmit(data: any) {
+    // Phase 44.4 — server-side-equivalent guards in case the user
+    // bypassed the per-field validators via DevTools. RHF's
+    // handleSubmit only runs registered validators; an admin who
+    // disabled them in the browser console would otherwise post a
+    // start==end or start>end row.
+    if (data.start_date && data.end_date && data.end_date <= data.start_date) {
+      toast.error('End date must be AFTER start date');
+      return;
+    }
+    if (!editing && data.start_date) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (data.start_date < today) {
+        toast.error('Start date cannot be in the past');
+        return;
+      }
+    }
+
     const payload: Record<string, any> = {};
     Object.keys(data).forEach(k => {
       const v = data[k];
@@ -760,11 +783,72 @@ export default function CourseBatchesPage() {
               </div>
             </div>
 
+            {/* Phase 44.4 — parent Course card. The batch is a CHILD of
+                a course; admins reviewing batch details need that parent
+                context inline. Renders the course thumbnail, name + code,
+                status & difficulty chips, and the course-level base price
+                (so they can compare against this batch's price below). */}
+            {viewing.courses && (
+              <div className="mb-6 p-4 rounded-lg border border-slate-200 bg-slate-50/50">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Parent Course</p>
+                <div className="flex items-start gap-3">
+                  {/* Thumbnail (16:9, falls back to a slate placeholder
+                      with the course initial) */}
+                  {viewing.courses.trailer_thumbnail_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={viewing.courses.trailer_thumbnail_url}
+                      alt={viewing.courses.name || 'Course thumbnail'}
+                      className="w-28 h-16 rounded object-cover bg-slate-100 border border-slate-200 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-28 h-16 rounded bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 text-lg font-bold flex-shrink-0">
+                      {(viewing.courses.name || viewing.courses.code || '?').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 truncate">
+                      {viewing.courses.name || `Course #${viewing.courses.id}`}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {viewing.courses.code && (
+                        <span className="text-[11px] font-mono text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                          {viewing.courses.code}
+                        </span>
+                      )}
+                      {viewing.courses.course_status && (
+                        <span className="inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                          {String(viewing.courses.course_status).replace(/_/g, ' ')}
+                        </span>
+                      )}
+                      {viewing.courses.difficulty_level && (
+                        <span className="inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
+                          {String(viewing.courses.difficulty_level).replace(/_/g, ' ')}
+                        </span>
+                      )}
+                      {viewing.courses.is_free ? (
+                        <span className="inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                          FREE
+                        </span>
+                      ) : viewing.courses.price != null ? (
+                        <span className="text-[11px] text-slate-600">
+                          Course price · {formatPrice(viewing.courses.price, false)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {viewing.courses.slug && (
+                      <div className="mt-1 text-[11px] text-slate-500 truncate font-mono">/{viewing.courses.slug}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Detail grid */}
             <div className="grid grid-cols-3 gap-x-8 gap-y-4">
               <DetailRow label="Code" value={viewing.code} />
               <DetailRow label="Slug" value={viewing.slug ? `/${viewing.slug}` : undefined} />
-              <DetailRow label="Course" value={viewing.courses?.title} />
+              <DetailRow label="Course" value={viewing.courses?.name || viewing.courses?.code} />
               <DetailRow label="Instructor" value={viewing.users?.full_name || (viewing.instructor_id ? `ID: ${viewing.instructor_id}` : undefined)} />
               <DetailRow label="Price" value={viewing.is_free ? 'FREE' : formatPrice(viewing.price, false)} />
               <DetailRow label="Capacity" value={`${viewing.enrolled_count || 0} / ${viewing.max_students || 'Unlimited'}`} />
@@ -805,8 +889,49 @@ export default function CourseBatchesPage() {
           {activeTab === 'basic' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Title" {...register('title')} placeholder="Batch title (or auto from English translation)" />
-                <Input label="Code" {...register('code')} placeholder="e.g. BATCH-2026-JAN" />
+                {/* Phase 44.4 — Title must contain real words, not just
+                    punctuation. Same rule the profile validators (Phase
+                    43.9) apply on the consumer side: at least one
+                    letter/digit, min 2 chars, max 200. */}
+                <div>
+                  <Input
+                    label="Title *"
+                    placeholder="Batch title (or auto from English translation)"
+                    {...register('title', {
+                      required: 'Title is required',
+                      minLength: { value: 2, message: 'Title must be at least 2 characters' },
+                      maxLength: { value: 200, message: 'Title must be at most 200 characters' },
+                      validate: (v: string) =>
+                        !v?.trim() ? 'Title is required'
+                        : /[\p{L}\p{N}]/u.test(v) ? true
+                        : 'Title must contain letters or digits — special characters alone aren\'t enough',
+                    })}
+                  />
+                  {errors.title && (
+                    <p className="text-xs text-rose-600 mt-1">{String(errors.title.message)}</p>
+                  )}
+                </div>
+                {/* Phase 44.4 — Code must look like a slug-y identifier:
+                    uppercase letters, digits, dashes, dots, underscores
+                    only. No special chars or spaces. */}
+                <div>
+                  <Input
+                    label="Code *"
+                    placeholder="e.g. BATCH-2026-JAN"
+                    {...register('code', {
+                      required: 'Code is required',
+                      minLength: { value: 2, message: 'Code must be at least 2 characters' },
+                      maxLength: { value: 50, message: 'Code must be at most 50 characters' },
+                      pattern: {
+                        value: /^[A-Z0-9][A-Z0-9._-]*$/,
+                        message: 'Code: uppercase letters, digits, dashes, dots, underscores only — no spaces or symbols',
+                      },
+                    })}
+                  />
+                  {errors.code && (
+                    <p className="text-xs text-rose-600 mt-1">{String(errors.code.message)}</p>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Slug" {...register('slug')} placeholder="auto-generated or custom" />
@@ -852,8 +977,61 @@ export default function CourseBatchesPage() {
           {activeTab === 'schedule' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Start Date" type="date" {...register('start_date')} />
-                <Input label="End Date" type="date" {...register('end_date')} />
+                {/* Phase 44.4 — Start date rules:
+                    • Required.
+                    • For NEW batches: cannot be in the past.
+                    • For EDITING an existing batch: the previously-saved
+                      past date stays acceptable (the user shouldn't be
+                      forced to bump every old batch when they tweak
+                      something unrelated). */}
+                <div>
+                  <Input
+                    label="Start Date *"
+                    type="date"
+                    min={editing ? undefined : todayISO}
+                    {...register('start_date', {
+                      required: 'Start date is required',
+                      validate: (v: string) => {
+                        if (!v) return 'Start date is required';
+                        if (!editing && v < todayISO) {
+                          return 'Start date cannot be in the past';
+                        }
+                        return true;
+                      },
+                    })}
+                  />
+                  {errors.start_date && (
+                    <p className="text-xs text-rose-600 mt-1">{String(errors.start_date.message)}</p>
+                  )}
+                </div>
+                {/* Phase 44.4 — End date rules:
+                    • Required.
+                    • Must be STRICTLY AFTER start date (same-day not
+                      allowed — a batch with start==end is meaningless).
+                    HTML5 `min` mirrors the start date so the browser
+                    blocks bad picks before submit even reaches our
+                    validator. */}
+                <div>
+                  <Input
+                    label="End Date *"
+                    type="date"
+                    min={watch('start_date') || todayISO}
+                    {...register('end_date', {
+                      required: 'End date is required',
+                      validate: (v: string) => {
+                        if (!v) return 'End date is required';
+                        const start = watch('start_date');
+                        if (start && v <= start) {
+                          return 'End date must be AFTER start date';
+                        }
+                        return true;
+                      },
+                    })}
+                  />
+                  {errors.end_date && (
+                    <p className="text-xs text-rose-600 mt-1">{String(errors.end_date.message)}</p>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Meeting Platform" {...register('meeting_platform')} placeholder="e.g. Zoom, Google Meet" />
