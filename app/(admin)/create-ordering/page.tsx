@@ -489,7 +489,12 @@ export default function CreateOrderingPage() {
         is_mandatory: isMandatory,
         is_active: isActive,
         partial_scoring: partialScoring,
-        items: items.filter(it => it.item_text.trim()).map((it, idx) => ({
+        // Phase 44.8 Bug 3 — round-trip the existing item id so the
+        // backend can match in place and avoid wiping Hindi translations.
+        // New items added by the admin have no id (undefined) and the
+        // backend treats them as inserts.
+        items: items.filter(it => it.item_text.trim()).map((it: any, idx) => ({
+          id: it.id ?? undefined,
           item_text: it.item_text.trim(),
           correct_position: it.correct_position || idx + 1,
         })),

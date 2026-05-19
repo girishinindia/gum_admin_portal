@@ -485,7 +485,11 @@ export default function CreateMatchingPage() {
         is_mandatory: isMandatory,
         is_active: isActive,
         partial_scoring: partialScoring,
-        pairs: pairs.filter(p => p.left_text.trim() && p.right_text.trim()).map((p, idx) => ({
+        // Phase 44.8 Bug 4 — round-trip the existing pair id so the
+        // backend can match in place and avoid wiping Hindi translations.
+        // New pairs added by the admin have no id (undefined).
+        pairs: pairs.filter(p => p.left_text.trim() && p.right_text.trim()).map((p: any, idx) => ({
+          id: p.id ?? undefined,
           left_text: p.left_text.trim(),
           right_text: p.right_text.trim(),
           display_order: idx + 1,

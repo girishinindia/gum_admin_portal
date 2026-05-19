@@ -96,6 +96,36 @@ function ViewField({ label, value, mono }: { label: string; value?: string | nul
   );
 }
 
+/**
+ * Phase 44.7 Bug 3 — render an image URL as a thumbnail preview in view
+ * dialogs instead of just printing the URL text. Used for OG / Twitter
+ * images on the Open Graph + Twitter tabs of the View dialog.
+ *
+ * The edit dialog already uses <ImageUpload/> with drag-drop — only the
+ * view dialog was showing the raw URL string. Falls back to "Not set"
+ * when no URL is present, identical to ViewField.
+ */
+function ViewImage({ label, value, aspect = 'aspect-[1200/630]' }: { label: string; value?: string | null; aspect?: string }) {
+  return (
+    <div>
+      <span className="block text-xs font-medium text-slate-500 mb-1">{label}</span>
+      {value ? (
+        <div className="space-y-1.5">
+          <div className={cn('w-full max-w-xs rounded-lg border border-slate-200 overflow-hidden bg-slate-50', aspect)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={value} alt={label} className="w-full h-full object-cover" />
+          </div>
+          <a href={value} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline">
+            Open original ↗
+          </a>
+        </div>
+      ) : (
+        <p className="text-sm text-slate-300 italic">Not set</p>
+      )}
+    </div>
+  );
+}
+
 function jsonPretty(val: any): string {
   if (!val) return '';
   if (typeof val === 'string') return val;
@@ -822,7 +852,8 @@ export default function BundleTranslationsPage() {
               <div className="space-y-3">
                 <ViewField label="OG Title" value={viewItem.og_title} />
                 <ViewField label="OG Description" value={viewItem.og_description} />
-                <ViewField label="OG Image" value={viewItem.og_image} />
+                {/* Phase 44.7 Bug 3 — render as image preview (1200×630, OG spec) */}
+                <ViewImage label="OG Image" value={viewItem.og_image} aspect="aspect-[1200/630]" />
                 <ViewField label="OG URL" value={viewItem.og_url} />
               </div>
             )}
@@ -831,7 +862,8 @@ export default function BundleTranslationsPage() {
               <div className="space-y-3">
                 <ViewField label="Twitter Title" value={viewItem.twitter_title} />
                 <ViewField label="Twitter Description" value={viewItem.twitter_description} />
-                <ViewField label="Twitter Image" value={viewItem.twitter_image} />
+                {/* Phase 44.7 Bug 3 — render as image preview (Twitter summary_large_image is 2:1) */}
+                <ViewImage label="Twitter Image" value={viewItem.twitter_image} aspect="aspect-[2/1]" />
                 <ViewField label="Twitter Card" value={viewItem.twitter_card} />
               </div>
             )}

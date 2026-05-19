@@ -525,7 +525,10 @@ export default function CreateMcqPage() {
         display_order: displayOrder === '' ? undefined : displayOrder,
         is_mandatory: isMandatory,
         is_active: isActive,
-        options: options.map((o, idx) => ({
+        // Phase 44.8 Bug 4c — round-trip existing option id so backend
+        // can match in place and preserve Hindi (and other) translations.
+        options: options.map((o: any, idx) => ({
+          id: o.id ?? undefined,
           option_text: o.option_text.trim(),
           is_correct: o.is_correct,
           display_order: idx + 1,

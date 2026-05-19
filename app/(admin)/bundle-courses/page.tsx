@@ -245,7 +245,11 @@ export default function BundleCoursesPage() {
     payload.bundle_id = Number(fd.get('bundle_id')) || editing.bundle_id;
     payload.course_id = Number(fd.get('course_id')) || editing.course_id;
     payload.display_order = Number(fd.get('display_order')) || 0;
-    payload.is_active = fd.get('is_active') === 'on';
+    // Phase 44.7 Bug 4 — `is_active` is owned by the Status toggle at the
+    // top of the dialog (independent immediate PATCH). The old in-form
+    // checkbox + hidden "off" input fought each other (hidden always won,
+    // forcing is_active=false on every Save) and is now removed entirely.
+    // Do NOT touch is_active here.
     const res = await api.updateBundleCourse(editing.id, payload);
     if (res.success) {
       toast.success('Updated');
@@ -699,12 +703,12 @@ export default function BundleCoursesPage() {
               <input type="number" name="display_order" defaultValue={editing.display_order ?? 0} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
 
-            {/* Hidden checkbox for is_active so form data captures it */}
-            <input type="hidden" name="is_active" value="off" />
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="is_active" defaultChecked={editing.is_active} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-              <span className="text-sm font-medium text-slate-700">Active</span>
-            </label>
+            {/* Phase 44.7 Bug 4 — the in-form "Active" checkbox + hidden
+                input that used to live here was dead (the hidden input
+                shadowed the checkbox in FormData.get, forcing every Save
+                to send is_active=false). The Status toggle at the top of
+                the dialog now owns is_active via its independent PATCH —
+                same pattern as every other admin module. */}
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>

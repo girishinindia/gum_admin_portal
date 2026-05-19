@@ -81,9 +81,22 @@ export default function BundlesPage() {
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const router = useRouter();
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, getValues, formState: { errors } } = useForm();
   const [slugManual, setSlugManual] = useState(false);
   const watchedCode = watch('code');
+
+  // Phase 44.7 Bug 2 — auto-calc discount % whenever price or original_price
+  // changes. We keep discount as a derived field (read-only in UI) since the
+  // canonical relationship is: discount = (1 − price / original_price) × 100.
+  // When original_price is missing or zero we leave discount at 0.
+  const watchedPrice = watch('price');
+  const watchedOriginalPrice = watch('original_price');
+  useEffect(() => {
+    const op = Number(watchedOriginalPrice) || 0;
+    const p  = Number(watchedPrice) || 0;
+    const d  = op > 0 && p >= 0 ? Math.max(0, Math.round(((op - p) / op) * 100)) : 0;
+    setValue('discount_percentage', d, { shouldDirty: true, shouldValidate: false });
+  }, [watchedPrice, watchedOriginalPrice, setValue]);
 
   // Auto-generate slug from code
   useEffect(() => {
@@ -824,9 +837,43 @@ export default function BundlesPage() {
           {activeTab === 'pricing' && (
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
-                <Input label="Price" type="number" step="0.01" placeholder="0.00" {...register('price')} />
-                <Input label="Original Price" type="number" step="0.01" placeholder="0.00" {...register('original_price')} />
-                <Input label="Discount %" type="number" step="0.01" placeholder="0" {...register('discount_percentage')} />
+                {/* Phase 44.7 Bug 2 — price must be ≤ original_price (MRP).
+                    Discount % is derived from the two prices via useEffect
+                    above, so we render it read-only with an "auto" hint. */}
+                <Input
+                  label="Price *"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  error={errors.price?.message as string | undefined}
+                  {...register('price', {
+                    valueAsNumber: false,
+                    validate: (v) => {
+                      const p = Number(v);
+                      if (Number.isNaN(p) || p < 0) return 'Price must be a non-negative number';
+                      const op = Number(getValues('original_price')) || 0;
+                      if (op > 0 && p > op) return 'Price must be ≤ Original Price';
+                      return true;
+                    },
+                  })}
+                />
+                <Input
+                  label="Original Price"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  hint="MRP — must be ≥ Price"
+                  {...register('original_price')}
+                />
+                <Input
+                  label="Discount %"
+                  type="number"
+                  step="0.01"
+                  placeholder="0"
+                  readOnly
+                  hint="auto-calculated"
+                  {...register('discount_percentage')}
+                />
               </div>
               <Input label="Validity (days)" type="number" placeholder="365" {...register('validity_days')} />
             </div>

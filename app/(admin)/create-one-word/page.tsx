@@ -488,7 +488,10 @@ export default function CreateOneWordPage() {
         is_active: isActive,
         is_case_sensitive: isCaseSensitive,
         is_trim_whitespace: isTrimWhitespace,
-        synonyms: synonyms.filter(s => s.synonym_text.trim()).map(s => ({
+        // Phase 44.8 Bug 4b — round-trip existing synonym id so backend
+        // can match in place and preserve Hindi (and other) translations.
+        synonyms: synonyms.filter(s => s.synonym_text.trim()).map((s: any) => ({
+          id: s.id ?? undefined,
           synonym_text: s.synonym_text.trim(),
         })),
       };

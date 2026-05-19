@@ -79,6 +79,11 @@ export default function CoursesPage() {
   const [viewing, setViewing] = useState<any | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
   const [activeTab, setActiveTab] = useState('basic');
+  // Phase 44.6.4 — lock the Save button while a save is in flight. Course saves
+  // with a 25 MB video can take 30–60 s; without this lock the admin can't tell
+  // whether it's working and either double-clicks (firing two parallel uploads
+  // that orphan a Bunny video) or closes the dialog mid-upload.
+  const [saving, setSaving] = useState(false);
 
   // Pagination, search, sort, filter
   const [page, setPage] = useState(1);
@@ -312,6 +317,13 @@ export default function CoursesPage() {
   }
 
   async function onSubmit(data: any) {
+    // Phase 44.6.4 — guard against re-entry while a save is in flight.
+    // React-hook-form already blocks re-submits during isSubmitting, but
+    // we also use `saving` below to disable buttons and show progress
+    // text, so flip it as the first thing we do.
+    if (saving) return;
+    setSaving(true);
+
     // Phase 44.2 — belt-and-braces guard against the "free + priced"
     // conflict. The UI already disables the paid inputs when is_free is
     // on, but an admin could re-enable them via DevTools or paste-edit
@@ -352,45 +364,58 @@ export default function CoursesPage() {
     });
 
     const hasFiles = !!(trailerThumbFile || brochureFile || trailerVideoFile || videoFile);
-    let res;
-    if (hasFiles) {
-      // Build multipart form data
-      const fd = new FormData();
-      Object.entries(payload).forEach(([k, v]) => {
-        if (v === null || v === undefined) return;
-        fd.append(k, typeof v === 'boolean' ? String(v) : String(v));
-      });
-      // Existing URLs (preserved if user did not pick a new file)
-      if (trailerThumbUrl && !trailerThumbFile) fd.append('trailer_thumbnail_url', trailerThumbUrl);
-      if (brochureUrl && !brochureFile) fd.append('brochure_url', brochureUrl);
-      if (trailerVideoUrl && !trailerVideoFile) fd.append('trailer_video_url', trailerVideoUrl);
-      if (videoUrl && !videoFile) fd.append('video_url', videoUrl);
-      // New files
-      if (trailerThumbFile) fd.append('trailer_thumbnail', trailerThumbFile, trailerThumbFile.name);
-      if (brochureFile) fd.append('brochure', brochureFile, brochureFile.name);
-      if (trailerVideoFile) fd.append('trailer_video', trailerVideoFile, trailerVideoFile.name);
-      if (videoFile) fd.append('video', videoFile, videoFile.name);
-      res = editing
-        ? await api.updateCourse(editing.id, fd, true)
-        : await api.createCourse(fd, true);
-    } else {
-      // JSON path — include preserved URLs (or explicit nulls if user cleared them)
-      if (trailerThumbUrl) payload.trailer_thumbnail_url = trailerThumbUrl;
-      else if (editing?.trailer_thumbnail_url && trailerThumbUrl === null) payload.trailer_thumbnail_url = null;
-      if (brochureUrl) payload.brochure_url = brochureUrl;
-      else if (editing?.brochure_url && brochureUrl === null) payload.brochure_url = null;
-      if (trailerVideoUrl) payload.trailer_video_url = trailerVideoUrl;
-      else if (editing?.trailer_video_url && trailerVideoUrl === null) payload.trailer_video_url = null;
-      if (videoUrl) payload.video_url = videoUrl;
-      else if (editing?.video_url && videoUrl === null) payload.video_url = null;
-      res = editing
-        ? await api.updateCourse(editing.id, payload)
-        : await api.createCourse(payload);
+    // Phase 44.6.4 — wrap the API call so `saving` always clears (success,
+    // failure, or thrown). Surface the real error message in the toast so
+    // failures like "Media upload failed: Bunny Stream create failed: 401"
+    // are visible — previously the user just saw "Failed".
+    let res: any;
+    try {
+      if (hasFiles) {
+        // Build multipart form data
+        const fd = new FormData();
+        Object.entries(payload).forEach(([k, v]) => {
+          if (v === null || v === undefined) return;
+          fd.append(k, typeof v === 'boolean' ? String(v) : String(v));
+        });
+        // Existing URLs (preserved if user did not pick a new file)
+        if (trailerThumbUrl && !trailerThumbFile) fd.append('trailer_thumbnail_url', trailerThumbUrl);
+        if (brochureUrl && !brochureFile) fd.append('brochure_url', brochureUrl);
+        if (trailerVideoUrl && !trailerVideoFile) fd.append('trailer_video_url', trailerVideoUrl);
+        if (videoUrl && !videoFile) fd.append('video_url', videoUrl);
+        // New files
+        if (trailerThumbFile) fd.append('trailer_thumbnail', trailerThumbFile, trailerThumbFile.name);
+        if (brochureFile) fd.append('brochure', brochureFile, brochureFile.name);
+        if (trailerVideoFile) fd.append('trailer_video', trailerVideoFile, trailerVideoFile.name);
+        if (videoFile) fd.append('video', videoFile, videoFile.name);
+        res = editing
+          ? await api.updateCourse(editing.id, fd, true)
+          : await api.createCourse(fd, true);
+      } else {
+        // JSON path — include preserved URLs (or explicit nulls if user cleared them)
+        if (trailerThumbUrl) payload.trailer_thumbnail_url = trailerThumbUrl;
+        else if (editing?.trailer_thumbnail_url && trailerThumbUrl === null) payload.trailer_thumbnail_url = null;
+        if (brochureUrl) payload.brochure_url = brochureUrl;
+        else if (editing?.brochure_url && brochureUrl === null) payload.brochure_url = null;
+        if (trailerVideoUrl) payload.trailer_video_url = trailerVideoUrl;
+        else if (editing?.trailer_video_url && trailerVideoUrl === null) payload.trailer_video_url = null;
+        if (videoUrl) payload.video_url = videoUrl;
+        else if (editing?.video_url && videoUrl === null) payload.video_url = null;
+        res = editing
+          ? await api.updateCourse(editing.id, payload)
+          : await api.createCourse(payload);
+      }
+      if (res?.success) {
+        toast.success(editing ? 'Course updated' : 'Course created');
+        setDialogOpen(false); load(); refreshSummary();
+      } else {
+        toast.error(res?.error || res?.message || 'Save failed — see server logs');
+      }
+    } catch (e: any) {
+      // Network failures, aborts, or thrown wrapper errors land here.
+      toast.error(e?.message || 'Save failed — connection error');
+    } finally {
+      setSaving(false);
     }
-    if (res.success) {
-      toast.success(editing ? 'Course updated' : 'Course created');
-      setDialogOpen(false); load(); refreshSummary();
-    } else toast.error(res.error || 'Failed');
   }
 
   async function onSoftDelete(c: any) {
@@ -948,7 +973,7 @@ export default function CoursesPage() {
       </Dialog>
 
       {/* ── Create / Edit Dialog ── */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Course' : 'Add Course'} size="lg">
+      <Dialog open={dialogOpen} onClose={() => { if (!saving) setDialogOpen(false); }} title={editing ? 'Edit Course' : 'Add Course'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {/* Active toggle -- only shown when editing */}
           {editing && (
@@ -1233,9 +1258,33 @@ export default function CoursesPage() {
             <p className="text-sm text-slate-500">Stats are only available when editing an existing course.</p>
           )}
 
+          {/* Phase 44.6.4 — saving lock + progress strip. While `saving` is
+              true: Cancel + Save both disable, button shows a spinner and
+              "Uploading…" copy, and an explanatory line appears so the admin
+              knows a 25 MB video upload may take 30–60 s and they shouldn't
+              close the tab. */}
+          {saving && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4"/>
+                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
+              </svg>
+              Saving… large videos can take 30–60 seconds. Please don't close this dialog.
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">{editing ? 'Save changes' : 'Create'}</Button>
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? (
+                <span className="inline-flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4"/>
+                    <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
+                  </svg>
+                  Uploading…
+                </span>
+              ) : (editing ? 'Save changes' : 'Create')}
+            </Button>
           </div>
         </form>
       </Dialog>

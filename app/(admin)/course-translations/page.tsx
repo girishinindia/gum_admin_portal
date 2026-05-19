@@ -115,6 +115,31 @@ function ViewField({ label, value, mono }: { label: string; value?: string | nul
   );
 }
 
+/**
+ * Phase 44.7 Bug 3 — render an image URL as a thumbnail preview in view
+ * dialogs. Mirror of the helper in bundle-translations/page.tsx.
+ */
+function ViewImage({ label, value, aspect = 'aspect-[1200/630]' }: { label: string; value?: string | null; aspect?: string }) {
+  return (
+    <div>
+      <span className="block text-xs font-medium text-slate-500 mb-1">{label}</span>
+      {value ? (
+        <div className="space-y-1.5">
+          <div className={cn('w-full max-w-xs rounded-lg border border-slate-200 overflow-hidden bg-slate-50', aspect)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={value} alt={label} className="w-full h-full object-cover" />
+          </div>
+          <a href={value} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline">
+            Open original ↗
+          </a>
+        </div>
+      ) : (
+        <p className="text-sm text-slate-300 italic">Not set</p>
+      )}
+    </div>
+  );
+}
+
 function jsonPretty(val: any): string {
   if (!val) return '';
   if (typeof val === 'string') return val;
@@ -130,6 +155,10 @@ export default function CourseTranslationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CourseTranslation | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
+  // Phase 44.6.4 — lock the Save button during multipart image uploads so
+  // admins don't double-submit or close the dialog while OG/Twitter/banner
+  // images are still uploading to Bunny.
+  const [saving, setSaving] = useState(false);
   const [filterCourse, setFilterCourse] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -411,6 +440,11 @@ export default function CourseTranslationsPage() {
   }
 
   async function onSubmit(data: any) {
+    // Phase 44.6.4 — re-entry guard + try/finally so the Save button always
+    // re-enables and the toast carries the real error string from the API.
+    if (saving) return;
+    setSaving(true);
+
     const fd = new FormData();
 
     // Scalar text fields
@@ -451,13 +485,21 @@ export default function CourseTranslationsPage() {
     if (ogImageFile)      fd.append('og_image_file',      ogImageFile,      ogImageFile.name);
     if (twitterImageFile) fd.append('twitter_image_file', twitterImageFile, twitterImageFile.name);
 
-    const res = editing
-      ? await api.updateCourseTranslation(editing.id, fd, true)
-      : await api.createCourseTranslation(fd, true);
-    if (res.success) {
-      toast.success(editing ? 'Translation updated' : 'Translation created');
-      setDialogOpen(false); load(); refreshSummary(); loadCoverage();
-    } else toast.error(res.error || 'Failed');
+    try {
+      const res = editing
+        ? await api.updateCourseTranslation(editing.id, fd, true)
+        : await api.createCourseTranslation(fd, true);
+      if (res?.success) {
+        toast.success(editing ? 'Translation updated' : 'Translation created');
+        setDialogOpen(false); load(); refreshSummary(); loadCoverage();
+      } else {
+        toast.error(res?.error || res?.message || 'Save failed — see server logs');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Save failed — connection error');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function onSoftDelete(item: CourseTranslation) {
@@ -898,7 +940,8 @@ export default function CourseTranslationsPage() {
                 <ViewField label="OG Title" value={viewItem.og_title} />
                 <ViewField label="OG Description" value={viewItem.og_description} />
                 <ViewField label="OG Type" value={viewItem.og_type} />
-                <ViewField label="OG Image" value={viewItem.og_image} />
+                {/* Phase 44.7 Bug 3 — render as image preview (1200×630, OG spec) */}
+                <ViewImage label="OG Image" value={viewItem.og_image} aspect="aspect-[1200/630]" />
                 <ViewField label="OG URL" value={viewItem.og_url} />
               </div>
             )}
@@ -908,7 +951,8 @@ export default function CourseTranslationsPage() {
                 <ViewField label="Twitter Site" value={viewItem.twitter_site} />
                 <ViewField label="Twitter Title" value={viewItem.twitter_title} />
                 <ViewField label="Twitter Description" value={viewItem.twitter_description} />
-                <ViewField label="Twitter Image" value={viewItem.twitter_image} />
+                {/* Phase 44.7 Bug 3 — render as image preview (summary_large_image is 2:1) */}
+                <ViewImage label="Twitter Image" value={viewItem.twitter_image} aspect="aspect-[2/1]" />
                 <ViewField label="Twitter Card" value={viewItem.twitter_card} />
               </div>
             )}
@@ -939,7 +983,7 @@ export default function CourseTranslationsPage() {
       </Dialog>
 
       {/* ─── Edit / Create Dialog ─── */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Course Translation' : 'Add Course Translation'} size="lg">
+      <Dialog open={dialogOpen} onClose={() => { if (!saving) setDialogOpen(false); }} title={editing ? 'Edit Course Translation' : 'Add Course Translation'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {/* Active toggle -- only shown when editing */}
           {editing && (
@@ -1169,9 +1213,31 @@ export default function CourseTranslationsPage() {
             </div>
           )}
 
+          {/* Phase 44.6.4 — saving progress strip + button lock. Mirrors the
+              pattern in courses/page.tsx so image-heavy translation saves
+              don't leave the admin staring at an unchanged dialog. */}
+          {saving && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4"/>
+                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
+              </svg>
+              Saving… image uploads may take a few seconds. Please don't close this dialog.
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={formLoading}>{editing ? 'Save changes' : 'Create'}</Button>
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
+            <Button type="submit" disabled={saving || formLoading}>
+              {saving ? (
+                <span className="inline-flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4"/>
+                    <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
+                  </svg>
+                  Uploading…
+                </span>
+              ) : (editing ? 'Save changes' : 'Create')}
+            </Button>
           </div>
         </form>
       </Dialog>
