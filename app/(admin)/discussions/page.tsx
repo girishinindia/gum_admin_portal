@@ -632,7 +632,7 @@ export default function DiscussionsPage() {
                         <TD>
                           {item.is_pinned ? <Pin className="w-4 h-4 text-amber-500" /> : <span className="text-slate-300">--</span>}
                         </TD>
-                        <TD><span className="text-sm text-slate-500">{item.created_at ? fromNow(item.created_at) : '--'}</span></TD>
+                        <TD><span className="text-sm text-slate-500 whitespace-nowrap">{item.created_at ? fromNow(item.created_at) : '--'}</span></TD>
                         <TD className="text-right">
                           {actionState ? (
                             <Loader2 className="w-4 h-4 animate-spin text-slate-400 ml-auto" />
@@ -785,7 +785,7 @@ export default function DiscussionsPage() {
                           ) : <span className="text-slate-300">--</span>}
                         </TD>
                         <TD><span className="text-sm text-slate-700">{item.upvote_count ?? 0}</span></TD>
-                        <TD><span className="text-sm text-slate-500">{item.created_at ? fromNow(item.created_at) : '--'}</span></TD>
+                        <TD><span className="text-sm text-slate-500 whitespace-nowrap">{item.created_at ? fromNow(item.created_at) : '--'}</span></TD>
                         <TD className="text-right">
                           {actionState ? (
                             <Loader2 className="w-4 h-4 animate-spin text-slate-400 ml-auto" />

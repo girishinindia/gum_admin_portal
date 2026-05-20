@@ -1,5 +1,6 @@
 "use client";
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 interface DropdownProps {
@@ -10,42 +11,67 @@ interface DropdownProps {
   className?: string;
 }
 
+// Phase 45 — the menu is rendered into document.body via a portal with fixed
+// positioning anchored to the trigger. Previously it was `absolute`, so any
+// ancestor with `overflow-x-auto`/`overflow-hidden` (e.g. scrollable tables)
+// clipped it — the menu was only visible after horizontally scrolling. A
+// body-level portal escapes every clipping container.
 export function Dropdown({ trigger, children, align = 'right', width = 'w-72', className }: DropdownProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left?: number; right?: number } | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const computeCoords = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (align === 'right') setCoords({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) });
+    else setCoords({ top: r.bottom + 8, left: r.left });
+  }, [align]);
 
   useEffect(() => {
+    if (!open) return;
+    computeCoords();
     function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     }
     function onEsc(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false); }
-    if (open) {
-      document.addEventListener('mousedown', onClick);
-      document.addEventListener('keydown', onEsc);
-    }
+    function reposition() { computeCoords(); }
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onEsc);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
     return () => {
       document.removeEventListener('mousedown', onClick);
       document.removeEventListener('keydown', onEsc);
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
     };
-  }, [open]);
+  }, [open, computeCoords]);
 
   return (
-    <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen(!open)} className="focus:outline-none">
+    <div ref={triggerRef} className="relative inline-block">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="focus:outline-none">
         {trigger}
       </button>
-      {open && (
+      {open && coords && typeof document !== 'undefined' && createPortal(
         <div
+          ref={menuRef}
+          style={{ position: 'fixed', top: coords.top, left: coords.left, right: coords.right }}
           className={cn(
-            'absolute top-full mt-2 z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden animate-slide-up',
+            'z-[100] bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden animate-slide-up',
             width,
-            align === 'right' ? 'right-0' : 'left-0',
             className
           )}
-          onClick={(e) => e.stopPropagation()}
+          // Close the menu after an item is chosen (the item's own onClick fires first via bubbling).
+          onClick={() => setOpen(false)}
         >
           {children}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

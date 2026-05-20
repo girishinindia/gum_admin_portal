@@ -1970,8 +1970,11 @@ export const api = {
     return request(`/blog-posts?${q.toString()}`);
   },
   getBlogPost: (id: number) => request(`/blog-posts/${id}`),
-  createBlogPost: (data: FormData) => request('/blog-posts', { method: 'POST', body: data }),
-  updateBlogPost: (id: number, data: FormData) => request(`/blog-posts/${id}`, { method: 'PATCH', body: data }),
+  // Phase 45 — these send multipart FormData (OG image upload). Without
+  // isFormData:true the wrapper forced Content-Type: application/json, which
+  // stripped the multipart boundary → server couldn't parse → "Failed to fetch".
+  createBlogPost: (data: FormData) => request('/blog-posts', { method: 'POST', body: data, isFormData: true }),
+  updateBlogPost: (id: number, data: FormData) => request(`/blog-posts/${id}`, { method: 'PATCH', body: data, isFormData: true }),
   publishBlogPost: (id: number) => request(`/blog-posts/${id}/publish`, { method: 'PATCH' }),
   archiveBlogPost: (id: number) => request(`/blog-posts/${id}/archive`, { method: 'PATCH' }),
   softDeleteBlogPost: (id: number) => request(`/blog-posts/${id}`, { method: 'DELETE' }),
