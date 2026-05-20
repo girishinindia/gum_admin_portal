@@ -124,6 +124,8 @@ export default function WebinarsPage() {
   // instructors for instructor-owned). Re-assert the saved value once options
   // load so the select reflects it on edit.
   const watchedOwner = watch('webinar_owner');
+  // Phase 45 — when "Free Webinar" is on, Price is forced to 0 and disabled.
+  const watchedIsFree = watch('is_free');
   const [assignableUsers, setAssignableUsers] = useState<any[]>([]);
   useEffect(() => {
     if (!dialogOpen) return;
@@ -391,6 +393,10 @@ export default function WebinarsPage() {
   }
 
   async function onSubmit(data: any) {
+    // Phase 45 — a free webinar can't carry a price. Normalise before building
+    // the payload so a stale price (e.g. on a row that was made free later)
+    // is saved as 0.
+    if (data.is_free) data.price = 0;
     const payload: Record<string, any> = {};
     Object.keys(data).forEach(k => {
       const v = data[k];
@@ -998,12 +1004,17 @@ export default function WebinarsPage() {
           {activeTab === 'pricing' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Price (INR)" type="number" step="0.01" {...register('price')} placeholder="0.00" />
+                <Input label="Price (INR)" type="number" step="0.01" placeholder="0.00"
+                  disabled={watchedIsFree}
+                  hint={watchedIsFree ? 'Free webinar — price is 0' : undefined}
+                  {...register('price')} />
                 <Input label="Max Attendees" type="number" {...register('max_attendees')} placeholder="Unlimited if empty" />
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" {...register('is_free')} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                  <input type="checkbox"
+                    {...register('is_free', { onChange: (e) => { if (e.target.checked) setValue('price', 0); } })}
+                    className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
                   <span className="text-sm text-slate-700">Free Webinar</span>
                 </label>
               </div>
