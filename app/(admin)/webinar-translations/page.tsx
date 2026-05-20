@@ -121,6 +121,11 @@ export default function WebinarTranslationsPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
+  // Phase 45 — watch image URL fields so ImageUpload reflects the X (remove)
+  // instead of re-showing the original image and re-saving the old URL.
+  const watchThumbnail = watch('thumbnail');
+  const watchOgImage = watch('og_image');
+  const watchTwitterImage = watch('twitter_image');
   const [formLoading, setFormLoading] = useState(false);
   const [formMode, setFormMode] = useState<'new' | 'existing'>('new');
   const [viewOpen, setViewOpen] = useState(false);
@@ -324,14 +329,18 @@ export default function WebinarTranslationsPage() {
       if (data[k]) fd.append(k, data[k]);
     });
 
-    // Image files
+    // Phase 45 — images. The file and scalar share the same field name, so
+    // send exactly ONE per image:
+    //   • new file picked  → send the file (server uploads + overrides)
+    //   • otherwise        → send the scalar URL ('' clears it, an existing
+    //                         URL preserves it). Sending '' lets the X remove
+    //                         the image; omitting it would just preserve.
     if (thumbnailFile) fd.append('thumbnail', thumbnailFile, thumbnailFile.name);
+    else fd.append('thumbnail', String(data.thumbnail ?? ''));
     if (ogImageFile) fd.append('og_image', ogImageFile, ogImageFile.name);
+    else fd.append('og_image', String(data.og_image ?? ''));
     if (twitterImageFile) fd.append('twitter_image', twitterImageFile, twitterImageFile.name);
-
-    // Pass existing URLs if no new file uploaded (so server doesn't clear them)
-    if (!ogImageFile && data.og_image) fd.append('og_image', String(data.og_image));
-    if (!twitterImageFile && data.twitter_image) fd.append('twitter_image', String(data.twitter_image));
+    else fd.append('twitter_image', String(data.twitter_image ?? ''));
 
     const res = editing
       ? await api.updateWebinarTranslation(editing.id, fd, true)
@@ -771,12 +780,12 @@ export default function WebinarTranslationsPage() {
                 key={`thumb-${dialogKey}`}
                 label="Webinar Thumbnail"
                 hint="Recommended: 800x450px. Drag & drop or click to upload."
-                value={editing?.thumbnail}
+                value={watchThumbnail || null}
                 aspectRatio={800 / 450}
                 maxWidth={800}
                 maxHeight={450}
                 shape="rounded"
-                onChange={(file, preview) => { setThumbnailFile(file); setThumbnailPreview(preview); }}
+                onChange={(file, preview) => { setThumbnailFile(file); setThumbnailPreview(preview); if (file === null) setValue('thumbnail', ''); }}
               />
             </div>
           )}
@@ -806,12 +815,12 @@ export default function WebinarTranslationsPage() {
                 key={`og-img-${dialogKey}`}
                 label="OG Image"
                 hint="Recommended: 1200×630px. Drag & drop or click to upload."
-                value={editing?.og_image}
+                value={watchOgImage || null}
                 aspectRatio={1200 / 630}
                 maxWidth={1200}
                 maxHeight={630}
                 shape="rounded"
-                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }}
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); if (file === null) setValue('og_image', ''); }}
               />
             </div>
           )}
@@ -828,12 +837,12 @@ export default function WebinarTranslationsPage() {
                 key={`tw-img-${dialogKey}`}
                 label="Twitter Image"
                 hint="Recommended: 1200×628px. Drag & drop or click to upload."
-                value={editing?.twitter_image}
+                value={watchTwitterImage || null}
                 aspectRatio={1200 / 628}
                 maxWidth={1200}
                 maxHeight={628}
                 shape="rounded"
-                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }}
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); if (file === null) setValue('twitter_image', ''); }}
               />
             </div>
           )}

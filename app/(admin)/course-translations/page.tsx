@@ -200,7 +200,16 @@ export default function CourseTranslationsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
-  const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm();
+  // Phase 45 — watch image URL fields so ImageUpload reflects the X (remove)
+  // instead of re-showing the original image and re-saving the old URL.
+  const watchOgImage = watch('og_image');
+  const watchTwitterImage = watch('twitter_image');
+  const watchWebThumbnail = watch('web_thumbnail');
+  const watchWebBanner = watch('web_banner');
+  const watchAppThumbnail = watch('app_thumbnail');
+  const watchAppBanner = watch('app_banner');
+  const watchVideoThumbnail = watch('video_thumbnail');
   const [formLoading, setFormLoading] = useState(false);
   const [formMode, setFormMode] = useState<'new' | 'existing'>('new');
   const [viewOpen, setViewOpen] = useState(false);
@@ -1149,7 +1158,11 @@ export default function CourseTranslationsPage() {
                 <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="SEO description..." {...register('meta_description')} />
               </div>
               <Input label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
-              <Input label="Canonical URL" placeholder="https://..." {...register('canonical_url')} />
+              <Input label="Canonical URL" placeholder="https://..."
+                error={errors.canonical_url?.message as string | undefined}
+                {...register('canonical_url', {
+                  validate: (v) => !v || /^https?:\/\/.+\..+/i.test(String(v).trim()) || 'Enter a valid URL starting with http:// or https://',
+                })} />
               <Input label="Robots Directive" placeholder="index, follow" {...register('robots_directive')} />
               <Input label="Focus Keyword" placeholder="main keyword" {...register('focus_keyword')} />
               <div>
@@ -1170,8 +1183,8 @@ export default function CourseTranslationsPage() {
               </div>
               <Input label="OG Type" placeholder="website" {...register('og_type')} />
               <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200×630px"
-                value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
-                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }} />
+                value={watchOgImage || null} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); if (file === null) setValue('og_image', ''); }} />
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
             </div>
           )}
@@ -1186,8 +1199,8 @@ export default function CourseTranslationsPage() {
                 <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="Twitter card description..." {...register('twitter_description')} />
               </div>
               <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200×628px"
-                value={editing?.twitter_image} aspectRatio={1200 / 628} maxWidth={1200} maxHeight={628} shape="rounded"
-                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />
+                value={watchTwitterImage || null} aspectRatio={1200 / 628} maxWidth={1200} maxHeight={628} shape="rounded"
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); if (file === null) setValue('twitter_image', ''); }} />
               <Input label="Twitter Card" placeholder="summary_large_image" {...register('twitter_card')} />
             </div>
           )}
@@ -1196,20 +1209,20 @@ export default function CourseTranslationsPage() {
           {activeTab === 'Images' && (
             <div className="space-y-4">
               <ImageUpload key={`wt-${dialogKey}`} label="Web Thumbnail" hint="Recommended: 400x300px"
-                value={editing?.web_thumbnail} aspectRatio={400 / 300} maxWidth={400} maxHeight={300} shape="rounded"
-                onChange={(file, preview) => { setWebThumbnailFile(file); setWebThumbnailPreview(preview); }} />
+                value={watchWebThumbnail || null} aspectRatio={400 / 300} maxWidth={400} maxHeight={300} shape="rounded"
+                onChange={(file, preview) => { setWebThumbnailFile(file); setWebThumbnailPreview(preview); if (file === null) setValue('web_thumbnail', ''); }} />
               <ImageUpload key={`wb-${dialogKey}`} label="Web Banner" hint="Recommended: 1200x400px"
-                value={editing?.web_banner} aspectRatio={1200 / 400} maxWidth={1200} maxHeight={400} shape="rounded"
-                onChange={(file, preview) => { setWebBannerFile(file); setWebBannerPreview(preview); }} />
+                value={watchWebBanner || null} aspectRatio={1200 / 400} maxWidth={1200} maxHeight={400} shape="rounded"
+                onChange={(file, preview) => { setWebBannerFile(file); setWebBannerPreview(preview); if (file === null) setValue('web_banner', ''); }} />
               <ImageUpload key={`at-${dialogKey}`} label="App Thumbnail" hint="Recommended: 300x200px"
-                value={editing?.app_thumbnail} aspectRatio={300 / 200} maxWidth={300} maxHeight={200} shape="rounded"
-                onChange={(file, preview) => { setAppThumbnailFile(file); setAppThumbnailPreview(preview); }} />
+                value={watchAppThumbnail || null} aspectRatio={300 / 200} maxWidth={300} maxHeight={200} shape="rounded"
+                onChange={(file, preview) => { setAppThumbnailFile(file); setAppThumbnailPreview(preview); if (file === null) setValue('app_thumbnail', ''); }} />
               <ImageUpload key={`ab-${dialogKey}`} label="App Banner" hint="Recommended: 800x400px"
-                value={editing?.app_banner} aspectRatio={800 / 400} maxWidth={800} maxHeight={400} shape="rounded"
-                onChange={(file, preview) => { setAppBannerFile(file); setAppBannerPreview(preview); }} />
+                value={watchAppBanner || null} aspectRatio={800 / 400} maxWidth={800} maxHeight={400} shape="rounded"
+                onChange={(file, preview) => { setAppBannerFile(file); setAppBannerPreview(preview); if (file === null) setValue('app_banner', ''); }} />
               <ImageUpload key={`vt-${dialogKey}`} label="Video Thumbnail" hint="Recommended: 640x360px"
-                value={editing?.video_thumbnail} aspectRatio={640 / 360} maxWidth={640} maxHeight={360} shape="rounded"
-                onChange={(file, preview) => { setVideoThumbnailFile(file); setVideoThumbnailPreview(preview); }} />
+                value={watchVideoThumbnail || null} aspectRatio={640 / 360} maxWidth={640} maxHeight={360} shape="rounded"
+                onChange={(file, preview) => { setVideoThumbnailFile(file); setVideoThumbnailPreview(preview); if (file === null) setValue('video_thumbnail', ''); }} />
             </div>
           )}
 
