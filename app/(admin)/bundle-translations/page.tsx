@@ -176,7 +176,15 @@ export default function BundleTranslationsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
-  const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm();
+  // Phase 45 — watch the image URL fields so the ImageUpload reflects removal.
+  // Previously value came straight from `editing`, which never updated, so the
+  // X (remove) cleared the internal preview but the original image kept showing
+  // and the old URL was re-saved.
+  const watchThumb = watch('thumbnail_url');
+  const watchBanner = watch('banner_url');
+  const watchOgImage = watch('og_image');
+  const watchTwitterImage = watch('twitter_image');
   const [formLoading, setFormLoading] = useState(false);
   const [formMode, setFormMode] = useState<'new' | 'existing'>('new');
   const [viewOpen, setViewOpen] = useState(false);
@@ -1019,11 +1027,11 @@ export default function BundleTranslationsPage() {
           {activeTab === 'Images' && (
             <div className="space-y-4">
               <ImageUpload key={`thumb-${dialogKey}`} label="Thumbnail" hint="Recommended: 400x300px"
-                value={editing?.thumbnail_url} aspectRatio={400 / 300} maxWidth={400} maxHeight={300} shape="rounded"
-                onChange={(file, preview) => { setThumbnailFile(file); setThumbnailPreview(preview); }} />
+                value={watchThumb || null} aspectRatio={400 / 300} maxWidth={400} maxHeight={300} shape="rounded"
+                onChange={(file, preview) => { setThumbnailFile(file); setThumbnailPreview(preview); if (file === null) setValue('thumbnail_url', ''); }} />
               <ImageUpload key={`banner-${dialogKey}`} label="Banner" hint="Recommended: 1200x400px"
-                value={editing?.banner_url} aspectRatio={1200 / 400} maxWidth={1200} maxHeight={400} shape="rounded"
-                onChange={(file, preview) => { setBannerFile(file); setBannerPreview(preview); }} />
+                value={watchBanner || null} aspectRatio={1200 / 400} maxWidth={1200} maxHeight={400} shape="rounded"
+                onChange={(file, preview) => { setBannerFile(file); setBannerPreview(preview); if (file === null) setValue('banner_url', ''); }} />
             </div>
           )}
 
@@ -1036,7 +1044,11 @@ export default function BundleTranslationsPage() {
                 <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="SEO description..." {...register('meta_description')} />
               </div>
               <Input label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
-              <Input label="Canonical URL" placeholder="https://..." {...register('canonical_url')} />
+              <Input label="Canonical URL" placeholder="https://..."
+                error={errors.canonical_url?.message as string | undefined}
+                {...register('canonical_url', {
+                  validate: (v) => !v || /^https?:\/\/.+\..+/i.test(String(v).trim()) || 'Enter a valid URL starting with http:// or https://',
+                })} />
               <Input label="Robots Directive" placeholder="index, follow" {...register('robots_directive')} />
               <Input label="Focus Keyword" placeholder="main keyword" {...register('focus_keyword')} />
             </div>
@@ -1051,8 +1063,8 @@ export default function BundleTranslationsPage() {
                 <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="Open Graph description..." {...register('og_description')} />
               </div>
               <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200×630px"
-                value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
-                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }} />
+                value={watchOgImage || null} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); if (file === null) setValue('og_image', ''); }} />
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
             </div>
           )}
@@ -1066,8 +1078,8 @@ export default function BundleTranslationsPage() {
                 <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="Twitter card description..." {...register('twitter_description')} />
               </div>
               <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200×628px"
-                value={editing?.twitter_image} aspectRatio={1200 / 628} maxWidth={1200} maxHeight={628} shape="rounded"
-                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />
+                value={watchTwitterImage || null} aspectRatio={1200 / 628} maxWidth={1200} maxHeight={628} shape="rounded"
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); if (file === null) setValue('twitter_image', ''); }} />
               <Input label="Twitter Card" placeholder="summary_large_image" {...register('twitter_card')} />
             </div>
           )}
