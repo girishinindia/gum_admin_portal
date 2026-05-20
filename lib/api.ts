@@ -172,6 +172,8 @@ export const api = {
   myPermissions: () => request('/users/me/permissions'),
   updateMe: (data: any, isFormData = false) => request('/users/me', { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   listUsers: (qs = '') => request(`/users${qs}`),
+  // Phase 45 — assignable users for owner-aware pickers. kind: 'instructor' | 'super_admin'
+  listAssignableUsers: (kind: 'instructor' | 'super_admin') => request(`/users/assignable?kind=${kind}`),
   createUser: (data: any, isFormData = false) => request('/users', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
   getUser: (id: number) => request(`/users/${id}`),
   updateUser: (id: number, data: any, isFormData = false) => request(`/users/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
@@ -450,6 +452,10 @@ export const api = {
     _uploadCourseVideoXhr(`/courses/${id}/upload-video`, file, onProgress),
   uploadCourseTrailerVideo: (id: number, file: File, onProgress?: (percent: number) => void): Promise<any> =>
     _uploadCourseVideoXhr(`/courses/${id}/upload-trailer-video`, file, onProgress),
+
+  // Phase 45.1 — signed playback URLs (the Bunny library is token-gated, so
+  // the raw embed URL 403s). Returns { video, trailer } each {url, expiresAt}|null.
+  getCoursePlayback: (id: number) => request(`/courses/${id}/playback`),
 
   deleteSubTopicVideo: (id: number) => request(`/sub-topics/${id}/video`, { method: 'DELETE' }),
 

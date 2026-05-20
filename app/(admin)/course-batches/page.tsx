@@ -107,7 +107,24 @@ export default function CourseBatchesPage() {
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const router = useRouter();
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, getValues, formState: { errors } } = useForm();
+
+  // Phase 45 — owner-aware instructor picker (super admins for system-owned,
+  // instructors for instructor-owned). Re-assert the saved value once options
+  // load so the select reflects it on edit.
+  const watchedOwner = watch('batch_owner');
+  const [assignableUsers, setAssignableUsers] = useState<any[]>([]);
+  useEffect(() => {
+    if (!dialogOpen) return;
+    const kind = watchedOwner === 'instructor' ? 'instructor' : 'super_admin';
+    api.listAssignableUsers(kind).then((r: any) => {
+      if (r.success) {
+        setAssignableUsers(r.data || []);
+        const cur = getValues('instructor_id');
+        if (cur) setValue('instructor_id', String(cur));
+      }
+    });
+  }, [watchedOwner, dialogOpen, getValues, setValue]);
 
   // Phase 44.4 — today's ISO date for `min=` attrs on the schedule
   // inputs. We compute it once per render so the constraint moves with
@@ -305,6 +322,11 @@ export default function CourseBatchesPage() {
       }
       payload[k] = v;
     });
+
+    // Phase 45 — always send owner + instructor explicitly so clearing the
+    // instructor (e.g. switching to system owner) persists as null.
+    payload.batch_owner = data.batch_owner;
+    payload.instructor_id = data.instructor_id ? Number(data.instructor_id) : null;
 
     const res = editing
       ? await api.updateCourseBatch(editing.id, payload)
@@ -946,7 +968,10 @@ export default function CourseBatchesPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Owner</label>
-                  <select className={cn(selectClass, 'w-full')} {...register('batch_owner')}>
+                  <select
+                    className={cn(selectClass, 'w-full')}
+                    {...register('batch_owner', { onChange: () => setValue('instructor_id', '') })}
+                  >
                     {OWNER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
@@ -956,7 +981,26 @@ export default function CourseBatchesPage() {
                     {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
-                <Input label="Instructor ID" type="number" {...register('instructor_id')} placeholder="User ID" />
+                {/* Phase 45 — owner-aware user picker */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    {watchedOwner === 'instructor' ? 'Instructor *' : 'Super Admin'}
+                  </label>
+                  <select
+                    className={cn(selectClass, 'w-full')}
+                    {...register('instructor_id', { required: watchedOwner === 'instructor' ? 'Select an instructor' : false })}
+                  >
+                    <option value="">
+                      {watchedOwner === 'instructor' ? 'Select instructor…' : 'None (system-owned)'}
+                    </option>
+                    {assignableUsers.map((u: any) => (
+                      <option key={u.id} value={u.id}>{(u.full_name || u.email || `User ${u.id}`)} (id: {u.id})</option>
+                    ))}
+                  </select>
+                  {errors.instructor_id && (
+                    <p className="text-xs text-rose-600 mt-1">{errors.instructor_id.message as string}</p>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Display Order" type="number" {...register('display_order')} placeholder="0" />

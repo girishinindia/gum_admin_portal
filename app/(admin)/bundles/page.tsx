@@ -106,6 +106,24 @@ export default function BundlesPage() {
     }
   }, [watchedCode, slugManual, setValue]);
 
+  // Phase 45 — owner-aware instructor picker. Load the candidate users for the
+  // currently-selected owner: super admins for an admin-owned bundle,
+  // instructors for an instructor-owned one. Re-assert the saved value once
+  // options arrive so the (uncontrolled) select reflects it on edit.
+  const watchedOwner = watch('bundle_owner');
+  const [assignableUsers, setAssignableUsers] = useState<any[]>([]);
+  useEffect(() => {
+    if (!dialogOpen) return;
+    const kind = watchedOwner === 'instructor' ? 'instructor' : 'super_admin';
+    api.listAssignableUsers(kind).then((r: any) => {
+      if (r.success) {
+        setAssignableUsers(r.data || []);
+        const cur = getValues('instructor_id');
+        if (cur) setValue('instructor_id', String(cur));
+      }
+    });
+  }, [watchedOwner, dialogOpen, getValues, setValue]);
+
   // Keyboard shortcuts
   useKeyboardShortcuts([
     { key: '/', action: () => toolbarRef.current?.focusSearch() },
@@ -276,6 +294,12 @@ export default function BundlesPage() {
       if (numericFields.includes(k) && v !== '') { payload[k] = Number(v); return; }
       payload[k] = v;
     });
+
+    // Phase 45 — always send owner + instructor explicitly so that clearing
+    // the instructor (e.g. when switching to an admin owner) persists as null
+    // instead of being dropped by the empty-string skip above.
+    payload.bundle_owner = data.bundle_owner;
+    payload.instructor_id = data.instructor_id ? Number(data.instructor_id) : null;
 
     const res = editing
       ? await api.updateBundle(editing.id, payload)
@@ -786,9 +810,17 @@ export default function BundlesPage() {
               <button
                 type="button"
                 onClick={async () => {
+                  // Phase 45 — keep the form's is_active in sync with the toggle.
+                  // Previously the toggle persisted immediately but the form
+                  // still held the old value, so "Save changes" reverted it.
+                  const next = !editing.is_active;
+                  setValue('is_active', next, { shouldDirty: true });
                   await onToggleActive(editing);
                   const refreshed = await api.getBundle(editing.id);
-                  if (refreshed.success && refreshed.data) setEditing(refreshed.data);
+                  if (refreshed.success && refreshed.data) {
+                    setEditing(refreshed.data);
+                    setValue('is_active', refreshed.data.is_active);
+                  }
                 }}
                 className={cn(
                   'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-1 cursor-pointer',
@@ -885,11 +917,42 @@ export default function BundlesPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Bundle Owner</label>
-                  <select className={cn(selectClass, 'w-full')} {...register('bundle_owner')}>
+                  <select
+                    className={cn(selectClass, 'w-full')}
+                    {...register('bundle_owner', {
+                      // Phase 45 — clear the picked person when the owner kind
+                      // changes so an instructor id can't linger on an
+                      // admin-owned bundle (and vice-versa).
+                      onChange: () => setValue('instructor_id', ''),
+                    })}
+                  >
                     {OWNER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
-                <Input label="Instructor ID" type="number" placeholder="User ID" {...register('instructor_id')} />
+                {/* Phase 45 — owner-aware user picker (super admins vs instructors). */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    {watchedOwner === 'instructor' ? 'Instructor *' : 'Super Admin'}
+                  </label>
+                  <select
+                    className={cn(selectClass, 'w-full')}
+                    {...register('instructor_id', {
+                      required: watchedOwner === 'instructor' ? 'Select an instructor' : false,
+                    })}
+                  >
+                    <option value="">
+                      {watchedOwner === 'instructor' ? 'Select instructor…' : 'None (system-owned)'}
+                    </option>
+                    {assignableUsers.map((u: any) => (
+                      <option key={u.id} value={u.id}>
+                        {(u.full_name || u.email || `User ${u.id}`)} (id: {u.id})
+                      </option>
+                    ))}
+                  </select>
+                  {errors.instructor_id && (
+                    <p className="text-xs text-rose-600 mt-1">{errors.instructor_id.message as string}</p>
+                  )}
+                </div>
               </div>
               <Input label="Max Courses" type="number" placeholder="10" {...register('max_courses')} />
               <div className="grid grid-cols-2 gap-3">

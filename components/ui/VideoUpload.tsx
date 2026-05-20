@@ -44,6 +44,13 @@ interface VideoUploadProps {
    * dropzone, mirroring the sub-topic uploader. `null`/`undefined` = idle.
    */
   progress?: number | null;
+  /**
+   * Phase 45.1 — when provided, the "open in new tab" button calls this
+   * instead of navigating to the raw `value` URL. Used by the Courses module
+   * to fetch a short-lived SIGNED Bunny embed URL (the library is token-gated,
+   * so the raw embed URL returns 403).
+   */
+  onOpen?: () => void;
 }
 
 function humanFileSize(bytes: number): string {
@@ -67,6 +74,7 @@ export function VideoUpload({
   onUrlChange,
   allowUrlMode = true,
   progress = null,
+  onOpen,
 }: VideoUploadProps) {
   const isUploading = typeof progress === 'number';
   // mode tracks whether the active input is a file pick or a URL.
@@ -219,16 +227,29 @@ export function VideoUpload({
           {(hasFile || hasExistingValue) && !isDragging && (
             <div className="flex items-center gap-1 flex-shrink-0">
               {hasExistingValue && (
-                <Link
-                  href={value!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
-                  title="Open in new tab"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </Link>
+                onOpen ? (
+                  // Phase 45.1 — route through the parent so it can fetch a
+                  // SIGNED Bunny URL (raw embed URL is token-gated → 403).
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(); }}
+                    className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                    title="Open in new tab"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <Link
+                    href={value!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                    title="Open in new tab"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
+                )
               )}
               <button
                 type="button"

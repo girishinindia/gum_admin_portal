@@ -476,6 +476,29 @@ export default function CoursesPage() {
     }
   }
 
+  // Phase 45.1 — open a course video in a new tab via a SIGNED Bunny embed
+  // URL. The library is token-gated, so the raw stored embed URL returns 403.
+  // We open the tab synchronously (popup-blocker safe) then redirect it once
+  // the short-lived signed URL comes back from the API.
+  async function openSignedVideo(which: 'video' | 'trailer') {
+    if (!editing) return;
+    const win = window.open('', '_blank');
+    try {
+      const res: any = await api.getCoursePlayback(editing.id);
+      const target = which === 'video' ? res?.data?.video?.url : res?.data?.trailer?.url;
+      if (res?.success && target) {
+        if (win) win.location.href = target;
+        else window.open(target, '_blank');
+      } else {
+        if (win) win.close();
+        toast.error('Could not generate a playback link for this video');
+      }
+    } catch (e: any) {
+      if (win) win.close();
+      toast.error(e?.message || 'Could not open video');
+    }
+  }
+
   async function onSoftDelete(c: any) {
     if (!confirm(`Move "${c.code}" to trash? You can restore it later.`)) return;
     setActionLoadingId(c.id);
@@ -1271,6 +1294,7 @@ export default function CoursesPage() {
                 maxSizeMb={2048}
                 allowUrlMode={false}
                 progress={trailerVideoPct}
+                onOpen={editing ? () => openSignedVideo('trailer') : undefined}
                 onFileChange={(file) => {
                   setTrailerVideoFile(file);
                   if (file === null) setTrailerVideoUrl(null);
@@ -1302,6 +1326,7 @@ export default function CoursesPage() {
                 maxSizeMb={2048}
                 allowUrlMode={false}
                 progress={videoPct}
+                onOpen={editing ? () => openSignedVideo('video') : undefined}
                 onFileChange={(file) => {
                   setVideoFile(file);
                   if (file === null) setVideoUrl(null);
