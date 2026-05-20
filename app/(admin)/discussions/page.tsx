@@ -599,7 +599,7 @@ export default function DiscussionsPage() {
                     <TH className="cursor-pointer" onClick={() => toggleThrSort('created_at')}>
                       <div className="flex items-center gap-1">CREATED <ThrSortIcon field="created_at" /></div>
                     </TH>
-                    <TH className="text-right">ACTIONS</TH>
+                    <TH className="text-right sticky right-0 z-20 bg-slate-50">ACTIONS</TH>
                   </TR>
                 </THead>
                 <TBody>
@@ -633,7 +633,7 @@ export default function DiscussionsPage() {
                           {item.is_pinned ? <Pin className="w-4 h-4 text-amber-500" /> : <span className="text-slate-300">--</span>}
                         </TD>
                         <TD><span className="text-sm text-slate-500 whitespace-nowrap">{item.created_at ? fromNow(item.created_at) : '--'}</span></TD>
-                        <TD className="text-right">
+                        <TD className="text-right sticky right-0 bg-white">
                           {actionState ? (
                             <Loader2 className="w-4 h-4 animate-spin text-slate-400 ml-auto" />
                           ) : thrShowTrash ? (
@@ -753,7 +753,7 @@ export default function DiscussionsPage() {
                     <TH className="cursor-pointer" onClick={() => toggleRepSort('created_at')}>
                       <div className="flex items-center gap-1">CREATED <RepSortIcon field="created_at" /></div>
                     </TH>
-                    <TH className="text-right">ACTIONS</TH>
+                    <TH className="text-right sticky right-0 z-20 bg-slate-50">ACTIONS</TH>
                   </TR>
                 </THead>
                 <TBody>
@@ -786,7 +786,7 @@ export default function DiscussionsPage() {
                         </TD>
                         <TD><span className="text-sm text-slate-700">{item.upvote_count ?? 0}</span></TD>
                         <TD><span className="text-sm text-slate-500 whitespace-nowrap">{item.created_at ? fromNow(item.created_at) : '--'}</span></TD>
-                        <TD className="text-right">
+                        <TD className="text-right sticky right-0 bg-white">
                           {actionState ? (
                             <Loader2 className="w-4 h-4 animate-spin text-slate-400 ml-auto" />
                           ) : repShowTrash ? (
