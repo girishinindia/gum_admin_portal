@@ -120,6 +120,40 @@ async function refreshTokens(): Promise<boolean> {
   return false;
 }
 
+// Phase 44.11 — shared XHR upload helper for the dedicated course video
+// endpoints. Mirrors uploadSubTopicVideo (the proven memory-buffer path):
+// FormData field name `video`, real upload progress via xhr.upload.onprogress,
+// resolves the parsed JSON envelope. Used by uploadCourseVideo /
+// uploadCourseTrailerVideo so videos no longer ride the combined course-save
+// multipart (which used a broken streaming upload → video_url stayed null).
+function _uploadCourseVideoXhr(
+  path: string,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('video', file, file.name);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_URL}${path}`);
+    if (tokens.access) xhr.setRequestHeader('Authorization', `Bearer ${tokens.access}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      try {
+        resolve(JSON.parse(xhr.responseText));
+      } catch {
+        resolve({ success: false, error: 'Invalid response' });
+      }
+    };
+    xhr.onerror = () => reject(new Error('Upload failed'));
+    xhr.send(fd);
+  });
+}
+
 // ── API endpoints ──
 export const api = {
   // Auth
@@ -407,6 +441,15 @@ export const api = {
       xhr.send(fd);
     });
   },
+
+  // Phase 44.11 — dedicated course video upload with real progress, mirroring
+  // the proven uploadSubTopicVideo helper. Used instead of the combined
+  // course-save multipart for videos (that path used a broken streaming
+  // upload that left video_url null on every course).
+  uploadCourseVideo: (id: number, file: File, onProgress?: (percent: number) => void): Promise<any> =>
+    _uploadCourseVideoXhr(`/courses/${id}/upload-video`, file, onProgress),
+  uploadCourseTrailerVideo: (id: number, file: File, onProgress?: (percent: number) => void): Promise<any> =>
+    _uploadCourseVideoXhr(`/courses/${id}/upload-trailer-video`, file, onProgress),
 
   deleteSubTopicVideo: (id: number) => request(`/sub-topics/${id}/video`, { method: 'DELETE' }),
 

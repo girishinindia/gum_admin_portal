@@ -141,6 +141,10 @@ export default function CoursesPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [trailerVideoUrl, setTrailerVideoUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  // Phase 44.12 — per-field upload progress (0–100) shown inline inside each
+  // VideoUpload, mirroring the sub-topic uploader. null = idle.
+  const [trailerVideoPct, setTrailerVideoPct] = useState<number | null>(null);
+  const [videoPct, setVideoPct] = useState<number | null>(null);
 
   // Auto-generate slug from code
   useEffect(() => {
@@ -378,15 +382,19 @@ export default function CoursesPage() {
       payload[k] = v;
     });
 
-    const hasFiles = !!(trailerThumbFile || brochureFile || trailerVideoFile || videoFile);
-    // Phase 44.6.4 — wrap the API call so `saving` always clears (success,
-    // failure, or thrown). Surface the real error message in the toast so
-    // failures like "Media upload failed: Bunny Stream create failed: 401"
-    // are visible — previously the user just saw "Failed".
+    // Phase 44.11 — videos no longer ride the combined course-save multipart.
+    // The old combined path used a broken streaming upload that left
+    // video_url / trailer_video_url null on every course. We now:
+    //   1. save the course record first (JSON, or multipart if there are
+    //      image/PDF files — those small-file paths still work),
+    //   2. then upload each video to its dedicated endpoint, which mirrors
+    //      the proven sub-topic memory-buffer path and reports real progress.
+    // The dialog only closes after Bunny confirms each video.
+    const hasNonVideoFiles = !!(trailerThumbFile || brochureFile);
     let res: any;
     try {
-      if (hasFiles) {
-        // Build multipart form data
+      if (hasNonVideoFiles) {
+        // Build multipart form data — images / PDF only (no video legs).
         const fd = new FormData();
         Object.entries(payload).forEach(([k, v]) => {
           if (v === null || v === undefined) return;
@@ -395,18 +403,16 @@ export default function CoursesPage() {
         // Existing URLs (preserved if user did not pick a new file)
         if (trailerThumbUrl && !trailerThumbFile) fd.append('trailer_thumbnail_url', trailerThumbUrl);
         if (brochureUrl && !brochureFile) fd.append('brochure_url', brochureUrl);
+        // Videos are uploaded separately below, but preserve existing URLs so
+        // the metadata save doesn't wipe them.
         if (trailerVideoUrl && !trailerVideoFile) fd.append('trailer_video_url', trailerVideoUrl);
         if (videoUrl && !videoFile) fd.append('video_url', videoUrl);
-        // New files
+        // New small files
         if (trailerThumbFile) fd.append('trailer_thumbnail', trailerThumbFile, trailerThumbFile.name);
         if (brochureFile) fd.append('brochure', brochureFile, brochureFile.name);
-        if (trailerVideoFile) fd.append('trailer_video', trailerVideoFile, trailerVideoFile.name);
-        if (videoFile) fd.append('video', videoFile, videoFile.name);
-        // Phase 44.9 Issue 1 — use the XHR progress variant so the dialog
-        // shows a real % bar while bytes upload. 100% means the server is
-        // now streaming to Bunny (no client-side progress for that stage).
-        setUploadPct(0);
-        res = await api.saveCourseWithProgress(editing ? editing.id : null, fd, (pct) => setUploadPct(pct));
+        res = editing
+          ? await api.updateCourse(editing.id, fd, true)
+          : await api.createCourse(fd, true);
       } else {
         // JSON path — include preserved URLs (or explicit nulls if user cleared them)
         if (trailerThumbUrl) payload.trailer_thumbnail_url = trailerThumbUrl;
@@ -421,18 +427,52 @@ export default function CoursesPage() {
           ? await api.updateCourse(editing.id, payload)
           : await api.createCourse(payload);
       }
-      if (res?.success) {
-        toast.success(editing ? 'Course updated' : 'Course created');
-        setDialogOpen(false); load(); refreshSummary();
-      } else {
+
+      if (!res?.success) {
         toast.error(res?.error || res?.message || 'Save failed — see server logs');
+        return;
       }
+
+      // Course record is saved. Resolve its id for the video uploads.
+      const courseId: number | undefined = editing ? editing.id : res?.data?.id;
+
+      // Phase 44.11 — upload videos to their dedicated endpoints with a real
+      // progress bar. Trailer first, then main video. Each call resolves only
+      // after the server has pushed the buffer to Bunny Stream and persisted
+      // the embed URL, so 100% genuinely means "saved".
+      if (courseId && (trailerVideoFile || videoFile)) {
+        if (trailerVideoFile) {
+          setTrailerVideoPct(0);
+          const tr = await api.uploadCourseTrailerVideo(courseId, trailerVideoFile, (pct) => setTrailerVideoPct(pct));
+          if (!tr?.success) {
+            toast.error(tr?.error || tr?.message || 'Trailer video upload failed');
+            return;
+          }
+          setTrailerVideoUrl(tr?.data?.trailer_video_url ?? null);
+          setTrailerVideoFile(null);
+        }
+        if (videoFile) {
+          setVideoPct(0);
+          const vr = await api.uploadCourseVideo(courseId, videoFile, (pct) => setVideoPct(pct));
+          if (!vr?.success) {
+            toast.error(vr?.error || vr?.message || 'Course video upload failed');
+            return;
+          }
+          setVideoUrl(vr?.data?.video_url ?? null);
+          setVideoFile(null);
+        }
+      }
+
+      toast.success(editing ? 'Course updated' : 'Course created');
+      setDialogOpen(false); load(); refreshSummary();
     } catch (e: any) {
       // Network failures, aborts, or thrown wrapper errors land here.
       toast.error(e?.message || 'Save failed — connection error');
     } finally {
       setSaving(false);
       setUploadPct(null);
+      setTrailerVideoPct(null);
+      setVideoPct(null);
     }
   }
 
@@ -992,7 +1032,25 @@ export default function CoursesPage() {
 
       {/* ── Create / Edit Dialog ── */}
       <Dialog open={dialogOpen} onClose={() => { if (!saving) setDialogOpen(false); }} title={editing ? 'Edit Course' : 'Add Course'} size="lg">
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+        {/* Phase 44.10 — onError handler so a failing field validation can
+            never again silently block the whole submit (and the video
+            upload). It names the offending field(s) in a toast and jumps to
+            the relevant tab so the admin can see and fix it. */}
+        <form onSubmit={handleSubmit(onSubmit, (formErrors) => {
+          const fields = Object.keys(formErrors);
+          if (fields.length === 0) return;
+          const first = fields[0];
+          const msg = (formErrors as any)[first]?.message as string | undefined;
+          // Map the failing field to its tab so the user can find it.
+          const tabOf: Record<string, string> = {
+            code: 'basic', name: 'basic', slug: 'basic',
+            price: 'pricing', original_price: 'pricing', discount_percentage: 'pricing',
+            duration_hours: 'details', max_students: 'details', instructor_id: 'details', course_language_id: 'details',
+            new_until: 'features',
+          };
+          if (tabOf[first]) setActiveTab(tabOf[first]);
+          toast.error(msg || `Please fix the "${first}" field before saving`);
+        })} className="p-6 space-y-4">
           {/* Active toggle -- only shown when editing */}
           {editing && (
             <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3 -mt-1">
@@ -1187,10 +1245,18 @@ export default function CoursesPage() {
                   </label>
                 ))}
               </div>
-              {/* Phase 44.9 Issue 5 — min=today blocks ancient-date typos like
-                  0020; "new until" is only meaningful in the future. */}
-              <Input label="New Until (date)" type="date" min={todayISO} {...register('new_until', {
-                validate: (v) => !v || v >= todayISO || 'New Until must be today or a future date',
+              {/* Phase 44.9 Issue 5 + 44.10 fix — block impossible-year typos
+                  like 0020 WITHOUT forbidding past dates. An existing course
+                  can legitimately have a past "New Until" (the badge expired),
+                  so a future-only rule wrongly blocked the WHOLE form submit
+                  on edit (no onSubmit → no video upload → no progress bar).
+                  Now we only reject years outside a sane 2000–2100 window. */}
+              <Input label="New Until (date)" type="date" min="2000-01-01" max="2100-12-31" {...register('new_until', {
+                validate: (v) => {
+                  if (!v) return true;
+                  const year = Number(String(v).slice(0, 4));
+                  return (year >= 2000 && year <= 2100) || 'Enter a valid date (year 2000–2100)';
+                },
               })} error={errors?.new_until?.message as string | undefined} />
             </div>
           )}
@@ -1204,13 +1270,17 @@ export default function CoursesPage() {
                 value={trailerVideoUrl}
                 maxSizeMb={2048}
                 allowUrlMode={false}
+                progress={trailerVideoPct}
                 onFileChange={(file) => {
                   setTrailerVideoFile(file);
                   if (file === null) setTrailerVideoUrl(null);
                 }}
                 onUrlChange={(url) => {
-                  setTrailerVideoUrl(url);
-                  setTrailerVideoFile(null);
+                  // Phase 44.13 — only act on a REAL url. VideoUpload fires
+                  // onUrlChange(null) right after onFileChange(file) on every
+                  // file pick; clearing the file here was wiping the just-
+                  // selected video, so the upload silently never ran.
+                  if (url) { setTrailerVideoUrl(url); setTrailerVideoFile(null); }
                 }}
               />
               <ImageUpload
@@ -1231,13 +1301,15 @@ export default function CoursesPage() {
                 value={videoUrl}
                 maxSizeMb={2048}
                 allowUrlMode={false}
+                progress={videoPct}
                 onFileChange={(file) => {
                   setVideoFile(file);
                   if (file === null) setVideoUrl(null);
                 }}
                 onUrlChange={(url) => {
-                  setVideoUrl(url);
-                  setVideoFile(null);
+                  // Phase 44.13 — see trailer note above: guard against the
+                  // onUrlChange(null) that follows every file pick.
+                  if (url) { setVideoUrl(url); setVideoFile(null); }
                 }}
               />
               <FileUpload
@@ -1304,7 +1376,7 @@ export default function CoursesPage() {
               {uploadPct !== null ? (
                 <>
                   <div className="flex items-center justify-between">
-                    <span>{uploadPct < 100 ? `Uploading… ${uploadPct}%` : 'Upload complete — processing on server (streaming to Bunny)…'}</span>
+                    <span>{uploadPct < 100 ? `Uploading video… ${uploadPct}%` : 'Upload complete — saving to Bunny Stream…'}</span>
                     <span className="font-mono">{uploadPct}%</span>
                   </div>
                   <div className="h-2 w-full rounded-full bg-blue-100 overflow-hidden">

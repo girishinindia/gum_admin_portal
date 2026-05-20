@@ -38,6 +38,12 @@ interface VideoUploadProps {
    * keep the original dual-mode behaviour.
    */
   allowUrlMode?: boolean;
+  /**
+   * Phase 44.12 — live upload progress (0–100) for THIS field. When a number
+   * is supplied the component renders an inline progress bar beneath the
+   * dropzone, mirroring the sub-topic uploader. `null`/`undefined` = idle.
+   */
+  progress?: number | null;
 }
 
 function humanFileSize(bytes: number): string {
@@ -60,7 +66,9 @@ export function VideoUpload({
   onFileChange,
   onUrlChange,
   allowUrlMode = true,
+  progress = null,
 }: VideoUploadProps) {
+  const isUploading = typeof progress === 'number';
   // mode tracks whether the active input is a file pick or a URL.
   // If the existing value looks like an external (non-Bunny) URL, default to URL mode.
   // Phase 44.3 — when `allowUrlMode` is false we force file mode regardless
@@ -243,6 +251,25 @@ export function VideoUpload({
           placeholder="https://youtube.com/watch?v=…  or  https://example.com/video.mp4"
           className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
         />
+      )}
+
+      {/* Phase 44.12 — inline upload progress, mirroring the sub-topic uploader.
+          Shown while the parent is streaming this file to Bunny Stream. */}
+      {isUploading && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-brand-600 font-medium">
+              {progress! < 100 ? 'Uploading…' : 'Saving to Bunny Stream…'}
+            </span>
+            <span className="font-mono text-slate-500">{progress}%</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-brand-100 overflow-hidden">
+            <div
+              className="h-full bg-brand-500 transition-[width] duration-200 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
       )}
 
       {error && <p className="text-xs text-rose-600 mt-1.5">{error}</p>}
