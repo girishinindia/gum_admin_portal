@@ -84,6 +84,15 @@ export default function CoursesPage() {
   // whether it's working and either double-clicks (firing two parallel uploads
   // that orphan a Bunny video) or closes the dialog mid-upload.
   const [saving, setSaving] = useState(false);
+  // Phase 44.9 Issue 1 — real upload progress (0..100) for the media path.
+  // null = not uploading; a number = % of bytes sent.
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  // Phase 44.9 Issue 4 — load real languages so Course Language can be a
+  // dropdown of valid ids (was a free number input that let admins type a
+  // non-existent id like 10, tripping courses_course_language_id_fkey).
+  const [languages, setLanguages] = useState<Array<{ id: number; name: string }>>([]);
+  // Phase 44.9 Issue 5 — today (yyyy-mm-dd) for the "New Until" min date.
+  const todayISO = new Date().toISOString().slice(0, 10);
 
   // Pagination, search, sort, filter
   const [page, setPage] = useState(1);
@@ -118,7 +127,7 @@ export default function CoursesPage() {
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const router = useRouter();
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
   const [slugManual, setSlugManual] = useState(false);
   const watchedCode = watch('code');
 
@@ -170,6 +179,12 @@ export default function CoursesPage() {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
     loadCoverage();
+    // Phase 44.9 Issue 4 — load valid languages for the Course Language dropdown.
+    api.listLanguages('?limit=500&is_active=true&sort=name&order=asc').then((res: any) => {
+      if (res?.success && Array.isArray(res.data)) {
+        setLanguages(res.data.map((l: any) => ({ id: l.id, name: l.name })));
+      }
+    }).catch(() => { /* non-fatal — field falls back to empty list */ });
   }, []);
 
   useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterStatus, filterDifficulty, filterCourseStatus, filterIsFree, filterIsFeatured, pageSize, showTrash]);
@@ -387,9 +402,11 @@ export default function CoursesPage() {
         if (brochureFile) fd.append('brochure', brochureFile, brochureFile.name);
         if (trailerVideoFile) fd.append('trailer_video', trailerVideoFile, trailerVideoFile.name);
         if (videoFile) fd.append('video', videoFile, videoFile.name);
-        res = editing
-          ? await api.updateCourse(editing.id, fd, true)
-          : await api.createCourse(fd, true);
+        // Phase 44.9 Issue 1 — use the XHR progress variant so the dialog
+        // shows a real % bar while bytes upload. 100% means the server is
+        // now streaming to Bunny (no client-side progress for that stage).
+        setUploadPct(0);
+        res = await api.saveCourseWithProgress(editing ? editing.id : null, fd, (pct) => setUploadPct(pct));
       } else {
         // JSON path — include preserved URLs (or explicit nulls if user cleared them)
         if (trailerThumbUrl) payload.trailer_thumbnail_url = trailerThumbUrl;
@@ -415,6 +432,7 @@ export default function CoursesPage() {
       toast.error(e?.message || 'Save failed — connection error');
     } finally {
       setSaving(false);
+      setUploadPct(null);
     }
   }
 
@@ -1133,7 +1151,21 @@ export default function CoursesPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input label="Instructor ID" type="number" placeholder="User ID" {...register('instructor_id')} />
-                <Input label="Course Language ID" type="number" placeholder="Language ID" {...register('course_language_id')} />
+                {/* Phase 44.9 Issue 4 — dropdown of real languages (was a free
+                    number input that let admins enter a non-existent id and
+                    trip courses_course_language_id_fkey). */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Course Language</label>
+                  <select
+                    className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white"
+                    {...register('course_language_id')}
+                  >
+                    <option value="">— Select language —</option>
+                    {languages.map(l => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           )}
@@ -1155,7 +1187,11 @@ export default function CoursesPage() {
                   </label>
                 ))}
               </div>
-              <Input label="New Until (date)" type="date" {...register('new_until')} />
+              {/* Phase 44.9 Issue 5 — min=today blocks ancient-date typos like
+                  0020; "new until" is only meaningful in the future. */}
+              <Input label="New Until (date)" type="date" min={todayISO} {...register('new_until', {
+                validate: (v) => !v || v >= todayISO || 'New Until must be today or a future date',
+              })} error={errors?.new_until?.message as string | undefined} />
             </div>
           )}
 
@@ -1258,18 +1294,36 @@ export default function CoursesPage() {
             <p className="text-sm text-slate-500">Stats are only available when editing an existing course.</p>
           )}
 
-          {/* Phase 44.6.4 — saving lock + progress strip. While `saving` is
-              true: Cancel + Save both disable, button shows a spinner and
-              "Uploading…" copy, and an explanatory line appears so the admin
-              knows a 25 MB video upload may take 30–60 s and they shouldn't
-              close the tab. */}
+          {/* Phase 44.6.4 + 44.9 — saving lock + real upload progress bar.
+              When uploadPct is a number we show a determinate % bar (bytes
+              leaving the browser); at 100% the server is streaming to Bunny,
+              so we switch the copy to "Processing on server…". Non-media
+              saves just show the spinner strip. */}
           {saving && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 flex items-center gap-2">
-              <svg className="animate-spin h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4"/>
-                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
-              </svg>
-              Saving… large videos can take 30–60 seconds. Please don't close this dialog.
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs text-blue-700 space-y-2">
+              {uploadPct !== null ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span>{uploadPct < 100 ? `Uploading… ${uploadPct}%` : 'Upload complete — processing on server (streaming to Bunny)…'}</span>
+                    <span className="font-mono">{uploadPct}%</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-blue-100 overflow-hidden">
+                    <div
+                      className="h-full bg-brand-500 transition-[width] duration-200 ease-out"
+                      style={{ width: `${uploadPct}%` }}
+                    />
+                  </div>
+                  <p className="text-blue-600/80">Please don't close this dialog until it finishes.</p>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4"/>
+                    <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
+                  </svg>
+                  Saving…
+                </div>
+              )}
             </div>
           )}
           <div className="flex justify-end gap-2 pt-2">

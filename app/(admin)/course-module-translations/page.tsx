@@ -99,6 +99,32 @@ function ViewField({ label, value, mono }: { label: string; value?: string | nul
   );
 }
 
+/**
+ * Phase 44.9 Issue 3 — render an image URL as a thumbnail preview in the
+ * view dialog instead of raw URL text. Mirror of the helper added to
+ * bundle-translations and course-translations.
+ */
+function ViewImage({ label, value, aspect = 'aspect-[1200/630]' }: { label: string; value?: string | null; aspect?: string }) {
+  return (
+    <div>
+      <span className="block text-xs font-medium text-slate-500 mb-1">{label}</span>
+      {value ? (
+        <div className="space-y-1.5">
+          <div className={cn('w-full max-w-xs rounded-lg border border-slate-200 overflow-hidden bg-slate-50', aspect)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={value} alt={label} className="w-full h-full object-cover" />
+          </div>
+          <a href={value} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline">
+            Open original ↗
+          </a>
+        </div>
+      ) : (
+        <p className="text-sm text-slate-300 italic">Not set</p>
+      )}
+    </div>
+  );
+}
+
 function jsonPretty(val: any): string {
   if (!val) return '';
   if (typeof val === 'string') return val;
@@ -800,7 +826,8 @@ export default function CourseModuleTranslationsPage() {
                 <ViewField label="OG Title" value={viewItem.og_title} />
                 <ViewField label="OG Description" value={viewItem.og_description} />
                 <ViewField label="OG Type" value={viewItem.og_type} />
-                <ViewField label="OG Image" value={viewItem.og_image} />
+                {/* Phase 44.9 Issue 3 — image preview (1200×630, OG spec) */}
+                <ViewImage label="OG Image" value={viewItem.og_image} aspect="aspect-[1200/630]" />
                 <ViewField label="OG URL" value={viewItem.og_url} />
               </div>
             )}
@@ -810,7 +837,8 @@ export default function CourseModuleTranslationsPage() {
                 <ViewField label="Twitter Site" value={viewItem.twitter_site} />
                 <ViewField label="Twitter Title" value={viewItem.twitter_title} />
                 <ViewField label="Twitter Description" value={viewItem.twitter_description} />
-                <ViewField label="Twitter Image" value={viewItem.twitter_image} />
+                {/* Phase 44.9 Issue 3 — image preview (summary_large_image is 2:1) */}
+                <ViewImage label="Twitter Image" value={viewItem.twitter_image} aspect="aspect-[2/1]" />
                 <ViewField label="Twitter Card" value={viewItem.twitter_card} />
               </div>
             )}

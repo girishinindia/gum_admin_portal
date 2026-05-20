@@ -517,6 +517,43 @@ export const api = {
   getCourse: (id: number) => request(`/courses/${id}`, { auth: false }),
   createCourse: (data: any, isFormData = false) => request('/courses', { method: 'POST', body: isFormData ? (data as any) : JSON.stringify(data), isFormData }),
   updateCourse: (id: number, data: any, isFormData = false) => request(`/courses/${id}`, { method: 'PATCH', body: isFormData ? (data as any) : JSON.stringify(data), isFormData }),
+
+  // Phase 44.9 Issue 1 — multipart course save with real upload progress.
+  // fetch() can't report upload progress, so for the media path (which can
+  // carry a multi-hundred-MB video) we use XHR with xhr.upload.onprogress.
+  // `onProgress(percent)` fires 0..100 as bytes leave the browser; once it
+  // hits 100 the server is processing (streaming to Bunny). Mirrors the
+  // existing uploadSubTopicVideo helper.
+  saveCourseWithProgress: (
+    id: number | null,
+    fd: FormData,
+    onProgress?: (percent: number) => void,
+  ): Promise<any> => {
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      const url = id ? `${API_URL}/courses/${id}` : `${API_URL}/courses`;
+      xhr.open(id ? 'PATCH' : 'POST', url);
+      if (tokens.access) xhr.setRequestHeader('Authorization', `Bearer ${tokens.access}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          // Surface non-2xx with the server's real error message.
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+          else resolve({ success: false, error: data?.error || data?.message || `Save failed (${xhr.status})` });
+        } catch {
+          resolve({ success: false, error: `Save failed (${xhr.status})` });
+        }
+      };
+      xhr.onerror = () => resolve({ success: false, error: 'Upload failed — connection error' });
+      xhr.ontimeout = () => resolve({ success: false, error: 'Upload timed out' });
+      xhr.send(fd);
+    });
+  },
   deleteCourse: (id: number) => request(`/courses/${id}`, { method: 'DELETE' }),
   restoreCourse: (id: number) => request(`/courses/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteCourse: (id: number) => request(`/courses/${id}/permanent`, { method: 'DELETE' }),
