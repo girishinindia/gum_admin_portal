@@ -173,7 +173,12 @@ export default function CourseModuleTranslationsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
-  const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm();
+  // Phase 45 — watch image URL fields so ImageUpload reflects the X (remove)
+  // instead of re-showing the original image and re-saving the old URL.
+  const watchOgImage = watch('og_image');
+  const watchTwitterImage = watch('twitter_image');
+  const watchImage = watch('image');
   const [formLoading, setFormLoading] = useState(false);
   const [formMode, setFormMode] = useState<'new' | 'existing'>('new');
   const [viewOpen, setViewOpen] = useState(false);
@@ -996,7 +1001,11 @@ export default function CourseModuleTranslationsPage() {
                 <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="SEO description..." {...register('meta_description')} />
               </div>
               <Input label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
-              <Input label="Canonical URL" placeholder="https://..." {...register('canonical_url')} />
+              <Input label="Canonical URL" placeholder="https://..."
+                error={errors.canonical_url?.message as string | undefined}
+                {...register('canonical_url', {
+                  validate: (v) => !v || /^https?:\/\/.+\..+/i.test(String(v).trim()) || 'Enter a valid URL starting with http:// or https://',
+                })} />
               <Input label="Robots Directive" placeholder="index, follow" {...register('robots_directive')} />
               <Input label="Focus Keyword" placeholder="main keyword" {...register('focus_keyword')} />
               <div>
@@ -1021,8 +1030,8 @@ export default function CourseModuleTranslationsPage() {
               </div>
               <Input label="OG Type" placeholder="website" {...register('og_type')} />
               <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200×630px"
-                value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
-                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }} />
+                value={watchOgImage || null} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); if (file === null) setValue('og_image', ''); }} />
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
             </div>
           )}
@@ -1037,8 +1046,8 @@ export default function CourseModuleTranslationsPage() {
                 <textarea className={cn(selectClass, 'w-full min-h-[80px]')} placeholder="Twitter card description..." {...register('twitter_description')} />
               </div>
               <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200×628px"
-                value={editing?.twitter_image} aspectRatio={1200 / 628} maxWidth={1200} maxHeight={628} shape="rounded"
-                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />
+                value={watchTwitterImage || null} aspectRatio={1200 / 628} maxWidth={1200} maxHeight={628} shape="rounded"
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); if (file === null) setValue('twitter_image', ''); }} />
               <Input label="Twitter Card" placeholder="summary_large_image" {...register('twitter_card')} />
             </div>
           )}
@@ -1047,8 +1056,8 @@ export default function CourseModuleTranslationsPage() {
           {activeTab === 'Images' && (
             <div className="space-y-4">
               <ImageUpload key={`img-${dialogKey}`} label="Image" hint="Recommended: 800x600px"
-                value={editing?.image} aspectRatio={800 / 600} maxWidth={800} maxHeight={600} shape="rounded"
-                onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }} />
+                value={watchImage || null} aspectRatio={800 / 600} maxWidth={800} maxHeight={600} shape="rounded"
+                onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); if (file === null) setValue('image', ''); }} />
             </div>
           )}
 
