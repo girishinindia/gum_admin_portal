@@ -128,7 +128,12 @@ export default function BatchTranslationsPage() {
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
-  const { register, handleSubmit, reset, setValue, getValues, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm();
+  // Phase 45 — watch image URL fields so ImageUpload reflects removal (the X)
+  // instead of re-showing the original image and re-saving the old URL.
+  const watchThumb = watch('thumbnail_url');
+  const watchOgImage = watch('og_image');
+  const watchTwitterImage = watch('twitter_image');
   const [formLoading, setFormLoading] = useState(false);
   const [formMode, setFormMode] = useState<'new' | 'existing'>('new');
   const [viewOpen, setViewOpen] = useState(false);
@@ -326,6 +331,9 @@ export default function BatchTranslationsPage() {
       'robots_directive', 'focus_keyword',
       'og_site_name', 'og_title', 'og_description', 'og_type', 'og_url',
       'twitter_site', 'twitter_title', 'twitter_description', 'twitter_card',
+      // Phase 45 — include image URL fields so clearing one (X → '') is sent
+      // and persists as null. New uploads still arrive via the *_file parts.
+      'thumbnail_url', 'og_image', 'twitter_image',
     ];
     scalarFields.forEach(k => {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
@@ -822,12 +830,12 @@ export default function BatchTranslationsPage() {
                 key={`thumb-${dialogKey}`}
                 label="Batch Thumbnail"
                 hint="Recommended: 800x450px. Drag & drop or click to upload."
-                value={editing?.thumbnail_url}
+                value={watchThumb || null}
                 aspectRatio={800 / 450}
                 maxWidth={800}
                 maxHeight={450}
                 shape="rounded"
-                onChange={(file, preview) => { setThumbnailFile(file); setThumbnailPreview(preview); }}
+                onChange={(file, preview) => { setThumbnailFile(file); setThumbnailPreview(preview); if (file === null) setValue('thumbnail_url', ''); }}
               />
             </div>
           )}
@@ -841,7 +849,11 @@ export default function BatchTranslationsPage() {
                 <textarea className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" rows={3} placeholder="SEO description..." {...register('meta_description')} />
               </div>
               <Input label="Meta Keywords" placeholder="keyword1, keyword2" {...register('meta_keywords')} />
-              <Input label="Canonical URL" placeholder="https://..." {...register('canonical_url')} />
+              <Input label="Canonical URL" placeholder="https://..."
+                error={errors.canonical_url?.message as string | undefined}
+                {...register('canonical_url', {
+                  validate: (v) => !v || /^https?:\/\/.+\..+/i.test(String(v).trim()) || 'Enter a valid URL starting with http:// or https://',
+                })} />
               <Input label="Robots Directive" placeholder="index, follow" {...register('robots_directive')} />
               <Input label="Focus Keyword" placeholder="main keyword" {...register('focus_keyword')} />
               <div>
@@ -865,12 +877,12 @@ export default function BatchTranslationsPage() {
                 key={`og-img-${dialogKey}`}
                 label="OG Image"
                 hint="Recommended: 1200×630px. Drag & drop or click to upload."
-                value={editing?.og_image}
+                value={watchOgImage || null}
                 aspectRatio={1200 / 630}
                 maxWidth={1200}
                 maxHeight={630}
                 shape="rounded"
-                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }}
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); if (file === null) setValue('og_image', ''); }}
               />
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
             </div>
@@ -889,12 +901,12 @@ export default function BatchTranslationsPage() {
                 key={`tw-img-${dialogKey}`}
                 label="Twitter Image"
                 hint="Recommended: 1200×628px. Drag & drop or click to upload."
-                value={editing?.twitter_image}
+                value={watchTwitterImage || null}
                 aspectRatio={1200 / 628}
                 maxWidth={1200}
                 maxHeight={628}
                 shape="rounded"
-                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }}
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); if (file === null) setValue('twitter_image', ''); }}
               />
               <Input label="Twitter Card" placeholder="summary_large_image" {...register('twitter_card')} />
             </div>
