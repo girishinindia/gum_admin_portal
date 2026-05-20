@@ -1106,7 +1106,7 @@ function PoliciesTab({ onViewTranslations }: { onViewTranslations: (id: number) 
   const [coverage, setCoverage] = useState<Record<number, CoverageItem>>({});
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
 
   useKeyboardShortcuts([
     { key: '/', action: () => toolbarRef.current?.focusSearch() },
@@ -1610,11 +1610,32 @@ function PoliciesTab({ onViewTranslations }: { onViewTranslations: (id: number) 
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Effective From</label>
-              <Input {...register('effective_from')} type="date" />
+              {/* Phase 45 — reject absurd years (e.g. 0002) via a sane range. */}
+              <Input type="date" min="2000-01-01" max="2100-12-31"
+                error={errors.effective_from?.message as string | undefined}
+                {...register('effective_from', {
+                  validate: (v) => {
+                    if (!v) return true;
+                    const y = Number(String(v).slice(0, 4));
+                    return (y >= 2000 && y <= 2100) || 'Enter a valid date (year 2000–2100)';
+                  },
+                })} />
             </div>
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Effective Until</label>
-              <Input {...register('effective_until')} type="date" />
+              <Input type="date" min="2000-01-01" max="2100-12-31"
+                error={errors.effective_until?.message as string | undefined}
+                {...register('effective_until', {
+                  validate: (v) => {
+                    if (!v) return true;
+                    const y = Number(String(v).slice(0, 4));
+                    if (y < 2000 || y > 2100) return 'Enter a valid date (year 2000–2100)';
+                    // Phase 45 — must not be before Effective From.
+                    const from = watch('effective_from');
+                    if (from && String(v) < String(from)) return 'Effective Until must be on or after Effective From';
+                    return true;
+                  },
+                })} />
             </div>
           </div>
           <div className="flex items-center">
