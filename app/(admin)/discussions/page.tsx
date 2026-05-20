@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -132,13 +133,43 @@ export default function DiscussionsPage() {
   // Create
   const [thrCreateOpen, setThrCreateOpen] = useState(false);
   const [thrCreating, setThrCreating] = useState(false);
-  const { register: regThrCreate, handleSubmit: handleThrCreate, reset: resetThrCreate } = useForm();
+  const { register: regThrCreate, handleSubmit: handleThrCreate, reset: resetThrCreate, watch: watchThrCreate, setValue: setValueThrCreate } = useForm();
 
   // Edit
   const [thrEditOpen, setThrEditOpen] = useState(false);
   const [thrEditItem, setThrEditItem] = useState<any>(null);
   const [thrSaving, setThrSaving] = useState(false);
-  const { register: regThrEdit, handleSubmit: handleThrEdit, reset: resetThrEdit } = useForm();
+  const { register: regThrEdit, handleSubmit: handleThrEdit, reset: resetThrEdit, watch: watchThrEdit, setValue: setValueThrEdit } = useForm();
+
+  // Phase 45 — populated dropdowns for Author (all users) and Item (cascades
+  // from Item Type) instead of free-text id boxes.
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [itemOptions, setItemOptions] = useState<{ value: string; label: string }[]>([]);
+  useEffect(() => {
+    api.listUsers('?limit=500').then((r: any) => { if (r.success) setAllUsers(r.data || []); });
+  }, []);
+  const userOptions = allUsers.map((u: any) => ({
+    value: String(u.id),
+    label: `${u.full_name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || 'User'} (id: ${u.id})`,
+  }));
+  async function loadItemOptions(type: string) {
+    let res: any = null;
+    let label: (x: any) => string = (x) => `#${x.id}`;
+    switch (type) {
+      case 'course':  res = await api.listCourses('?limit=500');        label = (x) => x.name || x.code || `#${x.id}`; break;
+      case 'bundle':  res = await api.listBundles('?limit=500');        label = (x) => x.name || x.code || `#${x.id}`; break;
+      case 'batch':   res = await api.listCourseBatches('?limit=500');  label = (x) => x.title || x.code || `#${x.id}`; break;
+      case 'webinar': res = await api.listWebinars('?limit=500');       label = (x) => x.title || x.code || `#${x.id}`; break;
+      case 'lesson':  res = await api.listSubTopics('?limit=1000');     label = (x) => x.name || x.slug || `#${x.id}`; break;
+      default: setItemOptions([]); return;
+    }
+    if (res?.success) setItemOptions((res.data || []).map((x: any) => ({ value: String(x.id), label: `${label(x)} (id: ${x.id})` })));
+    else setItemOptions([]);
+  }
+  const watchedCreateType = watchThrCreate('item_type');
+  useEffect(() => { if (thrCreateOpen && watchedCreateType) loadItemOptions(watchedCreateType); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [thrCreateOpen, watchedCreateType]);
+  const watchedEditType = watchThrEdit('item_type');
+  useEffect(() => { if (thrEditOpen && watchedEditType) loadItemOptions(watchedEditType); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [thrEditOpen, watchedEditType]);
 
   // Action loaders
   const [thrActionLoaders, setThrActionLoaders] = useState<Record<number, string>>({});
@@ -278,6 +309,9 @@ export default function DiscussionsPage() {
   }
 
   async function onThrCreate(formData: any) {
+    // Author + Item come from SearchableSelect (not RHF-registered), so validate here.
+    if (!formData.author_id) { toast.error('Please select an author'); return; }
+    if (!formData.item_id) { toast.error('Please select an item'); return; }
     setThrCreating(true);
     try {
       const payload: any = { ...formData };
@@ -862,19 +896,32 @@ export default function DiscussionsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Item Type</label>
-              <select className={cn(selectClass, 'w-full')} {...regThrCreate('item_type')}>
+              <select className={cn(selectClass, 'w-full')}
+                {...regThrCreate('item_type', { onChange: () => setValueThrCreate('item_id', '') })}>
                 {ITEM_TYPES.filter(t => t.value !== '').map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item ID</label>
-              <Input type="number" placeholder="Enter item ID" {...regThrCreate('item_id')} />
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item</label>
+              <SearchableSelect
+                options={itemOptions}
+                value={watchThrCreate('item_id') || ''}
+                onChange={(v) => setValueThrCreate('item_id', v)}
+                placeholder="Select item…"
+                searchPlaceholder="Search…"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Author ID *</label>
-              <Input type="number" placeholder="Enter author user ID" {...regThrCreate('author_id', { required: true })} />
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Author *</label>
+              <SearchableSelect
+                options={userOptions}
+                value={watchThrCreate('author_id') || ''}
+                onChange={(v) => setValueThrCreate('author_id', v)}
+                placeholder="Select author…"
+                searchPlaceholder="Search users…"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
@@ -912,13 +959,20 @@ export default function DiscussionsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Item Type</label>
-              <select className={cn(selectClass, 'w-full')} {...regThrEdit('item_type')}>
+              <select className={cn(selectClass, 'w-full')}
+                {...regThrEdit('item_type', { onChange: () => setValueThrEdit('item_id', '') })}>
                 {ITEM_TYPES.filter(t => t.value !== '').map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item ID</label>
-              <Input type="number" placeholder="Enter item ID" {...regThrEdit('item_id')} />
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item</label>
+              <SearchableSelect
+                options={itemOptions}
+                value={watchThrEdit('item_id') || ''}
+                onChange={(v) => setValueThrEdit('item_id', v)}
+                placeholder="Select item…"
+                searchPlaceholder="Search…"
+              />
             </div>
           </div>
           <div>
