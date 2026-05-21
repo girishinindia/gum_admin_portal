@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { FileUpload } from '@/components/ui/FileUpload';
 import { VideoUpload } from '@/components/ui/VideoUpload';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import {
   Plus, Pencil, Trash2, ArrowLeft, CheckCircle, XCircle, Send, ShieldCheck,
   Package, FolderTree, FileText, Video, BookOpen, ClipboardList, FlaskConical, Loader2,
@@ -68,6 +69,7 @@ export default function CourseBuilderPage() {
 
   const [languages, setLanguages] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [subCategories, setSubCategories] = useState<any[]>([]);
   const [instructors, setInstructors] = useState<any[]>([]);
 
   const [course, setCourse] = useState<any | null>(null); // currently edited course
@@ -117,8 +119,27 @@ export default function CourseBuilderPage() {
 
   useEffect(() => { if (view === 'list') { fetchCourses(); refreshStats(); } }, [view, fetchCourses, refreshStats]);
   useEffect(() => {
-    api.listLanguages('?is_active=true&limit=50').then(r => { if (r.success) setLanguages(r.data || []); });
-    api.listSubCategories('?limit=500&is_active=true').then(r => { if (r.success) setCategories(r.data || []); });
+    (async () => {
+      // category / sub_category base `name` columns are null on this DB — the
+      // display name lives in the *_translations tables. Resolve the English name.
+      const langRes = await api.listLanguages('?is_active=true&limit=50');
+      const langs = langRes.data || [];
+      setLanguages(langs);
+      const enId = langs.find((l: any) => l.iso_code === 'en')?.id;
+
+      const [catRes, subRes, catTr, subTr] = await Promise.all([
+        api.listCategories('?limit=500&is_active=true'),
+        api.listSubCategories('?limit=1000&is_active=true'),
+        api.listCategoryTranslations('?limit=1000'),
+        api.listSubCategoryTranslations('?limit=2000'),
+      ]);
+      const catName = new Map<number, string>();
+      for (const t of (catTr.data || [])) { if ((!enId || t.language_id === enId) && t.name) catName.set(t.category_id, t.name); }
+      const subName = new Map<number, string>();
+      for (const t of (subTr.data || [])) { if ((!enId || t.language_id === enId) && t.name) subName.set(t.sub_category_id, t.name); }
+      setCategories((catRes.data || []).map((c: any) => ({ ...c, name: c.name || catName.get(c.id) || c.code || `#${c.id}` })));
+      setSubCategories((subRes.data || []).map((s: any) => ({ ...s, name: s.name || subName.get(s.id) || s.code || `#${s.id}` })));
+    })();
     // Only instructor-type users may own a course.
     api.listUsers('?limit=500&type=instructor').then(r => { if (r.success) setInstructors(r.data || []); });
   }, []);
@@ -351,7 +372,7 @@ export default function CourseBuilderPage() {
       </div>
 
       <div className="ml-10 max-w-4xl">
-        {tab === 'basics' && <BasicsTab form={form} setForm={setForm} languages={languages} categories={categories} instructors={instructors} saving={saving} onSave={saveBasics} courseId={course?.id} onMedia={() => course?.id && refreshReadiness(course.id)} />}
+        {tab === 'basics' && <BasicsTab form={form} setForm={setForm} languages={languages} categories={categories} subCategories={subCategories} instructors={instructors} saving={saving} onSave={saveBasics} courseId={course?.id} onMedia={() => course?.id && refreshReadiness(course.id)} />}
         {tab === 'highlights' && course?.id && <HighlightsTab courseId={course.id} items={highlights} reload={() => loadChildren(course.id)} />}
         {tab === 'curriculum' && course?.id && <CurriculumTab courseId={course.id} units={units} reload={() => loadChildren(course.id)} />}
         {tab === 'faqs' && course?.id && <FaqsTab courseId={course.id} items={faqs} reload={() => loadChildren(course.id)} />}
@@ -361,10 +382,23 @@ export default function CourseBuilderPage() {
 }
 
 /* ════════════ Basics Tab ════════════ */
-function BasicsTab({ form, setForm, languages, categories, instructors, saving, onSave, courseId, onMedia }: any) {
+function BasicsTab({ form, setForm, languages, categories, subCategories, instructors, saving, onSave, courseId, onMedia }: any) {
   const set = (k: string, v: any) => setForm({ ...form, [k]: v });
   const [thumbBusy, setThumbBusy] = useState(false);
   const [trailerProgress, setTrailerProgress] = useState<number | null>(null);
+
+  // Category → Sub-category cascade. form.category_id stores the SUB-category id;
+  // the parent Category is just a filter, derived from the chosen sub-category.
+  const [catParent, setCatParent] = useState<string>('');
+  useEffect(() => {
+    if (form.category_id && subCategories?.length) {
+      const sc = subCategories.find((s: any) => String(s.id) === String(form.category_id));
+      if (sc) setCatParent(String(sc.category_id));
+    }
+  }, [form.category_id, subCategories]);
+  const subOptions = subCategories
+    .filter((s: any) => catParent && String(s.category_id) === String(catParent))
+    .map((s: any) => ({ value: s.id, label: s.name }));
 
   async function onThumbnail(file: File | null) {
     if (!file) { set('thumbnail_url', null); return; }
@@ -402,10 +436,30 @@ function BasicsTab({ form, setForm, languages, categories, instructors, saving, 
       </div>
       <Field label="Short intro"><textarea value={form.short_intro || ''} onChange={e => set('short_intro', e.target.value)} rows={2} className={taCls} placeholder="1-2 sentences" /></Field>
       <Field label="Long intro"><textarea value={form.long_intro || ''} onChange={e => set('long_intro', e.target.value)} rows={4} className={taCls} placeholder="Detailed description" /></Field>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <Field label="Level"><Select value={form.level || 'beginner'} onChange={e => set('level', e.target.value)} options={LEVELS} /></Field>
         <Field label="Language"><Select value={form.language_id || ''} onChange={e => set('language_id', e.target.value)} options={[{ value: '', label: 'Select…' }, ...languages.map((l: any) => ({ value: l.id, label: l.name }))]} /></Field>
-        <Field label="Category"><Select value={form.category_id || ''} onChange={e => set('category_id', e.target.value)} options={[{ value: '', label: 'Select…' }, ...categories.map((c: any) => ({ value: c.id, label: c.name }))]} /></Field>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Category">
+          <SearchableSelect
+            value={catParent}
+            onChange={(v) => { setCatParent(v); set('category_id', null); }}
+            options={categories.map((c: any) => ({ value: c.id, label: c.name }))}
+            placeholder="Select category…"
+            searchPlaceholder="Search categories…"
+          />
+        </Field>
+        <Field label="Sub-category">
+          <SearchableSelect
+            value={form.category_id || ''}
+            onChange={(v) => set('category_id', v ? Number(v) : null)}
+            options={subOptions}
+            placeholder={catParent ? 'Select sub-category…' : 'Pick a category first'}
+            searchPlaceholder="Search sub-categories…"
+            disabled={!catParent}
+          />
+        </Field>
       </div>
       <div className="grid grid-cols-3 gap-4">
         <Field label="Price (₹)"><Input type="number" min={0} value={form.price ?? ''} onChange={e => set('price', e.target.value)} disabled={form.is_free} /></Field>
