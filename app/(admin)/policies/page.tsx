@@ -556,7 +556,7 @@ function PolicyTypesTab({ onViewTranslations }: { onViewTranslations: (id: numbe
             </div>
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Display Order</label>
-              <Input {...register('display_order')} type="number" placeholder="0" />
+              <Input {...register('display_order')} type="number" min={0} placeholder="0" />
             </div>
           </div>
           <div>

@@ -17,10 +17,109 @@ import {
   Plus, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown,
   CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle,
   Loader2, X, FolderTree, Globe, HelpCircle, Languages, Sparkles, Star,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePageSize } from '@/hooks/usePageSize';
+
+// ─── AI providers + inline AI generate/translate panel ───────────────
+type AIProvider = 'anthropic' | 'openai' | 'gemini';
+const AI_PROVIDERS: { value: AIProvider; label: string; model: string }[] = [
+  { value: 'anthropic', label: 'Anthropic', model: 'Claude Haiku 4.5' },
+  { value: 'openai', label: 'OpenAI', model: 'GPT-4o Mini' },
+  { value: 'gemini', label: 'Google', model: 'Gemini 2.5 Flash' },
+];
+
+/**
+ * Phase 46 — inline "AI Generate Content" panel for the translation dialogs,
+ * mirroring the material translation modules. Generates English content (when
+ * the selected language is English) or translates the existing English version
+ * into the selected language, then fills the form via onApply().
+ */
+function InlineAiTranslatePanel({ entityType, entityId, languageId, languages, onApply }: {
+  entityType: string;
+  entityId: number | string;
+  languageId: number | string;
+  languages: any[];
+  onApply: (fields: Record<string, any>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [provider, setProvider] = useState<AIProvider>('gemini');
+  const [prompt, setPrompt] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const lang = languages.find(l => String(l.id) === String(languageId));
+  const isEnglish = lang?.iso_code === 'en';
+
+  async function run() {
+    if (!entityId) { toast.error('Select the parent item first'); return; }
+    if (!languageId || !lang) { toast.error('Select a language first'); return; }
+    setLoading(true);
+    try {
+      const res = await api.generateEntityTranslation({
+        entity_type: entityType,
+        entity_id: Number(entityId),
+        target_language_code: lang.iso_code,
+        target_language_name: lang.name,
+        prompt: prompt || undefined,
+        provider,
+      });
+      if (res.success && res.data?.translated) {
+        onApply(res.data.translated);
+        toast.success(isEnglish ? 'Content generated — review & save' : 'Translation generated — review & save');
+      } else {
+        toast.error(res.error || 'AI generation failed');
+      }
+    } catch {
+      toast.error('AI generation failed');
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="border border-indigo-200 rounded-lg overflow-hidden">
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 transition-colors text-sm font-medium text-indigo-700">
+        <span className="flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Generate Content</span>
+        {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+      {open && (
+        <div className="px-4 py-3 bg-white space-y-3">
+          <p className="text-xs text-slate-500">
+            {isEnglish
+              ? <>AI will generate <strong>English</strong> content for all fields below.</>
+              : <>AI will translate the <strong>English</strong> version into <strong>{lang?.name || 'the selected language'}</strong>. The English translation must exist first.</>}
+          </p>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">AI Provider</label>
+            <div className="grid grid-cols-3 gap-2">
+              {AI_PROVIDERS.map(p => (
+                <button key={p.value} type="button" disabled={loading} onClick={() => setProvider(p.value)}
+                  className={cn('px-3 py-2 rounded-lg border text-sm font-medium transition-all text-left',
+                    provider === p.value
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500/20'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50')}>
+                  <div className="font-semibold text-xs">{p.label}</div>
+                  <div className="text-[10px] opacity-70 mt-0.5">{p.model}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{isEnglish ? 'Generation Prompt' : 'Translation Prompt'} <span className="text-slate-400">(optional)</span></label>
+            <textarea value={prompt} onChange={e => setPrompt(e.target.value)} disabled={loading}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[60px] resize-y disabled:opacity-50"
+              placeholder={isEnglish ? 'e.g. Generate clear, helpful content.' : 'e.g. Translate exactly; keep technical/brand words in English.'} />
+          </div>
+          <Button type="button" onClick={run} disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Types ───────────────────────────────────────────────────────
 type MainTab = 'categories' | 'cat_translations' | 'faqs' | 'faq_translations';
@@ -592,7 +691,7 @@ function CategoriesTab({ onViewTranslations }: { onViewTranslations: (id: number
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Display Order</label>
-              <Input {...register('display_order')} type="number" placeholder="0" />
+              <Input {...register('display_order')} type="number" min={0} placeholder="0" />
             </div>
             <div className="flex items-center pt-6">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -1089,6 +1188,15 @@ function CatTranslationsTab({ filterCategoryId }: { filterCategoryId: number | n
               </select>
             </div>
           </div>
+          {watch('faq_category_id') && watch('language_id') && (
+            <InlineAiTranslatePanel
+              entityType="faq_category"
+              entityId={watch('faq_category_id')}
+              languageId={watch('language_id')}
+              languages={languages}
+              onApply={(f) => Object.entries(f).forEach(([k, v]) => setValue(k as any, v as any))}
+            />
+          )}
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Name <span className="text-red-500">*</span></label>
@@ -1647,7 +1755,7 @@ function FaqsTab({ onViewTranslations }: { onViewTranslations: (id: number) => v
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Display Order</label>
-              <Input {...register('display_order')} type="number" placeholder="0" />
+              <Input {...register('display_order')} type="number" min={0} placeholder="0" />
             </div>
             <div className="flex items-center gap-6 pt-6">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -2156,6 +2264,15 @@ function FaqTranslationsTab({ filterFaqId }: { filterFaqId: number | null }) {
               </select>
             </div>
           </div>
+          {watch('faq_id') && watch('language_id') && (
+            <InlineAiTranslatePanel
+              entityType="faq"
+              entityId={watch('faq_id')}
+              languageId={watch('language_id')}
+              languages={languages}
+              onApply={(f) => Object.entries(f).forEach(([k, v]) => setValue(k as any, v as any))}
+            />
+          )}
           <div>
             <label className="block mb-1.5 text-sm font-medium text-slate-700">Question <span className="text-red-500">*</span></label>
             <textarea {...register('question', { required: true })} rows={3} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" placeholder="Translated question" />

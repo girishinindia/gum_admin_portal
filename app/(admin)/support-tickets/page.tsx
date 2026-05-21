@@ -547,7 +547,7 @@ function CategoriesTab() {
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Display Order</label>
-              <Input {...register('display_order')} type="number" placeholder="0" />
+              <Input {...register('display_order')} type="number" min={0} placeholder="0" />
             </div>
             <div className="flex items-center pt-6">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -992,7 +992,7 @@ function PrioritiesTab() {
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Display Order</label>
-              <Input {...register('display_order')} type="number" placeholder="0" />
+              <Input {...register('display_order')} type="number" min={0} placeholder="0" />
             </div>
             <div className="flex items-center pt-6">
               <label className="flex items-center gap-2 cursor-pointer">

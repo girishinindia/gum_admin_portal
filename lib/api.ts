@@ -511,6 +511,14 @@ export const api = {
   bulkGenerateMissingContent: (data: { entity_type: string; entity_ids?: number[]; generate_all?: boolean; force_regenerate?: boolean; prompt?: string; provider?: string }) =>
     request('/ai/bulk-generate-missing-content', { method: 'POST', body: JSON.stringify(data) }),
 
+  // AI — Generic single-language generate/translate for any entity (returns fields for the form)
+  generateEntityTranslation: (data: { entity_type: string; entity_id: number; target_language_code: string; target_language_name?: string; prompt?: string; provider?: string }) =>
+    request('/ai/generate-entity-translation', { method: 'POST', body: JSON.stringify(data) }),
+
+  // AI — Blog post content + SEO (single-language, in-place fill)
+  generateBlogPostContent: (data: { title: string; category?: string; prompt?: string; provider?: string }) =>
+    request('/ai/generate-blog-post-content', { method: 'POST', body: JSON.stringify(data) }),
+
   // AI — Auto Sub Topics from HTML
   autoSubTopics: (fd: FormData) =>
     request('/ai/auto-sub-topics', { method: 'POST', body: fd, isFormData: true }),

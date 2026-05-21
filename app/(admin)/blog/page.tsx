@@ -18,7 +18,7 @@ import {
   Plus, Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown,
   CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle,
   Loader2, X, FolderTree, FileText, MessageSquare, Star,
-  Send, Archive, RefreshCw,
+  Send, Archive, RefreshCw, Sparkles,
 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -629,6 +629,30 @@ function PostsTab() {
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const [aiFilling, setAiFilling] = useState(false);
+
+  // Phase 46 — AI Fill: generate post content + SEO from the title (blog_posts
+  // is single-language, so this fills the form fields in place).
+  async function handleAiFill() {
+    const title = (watch('title') || '').trim();
+    if (!title) { toast.error('Enter a title first'); return; }
+    const catId = watch('category_id');
+    const catName = categories.find(c => String(c.id) === String(catId))?.name;
+    setAiFilling(true);
+    try {
+      const res = await api.generateBlogPostContent({ title, category: catName, provider: 'gemini' });
+      if (res.success && res.data?.generated) {
+        const g = res.data.generated;
+        Object.entries(g).forEach(([k, v]) => { if (v) setValue(k as any, v as any); });
+        toast.success('AI content generated — review & save');
+      } else {
+        toast.error(res.error || 'AI generation failed');
+      }
+    } catch {
+      toast.error('AI generation failed');
+    }
+    setAiFilling(false);
+  }
 
   useKeyboardShortcuts([
     { key: '/', action: () => toolbarRef.current?.focusSearch() },
@@ -1132,6 +1156,15 @@ function PostsTab() {
       {/* ── Create/Edit Dialog ── */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Post' : 'Create Post'} size="xl">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5" key={dialogKey}>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-indigo-700">
+              <Sparkles className="w-4 h-4" />
+              <span>Generate content, excerpt & SEO from the title using AI.</span>
+            </div>
+            <Button type="button" onClick={handleAiFill} disabled={aiFilling} className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0">
+              {aiFilling ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Sparkles className="w-4 h-4" /> AI Fill</>}
+            </Button>
+          </div>
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Title <span className="text-red-500">*</span></label>
