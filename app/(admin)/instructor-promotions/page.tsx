@@ -261,23 +261,24 @@ export default function InstructorPromotionsPage() {
 
   useEffect(() => { if (tab === 'courses') fetchCourses(); }, [tab, fetchCourses]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [pRes, cRes] = await Promise.all([
-          api.listInstructorPromotions('?limit=500'),
-          api.listUsers('?limit=1'), // placeholder - we need courses
-        ]);
-        setPromoOptions((pRes.data || []).map((p: any) => ({ id: p.id, promotion_name: p.promotion_name, promo_code: p.promo_code })));
-      } catch {}
-      try {
-        // Fetch only courses created by the logged-in instructor
-        const instructorQs = user?.id ? `?limit=500&instructor_id=${user.id}` : '?limit=500';
-        const cRes = await api.listCourses(instructorQs);
-        setCourseOptions((cRes.data || []).map((c: any) => ({ id: c.id, name: c.name, code: c.code })));
-      } catch {}
-    })();
+  // Phase 48 — load the promotion + course dropdown options. Extracted into a
+  // callback so it can be re-run when the "Link Course" dialog opens; otherwise
+  // a promotion deleted on the Promotions tab lingered in this dropdown until a
+  // full page refresh (the list was only fetched once on mount).
+  const fetchOptions = useCallback(async () => {
+    try {
+      const pRes = await api.listInstructorPromotions('?limit=500');
+      setPromoOptions((pRes.data || []).map((p: any) => ({ id: p.id, promotion_name: p.promotion_name, promo_code: p.promo_code })));
+    } catch {}
+    try {
+      // Fetch only courses created by the logged-in instructor
+      const instructorQs = user?.id ? `?limit=500&instructor_id=${user.id}` : '?limit=500';
+      const cRes = await api.listCourses(instructorQs);
+      setCourseOptions((cRes.data || []).map((c: any) => ({ id: c.id, name: c.name, code: c.code })));
+    } catch {}
   }, [user?.id]);
+
+  useEffect(() => { fetchOptions(); }, [fetchOptions]);
 
   const handleCourseSave = async () => {
     setCSaving(true);
@@ -565,7 +566,7 @@ export default function InstructorPromotionsPage() {
                 <Trash2 className="w-4 h-4" /> Trash
               </Button>
               {!cTrash && (
-                <Button size="sm" onClick={() => { setCEditItem({ promotion_id: 0, course_id: 0, is_active: true }); setCShowDialog(true); }}>
+                <Button size="sm" onClick={() => { fetchOptions(); setCEditItem({ promotion_id: 0, course_id: 0, is_active: true }); setCShowDialog(true); }}>
                   <Plus className="w-4 h-4" /> Link Course
                 </Button>
               )}
