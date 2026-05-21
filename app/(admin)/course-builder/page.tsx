@@ -118,7 +118,7 @@ export default function CourseBuilderPage() {
   useEffect(() => { if (view === 'list') { fetchCourses(); refreshStats(); } }, [view, fetchCourses, refreshStats]);
   useEffect(() => {
     api.listLanguages('?is_active=true&limit=50').then(r => { if (r.success) setLanguages(r.data || []); });
-    api.listCourseSubCategories('?limit=300').then(r => { if (r.success) setCategories(r.data || []); });
+    api.listSubCategories('?limit=500&is_active=true').then(r => { if (r.success) setCategories(r.data || []); });
     // Only instructor-type users may own a course.
     api.listUsers('?limit=500&type=instructor').then(r => { if (r.success) setInstructors(r.data || []); });
   }, []);
@@ -411,7 +411,7 @@ function BasicsTab({ form, setForm, languages, categories, instructors, saving, 
         <Field label="Price (₹)"><Input type="number" min={0} value={form.price ?? ''} onChange={e => set('price', e.target.value)} disabled={form.is_free} /></Field>
         <Field label="Original price (₹)"><Input type="number" min={0} value={form.original_price ?? ''} onChange={e => set('original_price', e.target.value)} disabled={form.is_free} /></Field>
         <div className="flex items-end gap-4 pb-1">
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.is_free} onChange={e => set('is_free', e.target.checked)} /> Free</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.is_free} onChange={e => { const c = e.target.checked; setForm({ ...form, is_free: c, ...(c ? { price: 0, original_price: 0 } : {}) }); }} /> Free</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.has_certificate} onChange={e => set('has_certificate', e.target.checked)} /> Certificate</label>
         </div>
       </div>
