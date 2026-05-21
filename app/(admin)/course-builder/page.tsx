@@ -83,8 +83,15 @@ export default function CourseBuilderPage() {
   const [readiness, setReadiness] = useState<{ ready: boolean; problems: string[] } | null>(null);
 
   async function refreshReadiness(courseId: number) {
-    const r = await api.authoringCourseReadiness(courseId);
-    if (r.success) setReadiness(r.data);
+    // Defensive: a failed readiness call (e.g. API not yet restarted) must never
+    // crash the editor. On error we clear readiness so Submit isn't blocked —
+    // the API re-checks readiness on submit anyway.
+    try {
+      const r = await api.authoringCourseReadiness(courseId);
+      setReadiness(r?.success ? r.data : null);
+    } catch {
+      setReadiness(null);
+    }
   }
 
   /* ── list ── */
@@ -410,7 +417,14 @@ function BasicsTab({ form, setForm, languages, categories, subCategories, instru
     else toast.error(r.error || 'Upload failed');
   }
   async function onTrailerFile(file: File | null) {
-    if (!file) { set('trailer_video', null); return; }
+    if (!file) {
+      if (courseId) {
+        const r = await api.removeAuthoringTrailerVideo(courseId);
+        if (r.success) { setForm({ ...form, trailer_video: null }); toast.success('Trailer removed'); }
+        else toast.error(r.error || 'Remove failed');
+      } else { set('trailer_video', null); }
+      return;
+    }
     if (!courseId) { toast.error('Save basics first, then upload the trailer'); return; }
     setTrailerProgress(0);
     try {
@@ -485,7 +499,10 @@ function BasicsTab({ form, setForm, languages, categories, subCategories, instru
           hint="Upload to Bunny Stream, or paste a YouTube/external URL"
         />
       </div>
-      <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={form.requires_verification !== false} onChange={e => set('requires_verification', e.target.checked)} /> Requires super-admin verification before going live</label>
+      <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+        <ShieldCheck className="w-4 h-4 text-emerald-500" />
+        Every instructor course is reviewed and verified by a super admin before it goes live.
+      </div>
       <div className="pt-2"><Button onClick={onSave} disabled={saving}>{saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : 'Save basics'}</Button></div>
     </div>
   );
@@ -539,7 +556,17 @@ function CurriculumTab({ courseId, units, reload }: any) {
   const PDF_FIELD: Record<string, string> = { article: 'article_pdf', exercise: 'exercise_pdf', exercise_solution: 'exercise_solution_pdf', project: 'project_pdf' };
 
   async function uploadTopicVideo(file: File | null) {
-    if (!file) { setU((s: any) => ({ ...s, video: null })); return; }
+    if (!file) {
+      // remove: delete the Bunny asset + clear both columns (server-side)
+      if (editing) {
+        const r = await api.removeAuthoringUnitVideo(editing.id);
+        if (r.success) { setU((s: any) => ({ ...s, video: null, youtube_url: null })); reload(); toast.success('Video removed'); }
+        else toast.error(r.error || 'Remove failed');
+      } else {
+        setU((s: any) => ({ ...s, video: null, youtube_url: null }));
+      }
+      return;
+    }
     if (!editing) { toast.error('Save the topic first, then upload its video'); return; }
     setVidProg(0);
     try {
@@ -550,10 +577,20 @@ function CurriculumTab({ courseId, units, reload }: any) {
     setVidProg(null);
   }
   async function uploadTopicPdf(kind: string, file: File | null) {
-    if (!file) { setU((s: any) => ({ ...s, [PDF_FIELD[kind]]: null })); return; }
+    const col = PDF_FIELD[kind];
+    if (!file) {
+      if (editing) {
+        const r = await api.removeAuthoringUnitFile(editing.id, kind);
+        if (r.success) { setU((s: any) => ({ ...s, [col]: null })); reload(); toast.success('File removed'); }
+        else toast.error(r.error || 'Remove failed');
+      } else {
+        setU((s: any) => ({ ...s, [col]: null }));
+      }
+      return;
+    }
     if (!editing) { toast.error('Save the topic first, then upload its file'); return; }
     const r = await api.uploadAuthoringUnitFile(editing.id, kind, file);
-    if (r.success) { const col = PDF_FIELD[kind]; setU((s: any) => ({ ...s, [col]: r.data[col] })); reload(); toast.success('File uploaded'); }
+    if (r.success) { setU((s: any) => ({ ...s, [col]: r.data[col] })); reload(); toast.success('File uploaded'); }
     else toast.error(r.error || 'Upload failed');
   }
 
@@ -647,7 +684,7 @@ function CurriculumTab({ courseId, units, reload }: any) {
             {u.topic_type === 'video' && (
               editing ? (
                 <VideoUpload label="Video" value={u.video || u.youtube_url || null} progress={vidProg}
-                  onFileChange={uploadTopicVideo} onUrlChange={(url) => setU({ ...u, youtube_url: url })}
+                  onFileChange={uploadTopicVideo} onUrlChange={(url) => setU((s: any) => ({ ...s, youtube_url: url }))}
                   onOpen={u.video ? async () => { const r = await api.authoringUnitVideoPlayback(editing.id); if (r.success && r.data?.url) window.open(r.data.url, '_blank'); } : undefined}
                   hint="Upload to Bunny Stream, or paste a YouTube/external URL" />
               ) : (

@@ -1545,7 +1545,10 @@ export const api = {
   authoringTrailerPlayback: (id: number) => request(`/authoring/courses/${id}/trailer-playback`),
   uploadAuthoringUnitVideo: (id: number, file: File, onProgress?: (p: number) => void) => _uploadCourseVideoXhr(`/authoring/units/${id}/video`, file, onProgress),
   authoringUnitVideoPlayback: (id: number) => request(`/authoring/units/${id}/video-playback`),
+  removeAuthoringUnitVideo: (id: number) => request(`/authoring/units/${id}/video`, { method: 'DELETE' }),
   uploadAuthoringUnitFile: (id: number, kind: string, file: File) => { const fd = new FormData(); fd.append('file', file); return request(`/authoring/units/${id}/file?kind=${kind}`, { method: 'POST', body: fd as any, isFormData: true }); },
+  removeAuthoringUnitFile: (id: number, kind: string) => request(`/authoring/units/${id}/file?kind=${kind}`, { method: 'DELETE' }),
+  removeAuthoringTrailerVideo: (id: number) => request(`/authoring/courses/${id}/trailer-video`, { method: 'DELETE' }),
 
   // ── Cart Items ──
   listCartItems: (qs = '') => request(`/cart-items${qs}`, { auth: false }),
