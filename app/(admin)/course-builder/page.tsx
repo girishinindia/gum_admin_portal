@@ -419,9 +419,10 @@ function BasicsTab({ form, setForm, languages, categories, subCategories, instru
   async function onTrailerFile(file: File | null) {
     if (!file) {
       if (courseId) {
-        const r = await api.removeAuthoringTrailerVideo(courseId);
-        if (r.success) { setForm({ ...form, trailer_video: null }); toast.success('Trailer removed'); }
-        else toast.error(r.error || 'Remove failed');
+        try {
+          await api.removeAuthoringTrailerVideo(courseId);
+          setForm({ ...form, trailer_video: null }); onMedia?.(); toast.success('Trailer removed');
+        } catch (e: any) { toast.error(e?.message || 'Remove failed'); }
       } else { set('trailer_video', null); }
       return;
     }
@@ -559,9 +560,11 @@ function CurriculumTab({ courseId, units, reload }: any) {
     if (!file) {
       // remove: delete the Bunny asset + clear both columns (server-side)
       if (editing) {
-        const r = await api.removeAuthoringUnitVideo(editing.id);
-        if (r.success) { setU((s: any) => ({ ...s, video: null, youtube_url: null })); reload(); toast.success('Video removed'); }
-        else toast.error(r.error || 'Remove failed');
+        try {
+          const r = await api.removeAuthoringUnitVideo(editing.id);
+          setU((s: any) => ({ ...s, video: null, youtube_url: null })); reload();
+          toast.success(r?.message || 'Video removed');
+        } catch (e: any) { toast.error(e?.message || 'Remove failed'); }
       } else {
         setU((s: any) => ({ ...s, video: null, youtube_url: null }));
       }
@@ -580,9 +583,10 @@ function CurriculumTab({ courseId, units, reload }: any) {
     const col = PDF_FIELD[kind];
     if (!file) {
       if (editing) {
-        const r = await api.removeAuthoringUnitFile(editing.id, kind);
-        if (r.success) { setU((s: any) => ({ ...s, [col]: null })); reload(); toast.success('File removed'); }
-        else toast.error(r.error || 'Remove failed');
+        try {
+          await api.removeAuthoringUnitFile(editing.id, kind);
+          setU((s: any) => ({ ...s, [col]: null })); reload(); toast.success('File removed');
+        } catch (e: any) { toast.error(e?.message || 'Remove failed'); }
       } else {
         setU((s: any) => ({ ...s, [col]: null }));
       }
