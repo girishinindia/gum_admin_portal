@@ -70,6 +70,55 @@ const emptyPromo: Partial<Promotion> = {
   promotion_status: 'draft', requires_approval: true, is_active: true,
 };
 
+// Phase 47 — safe date formatter: avoids the literal "Invalid Date" string when
+// a stored value can't be parsed (e.g. a bad year that slipped in earlier).
+function fmtDate(value: string | null | undefined, withTime = false): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (isNaN(d.getTime()) || d.getFullYear() < 2000 || d.getFullYear() > 2100) return '—';
+  return withTime ? d.toLocaleString() : d.toLocaleDateString();
+}
+
+// Local "now" formatted for a datetime-local input min attribute.
+function localNowForInput(): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Phase 47 — client-side mirror of the API guard (instant feedback before save).
+function validatePromo(p: Partial<Promotion>, enforceFutureFrom: boolean): string | null {
+  const isFixed = p.discount_type === 'fixed_amount' || p.discount_type === 'fixed';
+  const dval = p.discount_value;
+  if (dval == null) return 'Discount value is required';
+  if (dval <= 0) return 'Discount value must be greater than 0';
+  if (!isFixed && dval > 100) return 'Percentage discount cannot exceed 100%';
+
+  if (p.max_discount_amount != null && p.max_discount_amount < 0) return 'Max discount amount cannot be negative';
+  if (p.min_purchase_amount != null && p.min_purchase_amount < 0) return 'Min purchase amount cannot be negative';
+  if (isFixed && dval != null && p.min_purchase_amount != null && dval > p.min_purchase_amount) {
+    return 'Fixed discount cannot exceed the minimum purchase amount';
+  }
+
+  if (p.usage_limit != null && (!Number.isInteger(p.usage_limit) || p.usage_limit < 1)) return 'Usage limit must be a whole number ≥ 1 (leave empty for unlimited)';
+  if (p.usage_per_user != null && (!Number.isInteger(p.usage_per_user) || p.usage_per_user < 1)) return 'Usage per user must be a whole number ≥ 1 (leave empty for unlimited)';
+  if (p.usage_limit != null && p.usage_per_user != null && p.usage_per_user > p.usage_limit) {
+    return 'Usage per user cannot exceed the total usage limit';
+  }
+
+  const from = p.valid_from ? new Date(p.valid_from) : null;
+  const until = p.valid_until ? new Date(p.valid_until) : null;
+  if (from && (isNaN(from.getTime()) || from.getFullYear() < 2000 || from.getFullYear() > 2100)) return 'Valid From must have a year between 2000 and 2100';
+  if (until && (isNaN(until.getTime()) || until.getFullYear() < 2000 || until.getFullYear() > 2100)) return 'Valid Until must have a year between 2000 and 2100';
+  if (from && until && until <= from) return 'Valid Until must be after Valid From';
+  if (enforceFutureFrom && from) {
+    const startToday = new Date();
+    startToday.setHours(0, 0, 0, 0);
+    if (from < startToday) return 'Valid From must be today or a future date';
+  }
+  return null;
+}
+
 export default function InstructorPromotionsPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState<'promotions' | 'courses'>('promotions');
@@ -134,6 +183,9 @@ export default function InstructorPromotionsPage() {
   const openEdit = (p: Promotion) => { setEditItem({ ...p }); setShowDialog(true); };
 
   const handleSave = async () => {
+    if (!editItem.promotion_name?.trim()) { toast.error('Promotion name is required'); return; }
+    const vErr = validatePromo(editItem, !editItem.id);
+    if (vErr) { toast.error(vErr); return; }
     setSaving(true);
     try {
       if (editItem.id) {
@@ -339,9 +391,9 @@ export default function InstructorPromotionsPage() {
                     <TD className="text-center text-sm">{p.course_count || 0}</TD>
                     <TD className="text-sm text-slate-500">{p.used_count}/{p.usage_limit || '∞'}</TD>
                     <TD className="text-xs text-slate-500">
-                      {p.valid_from ? new Date(p.valid_from).toLocaleDateString() : '—'}
+                      {fmtDate(p.valid_from)}
                       {' → '}
-                      {p.valid_until ? new Date(p.valid_until).toLocaleDateString() : '—'}
+                      {fmtDate(p.valid_until)}
                     </TD>
                     <TD>{p.is_active ? <span className="text-green-600 text-xs font-medium">Yes</span> : <span className="text-slate-400 text-xs">No</span>}</TD>
                     <TD className="text-right">
@@ -397,15 +449,15 @@ export default function InstructorPromotionsPage() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Discount Value *</label>
-                  <Input type="number" value={editItem.discount_value ?? ''} onChange={e => setEditItem({ ...editItem, discount_value: e.target.value ? parseFloat(e.target.value) : null })} placeholder={editItem.discount_type === 'percentage' ? '10' : '500'} />
+                  <Input type="number" min={0} max={editItem.discount_type === 'percentage' ? 100 : undefined} value={editItem.discount_value ?? ''} onChange={e => setEditItem({ ...editItem, discount_value: e.target.value ? parseFloat(e.target.value) : null })} placeholder={editItem.discount_type === 'percentage' ? '10' : '500'} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Max Discount Amount</label>
-                  <Input type="number" value={editItem.max_discount_amount ?? ''} onChange={e => setEditItem({ ...editItem, max_discount_amount: e.target.value ? parseFloat(e.target.value) : null })} placeholder="1000" />
+                  <Input type="number" min={0} value={editItem.max_discount_amount ?? ''} onChange={e => setEditItem({ ...editItem, max_discount_amount: e.target.value ? parseFloat(e.target.value) : null })} placeholder="1000" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Min Purchase Amount</label>
-                  <Input type="number" value={editItem.min_purchase_amount ?? ''} onChange={e => setEditItem({ ...editItem, min_purchase_amount: e.target.value ? parseFloat(e.target.value) : null })} placeholder="500" />
+                  <Input type="number" min={0} value={editItem.min_purchase_amount ?? ''} onChange={e => setEditItem({ ...editItem, min_purchase_amount: e.target.value ? parseFloat(e.target.value) : null })} placeholder="500" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Applicable To</label>
@@ -413,19 +465,19 @@ export default function InstructorPromotionsPage() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Valid From</label>
-                  <Input type="datetime-local" value={editItem.valid_from ? editItem.valid_from.slice(0, 16) : ''} onChange={e => setEditItem({ ...editItem, valid_from: e.target.value || null })} />
+                  <Input type="datetime-local" min={localNowForInput()} max="2100-12-31T23:59" value={editItem.valid_from ? editItem.valid_from.slice(0, 16) : ''} onChange={e => setEditItem({ ...editItem, valid_from: e.target.value || null })} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Valid Until</label>
-                  <Input type="datetime-local" value={editItem.valid_until ? editItem.valid_until.slice(0, 16) : ''} onChange={e => setEditItem({ ...editItem, valid_until: e.target.value || null })} />
+                  <Input type="datetime-local" min={editItem.valid_from ? editItem.valid_from.slice(0, 16) : localNowForInput()} max="2100-12-31T23:59" value={editItem.valid_until ? editItem.valid_until.slice(0, 16) : ''} onChange={e => setEditItem({ ...editItem, valid_until: e.target.value || null })} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Usage Limit (total)</label>
-                  <Input type="number" value={editItem.usage_limit ?? ''} onChange={e => setEditItem({ ...editItem, usage_limit: e.target.value ? parseInt(e.target.value) : null })} placeholder="Unlimited" />
+                  <Input type="number" min={1} step={1} value={editItem.usage_limit ?? ''} onChange={e => setEditItem({ ...editItem, usage_limit: e.target.value ? parseInt(e.target.value) : null })} placeholder="Unlimited" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Usage Per User</label>
-                  <Input type="number" value={editItem.usage_per_user ?? ''} onChange={e => setEditItem({ ...editItem, usage_per_user: e.target.value ? parseInt(e.target.value) : null })} placeholder="1" />
+                  <Input type="number" min={1} step={1} value={editItem.usage_per_user ?? ''} onChange={e => setEditItem({ ...editItem, usage_per_user: e.target.value ? parseInt(e.target.value) : null })} placeholder="1" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Status</label>
@@ -467,8 +519,8 @@ export default function InstructorPromotionsPage() {
                   <div><span className="text-slate-400">Min Purchase:</span> {viewItem.min_purchase_amount ? `₹${viewItem.min_purchase_amount}` : '—'}</div>
                   <div><span className="text-slate-400">Applicable To:</span> {APPLICABLE_OPTIONS.find(a => a.value === viewItem.applicable_to)?.label}</div>
                   <div><span className="text-slate-400">Status:</span> <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[viewItem.promotion_status]}`}>{STATUS_OPTIONS.find(s => s.value === viewItem.promotion_status)?.label}</span></div>
-                  <div><span className="text-slate-400">Valid From:</span> {viewItem.valid_from ? new Date(viewItem.valid_from).toLocaleString() : '—'}</div>
-                  <div><span className="text-slate-400">Valid Until:</span> {viewItem.valid_until ? new Date(viewItem.valid_until).toLocaleString() : '—'}</div>
+                  <div><span className="text-slate-400">Valid From:</span> {fmtDate(viewItem.valid_from, true)}</div>
+                  <div><span className="text-slate-400">Valid Until:</span> {fmtDate(viewItem.valid_until, true)}</div>
                   <div><span className="text-slate-400">Usage:</span> {viewItem.used_count}/{viewItem.usage_limit || '∞'} (per user: {viewItem.usage_per_user || '∞'})</div>
                   <div><span className="text-slate-400">Courses:</span> {viewItem.course_count || 0}</div>
                   <div><span className="text-slate-400">Requires Approval:</span> {viewItem.requires_approval ? 'Yes' : 'No'}</div>
