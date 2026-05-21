@@ -247,6 +247,10 @@ function CategoriesTab() {
       payload[k] = v;
     });
 
+    // Phase 45 — always send description (even empty) so clearing it persists.
+    // The empty-string skip above would otherwise drop it and keep the old text.
+    payload.description = data.description ?? '';
+
     const res = editing
       ? await api.updateTicketCategory(editing.id, payload)
       : await api.createTicketCategory(payload);
