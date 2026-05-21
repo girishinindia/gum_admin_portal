@@ -1511,6 +1511,42 @@ export const api = {
   restoreInstructorPromotionCourse: (id: number) => request(`/instructor-promotion-courses/${id}/restore`, { method: 'PATCH' }),
   deleteInstructorPromotionCourse: (id: number) => request(`/instructor-promotion-courses/${id}/permanent`, { method: 'DELETE' }),
 
+  // ── Course Authoring (draft builder) ──
+  listAuthoringCourses: (qs = '') => request(`/authoring/courses${qs}`),
+  getAuthoringCourse: (id: number) => request(`/authoring/courses/${id}`),
+  createAuthoringCourse: (data: any) => request('/authoring/courses', { method: 'POST', body: JSON.stringify(data) }),
+  updateAuthoringCourse: (id: number, data: any) => request(`/authoring/courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  submitAuthoringCourse: (id: number) => request(`/authoring/courses/${id}/submit`, { method: 'PATCH' }),
+  verifyAuthoringCourse: (id: number) => request(`/authoring/courses/${id}/verify`, { method: 'PATCH' }),
+  rejectAuthoringCourse: (id: number, data: any) => request(`/authoring/courses/${id}/reject`, { method: 'PATCH', body: JSON.stringify(data) }),
+  restoreAuthoringCourse: (id: number) => request(`/authoring/courses/${id}/restore`, { method: 'PATCH' }),
+  softDeleteAuthoringCourse: (id: number) => request(`/authoring/courses/${id}`, { method: 'DELETE' }),
+  deleteAuthoringCourse: (id: number) => request(`/authoring/courses/${id}/permanent`, { method: 'DELETE' }),
+
+  listAuthoringHighlights: (courseId: number) => request(`/authoring/highlights?authoring_course_id=${courseId}`),
+  createAuthoringHighlight: (data: any) => request('/authoring/highlights', { method: 'POST', body: JSON.stringify(data) }),
+  updateAuthoringHighlight: (id: number, data: any) => request(`/authoring/highlights/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAuthoringHighlight: (id: number) => request(`/authoring/highlights/${id}`, { method: 'DELETE' }),
+
+  listAuthoringUnits: (courseId: number) => request(`/authoring/units?authoring_course_id=${courseId}`),
+  createAuthoringUnit: (data: any) => request('/authoring/units', { method: 'POST', body: JSON.stringify(data) }),
+  updateAuthoringUnit: (id: number, data: any) => request(`/authoring/units/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAuthoringUnit: (id: number) => request(`/authoring/units/${id}`, { method: 'DELETE' }),
+
+  listAuthoringFaqs: (courseId: number) => request(`/authoring/faqs?authoring_course_id=${courseId}`),
+  createAuthoringFaq: (data: any) => request('/authoring/faqs', { method: 'POST', body: JSON.stringify(data) }),
+  updateAuthoringFaq: (id: number, data: any) => request(`/authoring/faqs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAuthoringFaq: (id: number) => request(`/authoring/faqs/${id}`, { method: 'DELETE' }),
+
+  // ── Course Authoring — media uploads (Bunny) + readiness ──
+  authoringCourseReadiness: (id: number) => request(`/authoring/courses/${id}/readiness`),
+  uploadAuthoringThumbnail: (id: number, file: File) => { const fd = new FormData(); fd.append('file', file); return request(`/authoring/courses/${id}/thumbnail`, { method: 'POST', body: fd as any, isFormData: true }); },
+  uploadAuthoringTrailerVideo: (id: number, file: File, onProgress?: (p: number) => void) => _uploadCourseVideoXhr(`/authoring/courses/${id}/trailer-video`, file, onProgress),
+  authoringTrailerPlayback: (id: number) => request(`/authoring/courses/${id}/trailer-playback`),
+  uploadAuthoringUnitVideo: (id: number, file: File, onProgress?: (p: number) => void) => _uploadCourseVideoXhr(`/authoring/units/${id}/video`, file, onProgress),
+  authoringUnitVideoPlayback: (id: number) => request(`/authoring/units/${id}/video-playback`),
+  uploadAuthoringUnitFile: (id: number, kind: string, file: File) => { const fd = new FormData(); fd.append('file', file); return request(`/authoring/units/${id}/file?kind=${kind}`, { method: 'POST', body: fd as any, isFormData: true }); },
+
   // ── Cart Items ──
   listCartItems: (qs = '') => request(`/cart-items${qs}`, { auth: false }),
   getCartItem: (id: number) => request(`/cart-items/${id}`, { auth: false }),

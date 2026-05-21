@@ -179,6 +179,12 @@ const navGroups: NavGroup[] = [
     iconColor: 'text-blue-500',
     items: [
       {
+        href: '/course-builder',
+        label: 'Instructor Courses',
+        icon: Sparkles,
+        iconColor: 'text-violet-500',
+      },
+      {
         href: '/courses',
         label: 'Courses',
         icon: Library,
