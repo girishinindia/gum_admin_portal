@@ -122,11 +122,13 @@ export default function PodcastsPage() {
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
-  // Categories for dropdown
+  // Categories & sub-categories for dropdown
   const [categories, setCategories] = useState<any[]>([]);
+  const [subCategories, setSubCategories] = useState<any[]>([]);
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const watchCategoryId = watch('category_id');
 
   // Search debounce
   useEffect(() => {
@@ -134,14 +136,33 @@ export default function PodcastsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Load summary + categories on mount
+  // Load summary + categories (with English translation names) on mount
   useEffect(() => {
     api.getTableSummary('podcasts').then(res => {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
     });
-    api.listCategories('?limit=200').then(res => {
-      if (res.success) setCategories(res.data || []);
-    });
+
+    (async () => {
+      // Resolve English display names from translations (same pattern as course-builder)
+      const langRes = await api.listLanguages('?is_active=true&limit=50');
+      const langs = langRes.data || [];
+      const enId = langs.find((l: any) => l.iso_code === 'en')?.id;
+
+      const [catRes, subRes, catTr, subTr] = await Promise.all([
+        api.listCategories('?limit=500'),
+        api.listSubCategories('?limit=1000'),
+        api.listCategoryTranslations('?limit=1000'),
+        api.listSubCategoryTranslations('?limit=2000'),
+      ]);
+
+      const catName = new Map<number, string>();
+      for (const t of (catTr.data || [])) { if ((!enId || t.language_id === enId) && t.name) catName.set(t.category_id, t.name); }
+      const subName = new Map<number, string>();
+      for (const t of (subTr.data || [])) { if ((!enId || t.language_id === enId) && t.name) subName.set(t.sub_category_id, t.name); }
+
+      setCategories((catRes.data || []).map((c: any) => ({ ...c, _label: c.name || catName.get(c.id) || c.slug || `#${c.id}` })));
+      setSubCategories((subRes.data || []).map((s: any) => ({ ...s, _label: s.name || subName.get(s.id) || s.slug || `#${s.id}` })));
+    })();
   }, []);
 
   // Reset page on filter change
@@ -199,7 +220,7 @@ export default function PodcastsPage() {
     setEditing(null); setDialogKey(k => k + 1); resetDialogState();
     reset({
       title: '', description: '', short_summary: '',
-      youtube_url: '', category_id: '', tags: '',
+      youtube_url: '', category_id: '', sub_category_id: '', tags: '',
       duration_seconds: '', display_order: '',
       is_featured: false, is_active: true,
     });
@@ -214,6 +235,7 @@ export default function PodcastsPage() {
       short_summary: item.short_summary || '',
       youtube_url: item.youtube_url || '',
       category_id: item.category_id ?? '',
+      sub_category_id: item.sub_category_id ?? '',
       tags: Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''),
       duration_seconds: item.duration_seconds ?? '',
       display_order: item.display_order ?? '',
@@ -237,6 +259,7 @@ export default function PodcastsPage() {
       if (v === '' || v === undefined || v === null) continue;
       if (typeof v === 'boolean') { payload[k] = v; continue; }
       if (k === 'category_id' && v !== '') { payload[k] = Number(v); continue; }
+      if (k === 'sub_category_id' && v !== '') { payload[k] = Number(v); continue; }
       if (k === 'duration_seconds' && v !== '') { payload[k] = Number(v); continue; }
       if (k === 'display_order' && v !== '') { payload[k] = Number(v); continue; }
       if (k === 'tags') {
@@ -577,7 +600,7 @@ export default function PodcastsPage() {
                   </TD>
                   <TD className="py-2.5">
                     <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{item.title || '--'}</span>
-                    {item.categories && <div className="text-xs text-slate-400 mt-0.5">{item.categories.name}</div>}
+                    {item.category_id && <div className="text-xs text-slate-400 mt-0.5">{categories.find((c: any) => c.id === item.category_id)?._label || item.categories?.slug || '--'}{item.sub_category_id ? ` › ${subCategories.find((s: any) => s.id === item.sub_category_id)?._label || item.sub_categories?.slug || ''}` : ''}</div>}
                   </TD>
                   <TD className="py-2.5">
                     <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', POSTER_TYPE_COLORS[item.poster_type] || 'bg-slate-50 text-slate-600')}>
@@ -720,7 +743,8 @@ export default function PodcastsPage() {
                 <dt className="text-xs font-medium text-slate-400 uppercase tracking-wider">Posted By</dt>
                 <dd className="mt-0.5">{viewing.users ? userLine(viewing.users) : <span className="text-sm text-slate-400">--</span>}</dd>
               </div>
-              <DetailRow label="Category" value={viewing.categories?.name} />
+              <DetailRow label="Category" value={viewing.category_id ? (categories.find((c: any) => c.id === viewing.category_id)?._label || viewing.categories?.slug) : undefined} />
+              <DetailRow label="Sub-Category" value={viewing.sub_category_id ? (subCategories.find((s: any) => s.id === viewing.sub_category_id)?._label || viewing.sub_categories?.slug) : undefined} />
               <DetailRow label="Video Source" value={viewing.video_url ? 'Bunny Stream' : viewing.youtube_url ? 'YouTube' : 'None'} />
               <DetailRow label="Duration" value={viewing.duration_seconds ? `${Math.floor(viewing.duration_seconds / 60)}m ${viewing.duration_seconds % 60}s` : undefined} />
               <DetailRow label="Display Order" value={viewing.display_order != null ? String(viewing.display_order) : undefined} />
@@ -762,13 +786,26 @@ export default function PodcastsPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
-              <select className={cn(selectClass, 'w-full')} {...register('category_id')}>
+              <select className={cn(selectClass, 'w-full')} {...register('category_id', {
+                onChange: () => { setValue('sub_category_id', ''); }
+              })}>
                 <option value="">-- None --</option>
-                {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {categories.map((c: any) => <option key={c.id} value={c.id}>{c._label || c.name || c.slug || `Category #${c.id}`}</option>)}
               </select>
             </div>
-            <Input label="Tags" placeholder="tag1, tag2, tag3" {...register('tags')} />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Sub-Category</label>
+              <select className={cn(selectClass, 'w-full')} {...register('sub_category_id')}>
+                <option value="">-- None --</option>
+                {subCategories
+                  .filter((sc: any) => watchCategoryId && sc.category_id === Number(watchCategoryId))
+                  .map((sc: any) => <option key={sc.id} value={sc.id}>{sc._label || sc.name || sc.slug || `Sub-cat #${sc.id}`}</option>)}
+              </select>
+              {!watchCategoryId && <p className="text-xs text-slate-400 mt-1">Select a category first</p>}
+            </div>
           </div>
+
+          <Input label="Tags" placeholder="tag1, tag2, tag3" {...register('tags')} />
 
           <div className="grid grid-cols-2 gap-3">
             <Input label="Duration (seconds)" type="number" placeholder="e.g. 3600" {...register('duration_seconds')} />

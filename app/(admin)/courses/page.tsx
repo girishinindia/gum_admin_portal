@@ -814,7 +814,7 @@ export default function CoursesPage() {
                     <span className={cn('text-sm font-medium font-mono', showTrash ? 'text-slate-500 line-through' : 'text-slate-700')}>{c.code}</span>
                   </TD>
                   <TD className="py-2.5">
-                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.english_title || c.name || c.slug || ''}</span>
+                    <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{c.english_title || (c as any).name || c.slug || ''}</span>
                     {c.instructor_name && <div className="text-xs text-slate-400 mt-0.5">by {c.instructor_name}</div>}
                   </TD>
                   <TD className="py-2.5">

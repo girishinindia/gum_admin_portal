@@ -2446,7 +2446,7 @@ export const api = {
   // ══════════════════════════════════════════════
   // PODCASTS
   // ══════════════════════════════════════════════
-  listPodcasts: (qs = '') => request(`/podcasts${qs}`, { auth: false }),
+  listPodcasts: (qs = '') => request(`/podcasts${qs}`),
   getPodcast: (id: number) => request(`/podcasts/${id}`, { auth: false }),
   createPodcast: (data: any) => request('/podcasts', { method: 'POST', body: JSON.stringify(data) }),
   updatePodcast: (id: number, data: any) => request(`/podcasts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),

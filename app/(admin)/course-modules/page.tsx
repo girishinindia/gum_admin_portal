@@ -658,7 +658,7 @@ export default function CourseModulesPage() {
                 <Layers className="w-6 h-6 text-slate-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">{viewing.english_name || viewing.name || viewing.slug}</h3>
+                <h3 className="text-lg font-semibold text-slate-900">{viewing.english_name || (viewing as any).name || viewing.slug}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>
                     {viewing.is_active ? 'Active' : 'Inactive'}
