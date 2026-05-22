@@ -167,10 +167,13 @@ export default function CourseBuilderPage() {
     await loadChildren(c.id);
   }
   async function loadChildren(courseId: number) {
-    const [h, u, f, cp, mp] = await Promise.all([
+    const [cr, h, u, f, cp, mp] = await Promise.all([
+      api.getAuthoringCourse(courseId),
       api.listAuthoringHighlights(courseId), api.listAuthoringUnits(courseId), api.listAuthoringFaqs(courseId),
       api.listAuthoringCapstones(courseId), api.listAuthoringMiniProjects(courseId),
     ]);
+    // Re-sync the course record so status badge reflects any re-approval reset
+    if (cr.success && cr.data) { setCourse(cr.data); setForm((prev: any) => ({ ...prev, ...cr.data })); }
     setHighlights(h.data || []); setUnits(u.data || []); setFaqs(f.data || []);
     setCapstones(cp.data || []); setMiniProjects(mp.data || []);
     refreshReadiness(courseId);
