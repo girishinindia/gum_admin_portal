@@ -1550,6 +1550,24 @@ export const api = {
   removeAuthoringUnitFile: (id: number, kind: string) => request(`/authoring/units/${id}/file?kind=${kind}`, { method: 'DELETE' }),
   removeAuthoringTrailerVideo: (id: number) => request(`/authoring/courses/${id}/trailer-video`, { method: 'DELETE' }),
 
+  // ── Authoring Capstone Projects (course-level) ──
+  listAuthoringCapstones: (courseId: number) => request(`/authoring/capstone-projects?authoring_course_id=${courseId}`),
+  getAuthoringCapstone: (id: number) => request(`/authoring/capstone-projects/${id}`),
+  createAuthoringCapstone: (data: any) => request('/authoring/capstone-projects', { method: 'POST', body: JSON.stringify(data) }),
+  updateAuthoringCapstone: (id: number, data: any) => request(`/authoring/capstone-projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAuthoringCapstone: (id: number) => request(`/authoring/capstone-projects/${id}`, { method: 'DELETE' }),
+  uploadAuthoringCapstoneFile: (id: number, kind: string, file: File) => { const fd = new FormData(); fd.append('file', file); return request(`/authoring/capstone-projects/${id}/file?kind=${kind}`, { method: 'POST', body: fd as any, isFormData: true }); },
+  removeAuthoringCapstoneFile: (id: number, kind: string) => request(`/authoring/capstone-projects/${id}/file?kind=${kind}`, { method: 'DELETE' }),
+
+  // ── Authoring Mini Projects (module/chapter-level) ──
+  listAuthoringMiniProjects: (courseId: number, unitId?: number) => request(`/authoring/mini-projects?authoring_course_id=${courseId}${unitId ? `&unit_id=${unitId}` : ''}`),
+  getAuthoringMiniProject: (id: number) => request(`/authoring/mini-projects/${id}`),
+  createAuthoringMiniProject: (data: any) => request('/authoring/mini-projects', { method: 'POST', body: JSON.stringify(data) }),
+  updateAuthoringMiniProject: (id: number, data: any) => request(`/authoring/mini-projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAuthoringMiniProject: (id: number) => request(`/authoring/mini-projects/${id}`, { method: 'DELETE' }),
+  uploadAuthoringMiniProjectFile: (id: number, kind: string, file: File) => { const fd = new FormData(); fd.append('file', file); return request(`/authoring/mini-projects/${id}/file?kind=${kind}`, { method: 'POST', body: fd as any, isFormData: true }); },
+  removeAuthoringMiniProjectFile: (id: number, kind: string) => request(`/authoring/mini-projects/${id}/file?kind=${kind}`, { method: 'DELETE' }),
+
   // ── Cart Items ──
   listCartItems: (qs = '') => request(`/cart-items${qs}`, { auth: false }),
   getCartItem: (id: number) => request(`/cart-items/${id}`, { auth: false }),

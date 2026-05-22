@@ -53,7 +53,7 @@ const TOPIC_TYPES = [
 ];
 const TOPIC_ICON: Record<string, any> = { video: Video, article: FileText, quiz: ClipboardList, exercise: FlaskConical, project: BookOpen };
 
-type Tab = 'basics' | 'highlights' | 'curriculum' | 'faqs';
+type Tab = 'basics' | 'highlights' | 'curriculum' | 'faqs' | 'capstones' | 'mini-projects';
 
 function StatusBadge({ status }: { status: string }) {
   return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[status] || 'bg-slate-100 text-slate-600'}`}>{status?.replace('_', ' ')}</span>;
@@ -80,6 +80,8 @@ export default function CourseBuilderPage() {
   const [highlights, setHighlights] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [faqs, setFaqs] = useState<any[]>([]);
+  const [capstones, setCapstones] = useState<any[]>([]);
+  const [miniProjects, setMiniProjects] = useState<any[]>([]);
   const [readiness, setReadiness] = useState<{ ready: boolean; problems: string[] } | null>(null);
 
   async function refreshReadiness(courseId: number) {
@@ -165,10 +167,12 @@ export default function CourseBuilderPage() {
     await loadChildren(c.id);
   }
   async function loadChildren(courseId: number) {
-    const [h, u, f] = await Promise.all([
+    const [h, u, f, cp, mp] = await Promise.all([
       api.listAuthoringHighlights(courseId), api.listAuthoringUnits(courseId), api.listAuthoringFaqs(courseId),
+      api.listAuthoringCapstones(courseId), api.listAuthoringMiniProjects(courseId),
     ]);
     setHighlights(h.data || []); setUnits(u.data || []); setFaqs(f.data || []);
+    setCapstones(cp.data || []); setMiniProjects(mp.data || []);
     refreshReadiness(courseId);
   }
 
@@ -326,6 +330,8 @@ export default function CourseBuilderPage() {
     { id: 'basics', label: 'Basics', icon: BookOpen },
     { id: 'highlights', label: 'Highlights', icon: ClipboardList },
     { id: 'curriculum', label: 'Curriculum', icon: FolderTree },
+    { id: 'capstones', label: 'Capstones', icon: Package },
+    { id: 'mini-projects', label: 'Mini Projects', icon: FlaskConical },
     { id: 'faqs', label: 'FAQs', icon: FileText },
   ];
   const needsCourse = !course?.id;
@@ -382,6 +388,8 @@ export default function CourseBuilderPage() {
         {tab === 'basics' && <BasicsTab form={form} setForm={setForm} languages={languages} categories={categories} subCategories={subCategories} instructors={instructors} saving={saving} onSave={saveBasics} courseId={course?.id} onMedia={() => course?.id && refreshReadiness(course.id)} />}
         {tab === 'highlights' && course?.id && <HighlightsTab courseId={course.id} items={highlights} reload={() => loadChildren(course.id)} />}
         {tab === 'curriculum' && course?.id && <CurriculumTab courseId={course.id} units={units} reload={() => loadChildren(course.id)} />}
+        {tab === 'capstones' && course?.id && <CapstonesTab courseId={course.id} items={capstones} reload={() => loadChildren(course.id)} />}
+        {tab === 'mini-projects' && course?.id && <MiniProjectsTab courseId={course.id} items={miniProjects} units={units} reload={() => loadChildren(course.id)} />}
         {tab === 'faqs' && course?.id && <FaqsTab courseId={course.id} items={faqs} reload={() => loadChildren(course.id)} />}
       </div>
     </div>
@@ -554,7 +562,7 @@ function CurriculumTab({ courseId, units, reload }: any) {
   const [editing, setEditing] = useState<any | null>(null);
   const [u, setU] = useState<any>({});
   const [vidProg, setVidProg] = useState<number | null>(null);
-  const PDF_FIELD: Record<string, string> = { article: 'article_pdf', exercise: 'exercise_pdf', exercise_solution: 'exercise_solution_pdf', project: 'project_pdf' };
+  const PDF_FIELD: Record<string, string> = { article: 'article_pdf', exercise: 'exercise_pdf', exercise_solution: 'exercise_solution_pdf', project: 'project_pdf', assignment: 'assignment_pdf', project_solution: 'project_solution_file_url' };
 
   async function uploadTopicVideo(file: File | null) {
     if (!file) {
@@ -679,39 +687,300 @@ function CurriculumTab({ courseId, units, reload }: any) {
           <Field label="Summary"><textarea value={u.summary || ''} onChange={e => setU({ ...u, summary: e.target.value })} rows={2} className={taCls} /></Field>
           {u.unit_type === 'topic' && <>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Topic type"><Select value={u.topic_type} onChange={e => setU({ ...u, topic_type: e.target.value })} options={TOPIC_TYPES} /></Field>
               <Field label="Display order"><Input type="number" min={0} value={u.display_order ?? 0} onChange={e => setU({ ...u, display_order: Number(e.target.value) })} /></Field>
+              <div className="flex items-end pb-1">
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!u.is_free_preview} onChange={e => setU({ ...u, is_free_preview: e.target.checked })} /> Free preview</label>
+              </div>
             </div>
-            {!editing && u.topic_type && u.topic_type !== 'quiz' && (
-              <p className="text-xs text-amber-600">Save the topic first, then re-open it to upload media.</p>
+            {!editing && (
+              <p className="text-xs text-amber-600">Save the topic first, then re-open it to upload media &amp; files.</p>
             )}
-            {u.topic_type === 'video' && (
-              editing ? (
+
+            {/* ── Video ── */}
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5"><Video className="w-3.5 h-3.5" /> Video</div>
+              {editing ? (
                 <VideoUpload label="Video" value={u.video || u.youtube_url || null} progress={vidProg}
                   onFileChange={uploadTopicVideo} onUrlChange={(url) => setU((s: any) => ({ ...s, youtube_url: url }))}
                   onOpen={u.video ? async () => { const r = await api.authoringUnitVideoPlayback(editing.id); if (r.success && r.data?.url) window.open(r.data.url, '_blank'); } : undefined}
                   hint="Upload to Bunny Stream, or paste a YouTube/external URL" />
               ) : (
                 <Field label="YouTube URL (optional)"><Input value={u.youtube_url || ''} onChange={e => setU({ ...u, youtube_url: e.target.value })} placeholder="https://youtube.com/…" /></Field>
-              )
-            )}
-            {u.topic_type === 'article' && editing && <Field label="Article PDF"><FileUpload value={u.article_pdf || null} onChange={(f) => uploadTopicPdf('article', f)} /></Field>}
-            {u.topic_type === 'exercise' && editing && <>
-              <Field label="Exercise PDF"><FileUpload value={u.exercise_pdf || null} onChange={(f) => uploadTopicPdf('exercise', f)} /></Field>
-              <Field label="Solution PDF"><FileUpload value={u.exercise_solution_pdf || null} onChange={(f) => uploadTopicPdf('exercise_solution', f)} /></Field>
-            </>}
-            {u.topic_type === 'project' && <>
-              {editing && <Field label="Project brief PDF"><FileUpload value={u.project_pdf || null} onChange={(f) => uploadTopicPdf('project', f)} /></Field>}
+              )}
+            </div>
+
+            {/* ── Exercise ── */}
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5"><FlaskConical className="w-3.5 h-3.5" /> Exercise</div>
+              {editing ? <>
+                <Field label="Exercise PDF"><FileUpload value={u.exercise_pdf || null} onChange={(f) => uploadTopicPdf('exercise', f)} /></Field>
+                <Field label="Solution PDF"><FileUpload value={u.exercise_solution_pdf || null} onChange={(f) => uploadTopicPdf('exercise_solution', f)} /></Field>
+              </> : <p className="text-xs text-slate-400">Save topic first to upload exercise files.</p>}
+            </div>
+
+            {/* ── Assignment ── */}
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Assignment</div>
+              {editing ? (
+                <Field label="Assignment PDF"><FileUpload value={u.assignment_pdf || null} onChange={(f) => uploadTopicPdf('assignment', f)} /></Field>
+              ) : <p className="text-xs text-slate-400">Save topic first to upload assignment.</p>}
+            </div>
+
+            {/* ── Mini Project ── */}
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> Mini Project</div>
+              {editing ? (
+                <Field label="Project brief PDF"><FileUpload value={u.project_pdf || null} onChange={(f) => uploadTopicPdf('project', f)} /></Field>
+              ) : <p className="text-xs text-slate-400">Save topic first to upload project brief.</p>}
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Scope"><Select value={u.project_scope || 'mini'} onChange={e => setU({ ...u, project_scope: e.target.value })} options={[{ value: 'mini', label: 'Mini project' }, { value: 'capstone', label: 'Capstone' }]} /></Field>
                 <Field label="Git URL"><Input value={u.project_git_url || ''} onChange={e => setU({ ...u, project_git_url: e.target.value })} /></Field>
               </div>
-            </>}
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!u.is_free_preview} onChange={e => setU({ ...u, is_free_preview: e.target.checked })} /> Free preview</label>
+            </div>
+
+            {/* ── Solution ── */}
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Project Solution</div>
+              {editing ? (
+                <Field label="Solution ZIP"><FileUpload value={u.project_solution_file_url || null} onChange={(f) => uploadTopicPdf('project_solution', f)} accept=".zip,.pdf" /></Field>
+              ) : <p className="text-xs text-slate-400">Save topic first to upload solution file.</p>}
+            </div>
+
+            {/* ── Article (keep for backward compat) ── */}
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Article PDF</div>
+              {editing ? (
+                <Field label="Article PDF"><FileUpload value={u.article_pdf || null} onChange={(f) => uploadTopicPdf('article', f)} /></Field>
+              ) : <p className="text-xs text-slate-400">Save topic first to upload article.</p>}
+            </div>
           </>}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={save}>{editing ? 'Update' : 'Add'}</Button>
+          </div>
+        </div>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ════════════ Capstone Projects Tab ════════════ */
+function CapstonesTab({ courseId, items, reload }: any) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [f, setF] = useState<any>({});
+  const [busy, setBusy] = useState(false);
+
+  function openAdd() {
+    setEditing(null);
+    setF({ title: '', description: '', display_order: (items.length + 1) * 10, solution_github_url: '' });
+    setDialogOpen(true);
+  }
+  function openEdit(cp: any) {
+    setEditing(cp);
+    setF({ title: cp.title || '', description: cp.description || '', display_order: cp.display_order ?? 0, solution_github_url: cp.solution_github_url || '' });
+    setDialogOpen(true);
+  }
+
+  async function save() {
+    if (!f.title?.trim()) { toast.error('Title is required'); return; }
+    setBusy(true);
+    const payload = { ...f, authoring_course_id: courseId, display_order: Number(f.display_order) || 0 };
+    const r = editing
+      ? await api.updateAuthoringCapstone(editing.id, payload)
+      : await api.createAuthoringCapstone(payload);
+    setBusy(false);
+    if (r.success) { setDialogOpen(false); reload(); toast.success(editing ? 'Updated' : 'Created'); }
+    else toast.error(r.error || 'Failed');
+  }
+
+  async function del(cp: any) {
+    if (!confirm(`Delete capstone "${cp.title}"?`)) return;
+    const r = await api.deleteAuthoringCapstone(cp.id);
+    if (r.success) reload(); else toast.error(r.error || 'Failed');
+  }
+
+  async function uploadFile(cpId: number, kind: string, file: File | null) {
+    if (!file) {
+      const r = await api.removeAuthoringCapstoneFile(cpId, kind);
+      if (r.success) { reload(); toast.success('File removed'); } else toast.error(r.error || 'Remove failed');
+      return;
+    }
+    const r = await api.uploadAuthoringCapstoneFile(cpId, kind, file);
+    if (r.success) { reload(); toast.success('File uploaded'); } else toast.error(r.error || 'Upload failed');
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">Course-level capstone projects with PDF brief &amp; solution (ZIP / GitHub URL).</p>
+        <Button size="sm" onClick={openAdd}><Plus className="w-4 h-4" /> Add capstone</Button>
+      </div>
+
+      {items.length === 0 && <p className="text-sm text-slate-400">No capstone projects yet.</p>}
+      <div className="space-y-3">
+        {items.map((cp: any) => (
+          <div key={cp.id} className="bg-white border border-slate-200 rounded-lg p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800">{cp.title}</h4>
+                {cp.description && <p className="text-xs text-slate-500 mt-0.5">{cp.description}</p>}
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => openEdit(cp)} className="text-slate-400 hover:text-blue-600"><Pencil className="w-3.5 h-3.5" /></button>
+                <button onClick={() => del(cp)} className="text-slate-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Brief PDF"><FileUpload value={cp.pdf_url || null} onChange={(file: File | null) => uploadFile(cp.id, 'pdf', file)} /></Field>
+              <Field label="Solution (ZIP)"><FileUpload value={cp.solution_file_url || null} onChange={(file: File | null) => uploadFile(cp.id, 'solution', file)} accept=".zip,.pdf" /></Field>
+            </div>
+            {cp.solution_github_url && <p className="text-xs text-slate-500 mt-2">GitHub: <a href={cp.solution_github_url} target="_blank" className="text-violet-600 hover:underline">{cp.solution_github_url}</a></p>}
+          </div>
+        ))}
+      </div>
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Capstone Project' : 'New Capstone Project'} size="md">
+        <div className="p-6 space-y-4">
+          <Field label="Title *"><Input value={f.title || ''} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Capstone project title" /></Field>
+          <Field label="Description"><textarea value={f.description || ''} onChange={e => setF({ ...f, description: e.target.value })} rows={3} className={taCls} placeholder="What the student will build…" /></Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Display order"><Input type="number" min={0} value={f.display_order ?? 0} onChange={e => setF({ ...f, display_order: Number(e.target.value) })} /></Field>
+            <Field label="Solution GitHub URL"><Input value={f.solution_github_url || ''} onChange={e => setF({ ...f, solution_github_url: e.target.value })} placeholder="https://github.com/…" /></Field>
+          </div>
+          {!editing && <p className="text-xs text-amber-600">Save first, then re-open to upload PDF &amp; solution files.</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={save} disabled={busy}>{busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : editing ? 'Update' : 'Create'}</Button>
+          </div>
+        </div>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ════════════ Mini Projects Tab ════════════ */
+function MiniProjectsTab({ courseId, items, units, reload }: any) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [f, setF] = useState<any>({});
+  const [busy, setBusy] = useState(false);
+
+  // Only modules and chapters can have mini projects
+  const parentOptions = (units || [])
+    .filter((u: any) => u.unit_type === 'module' || u.unit_type === 'chapter')
+    .map((u: any) => ({ value: u.id, label: `${u.unit_type}: ${u.title}` }));
+
+  function openAdd() {
+    setEditing(null);
+    setF({ title: '', description: '', unit_id: '', display_order: (items.length + 1) * 10, solution_github_url: '' });
+    setDialogOpen(true);
+  }
+  function openEdit(mp: any) {
+    setEditing(mp);
+    setF({ title: mp.title || '', description: mp.description || '', unit_id: mp.unit_id ?? '', display_order: mp.display_order ?? 0, solution_github_url: mp.solution_github_url || '' });
+    setDialogOpen(true);
+  }
+
+  async function save() {
+    if (!f.title?.trim()) { toast.error('Title is required'); return; }
+    if (!f.unit_id) { toast.error('Select a module or chapter'); return; }
+    setBusy(true);
+    const payload = { ...f, authoring_course_id: courseId, unit_id: Number(f.unit_id), display_order: Number(f.display_order) || 0 };
+    const r = editing
+      ? await api.updateAuthoringMiniProject(editing.id, payload)
+      : await api.createAuthoringMiniProject(payload);
+    setBusy(false);
+    if (r.success) { setDialogOpen(false); reload(); toast.success(editing ? 'Updated' : 'Created'); }
+    else toast.error(r.error || 'Failed');
+  }
+
+  async function del(mp: any) {
+    if (!confirm(`Delete mini project "${mp.title}"?`)) return;
+    const r = await api.deleteAuthoringMiniProject(mp.id);
+    if (r.success) reload(); else toast.error(r.error || 'Failed');
+  }
+
+  async function uploadFile(mpId: number, kind: string, file: File | null) {
+    if (!file) {
+      const r = await api.removeAuthoringMiniProjectFile(mpId, kind);
+      if (r.success) { reload(); toast.success('File removed'); } else toast.error(r.error || 'Remove failed');
+      return;
+    }
+    const r = await api.uploadAuthoringMiniProjectFile(mpId, kind, file);
+    if (r.success) { reload(); toast.success('File uploaded'); } else toast.error(r.error || 'Upload failed');
+  }
+
+  // Group mini projects by their parent unit
+  const unitMap = new Map((units || []).map((u: any) => [u.id, u]));
+  const grouped = new Map<number, any[]>();
+  for (const mp of items) {
+    const uid = mp.unit_id;
+    if (!grouped.has(uid)) grouped.set(uid, []);
+    grouped.get(uid)!.push(mp);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">Mini projects attached to modules &amp; chapters — PDF brief &amp; solution (ZIP / GitHub URL).</p>
+        <Button size="sm" onClick={openAdd} disabled={parentOptions.length === 0}><Plus className="w-4 h-4" /> Add mini project</Button>
+      </div>
+      {parentOptions.length === 0 && <p className="text-xs text-amber-600">Add modules/chapters in the Curriculum tab first.</p>}
+
+      {items.length === 0 && parentOptions.length > 0 && <p className="text-sm text-slate-400">No mini projects yet.</p>}
+
+      {[...grouped.entries()].map(([unitId, mps]) => {
+        const unit = unitMap.get(unitId) as any;
+        return (
+          <div key={unitId} className="border border-slate-200 rounded-lg">
+            <div className="bg-slate-50 px-3 py-2 rounded-t-lg">
+              <span className="text-xs font-semibold text-slate-500 uppercase">{unit?.unit_type || 'unit'}</span>
+              <span className="text-sm font-medium text-slate-700 ml-2">{unit?.title || `#${unitId}`}</span>
+            </div>
+            <div className="p-3 space-y-3">
+              {mps.map((mp: any) => (
+                <div key={mp.id} className="bg-white border border-slate-100 rounded-lg p-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-800">{mp.title}</h4>
+                      {mp.description && <p className="text-xs text-slate-500 mt-0.5">{mp.description}</p>}
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => openEdit(mp)} className="text-slate-400 hover:text-blue-600"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => del(mp)} className="text-slate-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Brief PDF"><FileUpload value={mp.pdf_url || null} onChange={(file: File | null) => uploadFile(mp.id, 'pdf', file)} /></Field>
+                    <Field label="Solution (ZIP)"><FileUpload value={mp.solution_file_url || null} onChange={(file: File | null) => uploadFile(mp.id, 'solution', file)} accept=".zip,.pdf" /></Field>
+                  </div>
+                  {mp.solution_github_url && <p className="text-xs text-slate-500 mt-2">GitHub: <a href={mp.solution_github_url} target="_blank" className="text-violet-600 hover:underline">{mp.solution_github_url}</a></p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Mini Project' : 'New Mini Project'} size="md">
+        <div className="p-6 space-y-4">
+          <Field label="Attach to (module / chapter) *">
+            <Select value={f.unit_id || ''} onChange={e => setF({ ...f, unit_id: e.target.value })}
+              options={[{ value: '', label: 'Select…' }, ...parentOptions]}
+              disabled={!!editing} />
+            {editing && <p className="text-xs text-slate-400 mt-1">Parent unit cannot be changed after creation.</p>}
+          </Field>
+          <Field label="Title *"><Input value={f.title || ''} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Mini project title" /></Field>
+          <Field label="Description"><textarea value={f.description || ''} onChange={e => setF({ ...f, description: e.target.value })} rows={3} className={taCls} placeholder="Brief description…" /></Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Display order"><Input type="number" min={0} value={f.display_order ?? 0} onChange={e => setF({ ...f, display_order: Number(e.target.value) })} /></Field>
+            <Field label="Solution GitHub URL"><Input value={f.solution_github_url || ''} onChange={e => setF({ ...f, solution_github_url: e.target.value })} placeholder="https://github.com/…" /></Field>
+          </div>
+          {!editing && <p className="text-xs text-amber-600">Save first, then re-open to upload PDF &amp; solution files.</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={save} disabled={busy}>{busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : editing ? 'Update' : 'Create'}</Button>
           </div>
         </div>
       </Dialog>
