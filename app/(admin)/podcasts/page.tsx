@@ -103,6 +103,9 @@ export default function PodcastsPage() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [videoProgress, setVideoProgress] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  // Pending removal flags — only execute on Save, not immediately
+  const [pendingRemoveVideo, setPendingRemoveVideo] = useState(false);
+  const [pendingRemoveThumbnail, setPendingRemoveThumbnail] = useState(false);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = usePageSize();
@@ -214,6 +217,8 @@ export default function PodcastsPage() {
     setThumbnailFile(null);
     setVideoProgress(null);
     setSaving(false);
+    setPendingRemoveVideo(false);
+    setPendingRemoveThumbnail(false);
   }
 
   function openCreate() {
@@ -221,8 +226,8 @@ export default function PodcastsPage() {
     reset({
       title: '', description: '', short_summary: '',
       youtube_url: '', category_id: '', sub_category_id: '', tags: '',
-      duration_seconds: '', display_order: '',
-      is_featured: false, is_active: true,
+      duration_hours: '', duration_minutes: '', display_order: '',
+      is_featured: false, is_active: true, status: 'draft',
     });
     setDialogOpen(true);
   }
@@ -237,10 +242,12 @@ export default function PodcastsPage() {
       category_id: item.category_id ?? '',
       sub_category_id: item.sub_category_id ?? '',
       tags: Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''),
-      duration_seconds: item.duration_seconds ?? '',
+      duration_hours: item.duration_seconds ? String(Math.floor(item.duration_seconds / 3600)) : '',
+      duration_minutes: item.duration_seconds ? String(Math.floor((item.duration_seconds % 3600) / 60)) : '',
       display_order: item.display_order ?? '',
       is_featured: item.is_featured ?? false,
       is_active: item.is_active ?? true,
+      status: item.status || 'draft',
     });
     setDialogOpen(true);
   }
@@ -256,17 +263,25 @@ export default function PodcastsPage() {
     // Only include changed fields
     for (const k of Object.keys(data)) {
       const v = data[k];
+      // Skip duration_hours/duration_minutes — handled below
+      if (k === 'duration_hours' || k === 'duration_minutes') continue;
       if (v === '' || v === undefined || v === null) continue;
       if (typeof v === 'boolean') { payload[k] = v; continue; }
       if (k === 'category_id' && v !== '') { payload[k] = Number(v); continue; }
       if (k === 'sub_category_id' && v !== '') { payload[k] = Number(v); continue; }
-      if (k === 'duration_seconds' && v !== '') { payload[k] = Number(v); continue; }
       if (k === 'display_order' && v !== '') { payload[k] = Number(v); continue; }
       if (k === 'tags') {
         payload[k] = v.split(',').map((t: string) => t.trim()).filter(Boolean);
         continue;
       }
       payload[k] = v;
+    }
+
+    // Convert hours + minutes → duration_seconds
+    const hrs = parseInt(data.duration_hours) || 0;
+    const mins = parseInt(data.duration_minutes) || 0;
+    if (hrs > 0 || mins > 0) {
+      payload.duration_seconds = hrs * 3600 + mins * 60;
     }
 
     // If user typed a YouTube URL and there's no video file, include it
@@ -291,13 +306,23 @@ export default function PodcastsPage() {
       podcastId = res.data?.id;
     }
 
-    // 2. Upload thumbnail if a new file was picked
+    // 2. Execute pending removals (deferred from dialog buttons)
+    if (pendingRemoveVideo && podcastId) {
+      const rmRes = await api.removePodcastVideo(podcastId);
+      if (!rmRes.success) toast.error('Video removal failed: ' + (rmRes.error || ''));
+    }
+    if (pendingRemoveThumbnail && podcastId) {
+      const rmRes = await api.removePodcastThumbnail(podcastId);
+      if (!rmRes.success) toast.error('Thumbnail removal failed: ' + (rmRes.error || ''));
+    }
+
+    // 3. Upload thumbnail if a new file was picked
     if (thumbnailFile && podcastId) {
       const thumbRes = await api.uploadPodcastThumbnail(podcastId, thumbnailFile);
       if (!thumbRes.success) toast.error('Thumbnail upload failed: ' + (thumbRes.error || ''));
     }
 
-    // 3. Upload video if a new file was picked
+    // 4. Upload video if a new file was picked
     if (videoFile && podcastId) {
       setVideoProgress(0);
       const vidRes = await api.uploadPodcastVideo(podcastId, videoFile, (p) => setVideoProgress(p));
@@ -772,6 +797,25 @@ export default function PodcastsPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4" key={dialogKey}>
           <Input label="Title *" placeholder="Podcast title" {...register('title', { required: true })} />
 
+          {/* Status selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
+            <select className={cn(selectClass, 'w-full')} {...register('status')}>
+              {STATUSES.map(o => {
+                // Users can freely pick draft or coming_soon.
+                // pending_approval, published, archived are shown when editing but disabled
+                // — those transitions happen via dedicated action buttons / super admin approval.
+                const editable = ['draft', 'coming_soon'].includes(o.value);
+                return (
+                  <option key={o.value} value={o.value} disabled={!editable}>
+                    {o.label}{!editable ? ' (use action buttons)' : ''}
+                  </option>
+                );
+              })}
+            </select>
+            <p className="text-xs text-slate-400 mt-1">Approval &amp; publishing require super admin action via list buttons</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
             <textarea
@@ -807,19 +851,41 @@ export default function PodcastsPage() {
 
           <Input label="Tags" placeholder="tag1, tag2, tag3" {...register('tags')} />
 
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Duration (seconds)" type="number" placeholder="e.g. 3600" {...register('duration_seconds')} />
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Duration (HH:MM)</label>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  placeholder="HH"
+                  className="w-full h-10 px-3 text-sm text-center rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  {...register('duration_hours')}
+                />
+                <span className="text-lg font-bold text-slate-400">:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  placeholder="MM"
+                  className="w-full h-10 px-3 text-sm text-center rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  {...register('duration_minutes')}
+                />
+              </div>
+              <p className="text-xs text-slate-400 mt-1">e.g. 01:30 = 1 hr 30 min</p>
+            </div>
             <Input label="Display Order" type="number" placeholder="0" {...register('display_order')} />
           </div>
 
           {/* Video Upload (Bunny Stream) */}
           <VideoUpload
             label="Video (Bunny Stream)"
-            value={editing?.video_url || null}
+            value={pendingRemoveVideo ? null : (editing?.video_url || null)}
             allowUrlMode={true}
             maxSizeMb={500}
-            onFileChange={(f) => { setVideoFile(f); if (f) setVideoUrlInput(null); }}
-            onUrlChange={(u) => { setVideoUrlInput(u); if (u) setVideoFile(null); }}
+            onFileChange={(f) => { setVideoFile(f); if (f) { setVideoUrlInput(null); setPendingRemoveVideo(false); } }}
+            onUrlChange={(u) => { setVideoUrlInput(u); if (u) { setVideoFile(null); setPendingRemoveVideo(false); } }}
             progress={videoProgress}
             hint="Upload to Bunny Stream, or paste a YouTube URL"
           />
@@ -830,11 +896,11 @@ export default function PodcastsPage() {
           {/* Thumbnail Upload */}
           <ImageUpload
             label="Thumbnail"
-            value={editing?.thumbnail_url || null}
+            value={pendingRemoveThumbnail ? null : (editing?.thumbnail_url || null)}
             aspectRatio={16 / 9}
             maxWidth={1280}
             maxHeight={720}
-            onChange={(file) => setThumbnailFile(file)}
+            onChange={(file) => { setThumbnailFile(file); if (file) setPendingRemoveThumbnail(false); }}
           />
 
           <div className="flex items-center gap-6">
@@ -848,18 +914,30 @@ export default function PodcastsPage() {
             </label>
           </div>
 
-          {/* Editing: quick actions for video/thumbnail removal */}
+          {/* Editing: quick actions for video/thumbnail removal (deferred until Save) */}
           {editing && (editing.video_url || editing.thumbnail_url) && (
             <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-              {editing.video_url && (
-                <Button type="button" size="sm" variant="outline" onClick={() => onRemoveVideo(editing)}>
+              {editing.video_url && !pendingRemoveVideo && (
+                <Button type="button" size="sm" variant="outline" onClick={() => setPendingRemoveVideo(true)}>
                   <Trash2 className="w-3.5 h-3.5" /> Remove existing video
                 </Button>
               )}
-              {editing.thumbnail_url && (
-                <Button type="button" size="sm" variant="outline" onClick={() => onRemoveThumbnail(editing)}>
+              {editing.video_url && pendingRemoveVideo && (
+                <span className="flex items-center gap-2 text-sm text-amber-600">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Video will be removed on save
+                  <button type="button" className="text-xs text-slate-500 hover:text-slate-700 underline" onClick={() => setPendingRemoveVideo(false)}>Undo</button>
+                </span>
+              )}
+              {editing.thumbnail_url && !pendingRemoveThumbnail && (
+                <Button type="button" size="sm" variant="outline" onClick={() => setPendingRemoveThumbnail(true)}>
                   <Trash2 className="w-3.5 h-3.5" /> Remove existing thumbnail
                 </Button>
+              )}
+              {editing.thumbnail_url && pendingRemoveThumbnail && (
+                <span className="flex items-center gap-2 text-sm text-amber-600">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Thumbnail will be removed on save
+                  <button type="button" className="text-xs text-slate-500 hover:text-slate-700 underline" onClick={() => setPendingRemoveThumbnail(false)}>Undo</button>
+                </span>
               )}
             </div>
           )}

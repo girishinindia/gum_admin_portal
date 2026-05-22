@@ -610,9 +610,31 @@ function CurriculumTab({ courseId, units, reload }: any) {
   }
 
   const modules = units.filter((x: any) => x.unit_type === 'module');
+  const chapters = units.filter((x: any) => x.unit_type === 'chapter');
   const childrenOf = (pid: number) => units.filter((x: any) => x.parent_unit_id === pid);
-  const parentOptions = units.filter((x: any) => x.unit_type === 'module' || x.unit_type === 'chapter')
-    .map((x: any) => ({ value: x.id, label: `${x.unit_type}: ${x.title}` }));
+
+  // ── Filtered parent options based on selected unit_type ──
+  // module  → no parent allowed (always top level)
+  // chapter → only modules as parent
+  // topic   → only chapters as parent
+  function getParentOptions(unitType: string) {
+    if (unitType === 'chapter') return modules.map((x: any) => ({ value: x.id, label: `module: ${x.title}` }));
+    if (unitType === 'topic') return chapters.map((x: any) => ({ value: x.id, label: `chapter: ${x.title}` }));
+    return []; // module → no parent options
+  }
+
+  function handleTypeChange(newType: string) {
+    const opts = getParentOptions(newType);
+    let newParent: string | number = '';
+    if (newType === 'module') {
+      newParent = ''; // modules are always top-level
+    } else if (opts.length > 0) {
+      // keep current parent if it's still valid, otherwise pick the first option
+      const currentValid = opts.some((o: any) => String(o.value) === String(u.parent_unit_id));
+      newParent = currentValid ? u.parent_unit_id : opts[0].value;
+    }
+    setU({ ...u, unit_type: newType, parent_unit_id: newParent });
+  }
 
   function openAdd(unit_type: string, parent_unit_id: number | null) {
     setEditing(null);
@@ -683,18 +705,26 @@ function CurriculumTab({ courseId, units, reload }: any) {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit unit' : 'Add unit'} size="lg">
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Type"><Select value={u.unit_type} onChange={e => setU({ ...u, unit_type: e.target.value })} options={UNIT_TYPES} /></Field>
-            <Field label="Parent"><Select value={u.parent_unit_id} onChange={e => setU({ ...u, parent_unit_id: e.target.value })} options={[{ value: '', label: '— none (top level) —' }, ...parentOptions]} /></Field>
+            <Field label="Type"><Select value={u.unit_type} onChange={e => handleTypeChange(e.target.value)} options={UNIT_TYPES} /></Field>
+            <Field label="Parent">
+              {u.unit_type === 'module' ? (
+                <div className="h-10 px-3 flex items-center text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg">— none (top level) —</div>
+              ) : (
+                <Select value={u.parent_unit_id} onChange={e => setU({ ...u, parent_unit_id: e.target.value })} options={getParentOptions(u.unit_type)} />
+              )}
+            </Field>
           </div>
           <Field label="Title *"><Input value={u.title || ''} onChange={e => setU({ ...u, title: e.target.value })} /></Field>
           <Field label="Summary"><textarea value={u.summary || ''} onChange={e => setU({ ...u, summary: e.target.value })} rows={2} className={taCls} /></Field>
-          {u.unit_type === 'topic' && <>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Display order"><Input type="number" min={0} value={u.display_order ?? 0} onChange={e => setU({ ...u, display_order: Number(e.target.value) })} /></Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Display order"><Input type="number" min={0} value={u.display_order ?? 0} onChange={e => setU({ ...u, display_order: Number(e.target.value) })} /></Field>
+            {u.unit_type === 'topic' && (
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!u.is_free_preview} onChange={e => setU({ ...u, is_free_preview: e.target.checked })} /> Free preview</label>
               </div>
-            </div>
+            )}
+          </div>
+          {u.unit_type === 'topic' && <>
             {!editing && (
               <p className="text-xs text-amber-600">Save the topic first, then re-open it to upload media &amp; files.</p>
             )}

@@ -17,7 +17,7 @@
  * typing a URL clears the file. The parent decides which path to submit.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Upload, X, Film, ExternalLink, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -92,6 +92,17 @@ export function VideoUpload({
   const [error, setError] = useState<string | null>(null);
   const dragCounter = useRef(0);
   const [urlValue, setUrlValue] = useState<string>(value && !isBunnyEmbed(value) ? value : '');
+
+  // Sync internal state when the parent's `value` prop changes (e.g. after
+  // removing a video the parent sets value=null → we must clear urlValue,
+  // or when the parent sets a new URL → we must show it).
+  useEffect(() => {
+    const nextUrl = value && !isBunnyEmbed(value) ? value : '';
+    setUrlValue(nextUrl);
+    // Also sync mode so the correct input is visible
+    if (allowUrlMode && value && !isBunnyEmbed(value)) setMode('url');
+    else if (!value) setMode('file');
+  }, [value, allowUrlMode]);
 
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
