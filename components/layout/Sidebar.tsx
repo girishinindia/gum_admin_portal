@@ -379,6 +379,15 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    key: 'podcasts',
+    title: 'Podcasts',
+    icon: Headphones,
+    iconColor: 'text-purple-500',
+    items: [
+      { href: '/podcasts', label: 'Podcasts', icon: Headphones, iconColor: 'text-purple-500' },
+    ],
+  },
+  {
     key: 'faqs-blog',
     title: 'FAQs & Blog',
     icon: HelpCircle,

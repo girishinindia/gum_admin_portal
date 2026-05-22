@@ -2444,6 +2444,28 @@ export const api = {
   permanentDeleteWalletTransaction: (id: number) => request(`/wallet-transactions/${id}/permanent`, { method: 'DELETE' }),
 
   // ══════════════════════════════════════════════
+  // PODCASTS
+  // ══════════════════════════════════════════════
+  listPodcasts: (qs = '') => request(`/podcasts${qs}`, { auth: false }),
+  getPodcast: (id: number) => request(`/podcasts/${id}`, { auth: false }),
+  createPodcast: (data: any) => request('/podcasts', { method: 'POST', body: JSON.stringify(data) }),
+  updatePodcast: (id: number, data: any) => request(`/podcasts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  uploadPodcastVideo: (id: number, file: File, onProgress?: (p: number) => void) => _uploadCourseVideoXhr(`/podcasts/${id}/video`, file, onProgress),
+  removePodcastVideo: (id: number) => request(`/podcasts/${id}/video`, { method: 'DELETE' }),
+  uploadPodcastThumbnail: (id: number, file: File) => { const fd = new FormData(); fd.append('thumbnail', file); return request(`/podcasts/${id}/thumbnail`, { method: 'POST', body: fd as any, isFormData: true }); },
+  removePodcastThumbnail: (id: number) => request(`/podcasts/${id}/thumbnail`, { method: 'DELETE' }),
+  podcastPlayback: (id: number) => request(`/podcasts/${id}/playback`, { auth: false }),
+  markPodcastComingSoon: (id: number) => request(`/podcasts/${id}/coming-soon`, { method: 'PATCH' }),
+  submitPodcast: (id: number) => request(`/podcasts/${id}/submit`, { method: 'PATCH' }),
+  approvePodcast: (id: number) => request(`/podcasts/${id}/approve`, { method: 'PATCH' }),
+  rejectPodcast: (id: number) => request(`/podcasts/${id}/reject`, { method: 'PATCH' }),
+  publishPodcast: (id: number) => request(`/podcasts/${id}/publish`, { method: 'PATCH' }),
+  archivePodcast: (id: number) => request(`/podcasts/${id}/archive`, { method: 'PATCH' }),
+  softDeletePodcast: (id: number) => request(`/podcasts/${id}`, { method: 'DELETE' }),
+  restorePodcast: (id: number) => request(`/podcasts/${id}/restore`, { method: 'PATCH' }),
+  deletePodcast: (id: number) => request(`/podcasts/${id}/permanent`, { method: 'DELETE' }),
+
+  // ══════════════════════════════════════════════
   // CRON / SCHEDULED JOBS
   // ══════════════════════════════════════════════
   getCronStatus: () => request('/cron/status'),
