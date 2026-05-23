@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
@@ -14,7 +15,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import {
   Plus, Pencil, Trash2, ArrowLeft, CheckCircle, XCircle, Send, ShieldCheck,
   Package, FolderTree, FileText, Video, BookOpen, ClipboardList, FlaskConical, Loader2,
-  BarChart3, Clock, RotateCcw, AlertCircle, Eye,
+  BarChart3, Clock, RotateCcw, AlertCircle, Eye, ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -60,6 +61,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function CourseBuilderPage() {
+  return <Suspense fallback={<div className="p-8 text-center text-slate-400">Loading…</div>}><CourseBuilderInner /></Suspense>;
+}
+
+function CourseBuilderInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [view, setView] = useState<'list' | 'edit'>('list');
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,17 +164,53 @@ export default function CourseBuilderPage() {
     api.listUsers('?limit=500&type=instructor').then(r => { if (r.success) setInstructors(r.data || []); });
   }, []);
 
+  /* ── restore from URL params on mount ── */
+  const [urlRestored, setUrlRestored] = useState(false);
+  useEffect(() => {
+    if (urlRestored) return;
+    const paramId = searchParams.get('id');
+    const paramTab = searchParams.get('tab') as Tab | null;
+    if (paramId) {
+      (async () => {
+        try {
+          const r = await api.getAuthoringCourse(Number(paramId));
+          if (r.success && r.data) {
+            setCourse(r.data);
+            setForm({ ...r.data, language_id: r.data.language_id ?? '', category_id: r.data.category_id ?? '', price: r.data.price ?? '', original_price: r.data.original_price ?? '' });
+            if (paramTab) setTab(paramTab);
+            else setTab('basics');
+            setView('edit');
+            await loadChildren(r.data.id);
+          }
+        } catch { /* non-fatal: just land on list */ }
+      })();
+    }
+    setUrlRestored(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Push ?id & ?tab to the URL bar (no page reload) */
+  function syncUrl(courseId?: number | null, activeTab?: string) {
+    const params = new URLSearchParams();
+    if (courseId) params.set('id', String(courseId));
+    if (activeTab) params.set('tab', activeTab);
+    const qs = params.toString();
+    router.replace(qs ? `/course-builder?${qs}` : '/course-builder', { scroll: false });
+  }
+
   /* ── open editor ── */
   function openCreate() {
     setCourse(null);
     setForm({ title: '', subtitle: '', short_intro: '', long_intro: '', level: 'beginner', language_id: '', category_id: '', price: '', original_price: '', is_free: false, thumbnail_url: '', trailer_video: '', has_certificate: false, requires_verification: true });
     setHighlights([]); setUnits([]); setFaqs([]); setReadiness(null);
     setTab('basics'); setView('edit');
+    syncUrl(null, 'basics');
   }
   async function openEdit(c: any) {
     setCourse(c);
     setForm({ ...c, language_id: c.language_id ?? '', category_id: c.category_id ?? '', price: c.price ?? '', original_price: c.original_price ?? '' });
     setTab('basics'); setView('edit');
+    syncUrl(c.id, 'basics');
     await loadChildren(c.id);
   }
   async function loadChildren(courseId: number) {
@@ -196,7 +240,7 @@ export default function CourseBuilderPage() {
         if (r.success) { setCourse(r.data); refreshReadiness(course.id); toast.success('Saved'); } else toast.error(r.error || 'Save failed');
       } else {
         const r = await api.createAuthoringCourse(payload);
-        if (r.success) { setCourse(r.data); setForm({ ...form, ...r.data }); refreshReadiness(r.data.id); toast.success('Draft created — now add curriculum'); }
+        if (r.success) { setCourse(r.data); setForm({ ...form, ...r.data }); refreshReadiness(r.data.id); syncUrl(r.data.id, 'basics'); toast.success('Draft created — now add curriculum'); }
         else toast.error(r.error || 'Create failed');
       }
     } catch (e: any) { toast.error(e?.message || 'Save failed'); }
@@ -413,6 +457,51 @@ export default function CourseBuilderPage() {
                     const topics = vu.filter((x: any) => x.unit_type === 'topic');
                     const childOf = (pid: number) => vu.filter((x: any) => x.parent_unit_id === pid);
                     const typeIcon: Record<string, string> = { video: '🎬', article: '📝', quiz: '📋', exercise: '🧪', project: '📦' };
+                    const vFileEntries = (t: any) => {
+                      const f: { label: string; url: string | null; color: string }[] = [];
+                      if (t.video)                     f.push({ label: 'Bunny Stream Video', url: t.video,                   color: 'text-orange-600' });
+                      if (t.youtube_url && !t.video)   f.push({ label: 'YouTube / External',  url: t.youtube_url,             color: 'text-red-500' });
+                      if (t.exercise_pdf)              f.push({ label: 'Exercise PDF',        url: t.exercise_pdf,            color: 'text-emerald-600' });
+                      if (t.exercise_solution_pdf)     f.push({ label: 'Exercise Solution',   url: t.exercise_solution_pdf,   color: 'text-teal-600' });
+                      if (t.assignment_pdf)            f.push({ label: 'Assignment PDF',      url: t.assignment_pdf,          color: 'text-blue-600' });
+                      if (t.article_pdf)               f.push({ label: 'Article PDF',         url: t.article_pdf,             color: 'text-indigo-600' });
+                      if (t.project_pdf)               f.push({ label: 'Project PDF',         url: t.project_pdf,             color: 'text-purple-600' });
+                      if (t.project_solution_file_url) f.push({ label: 'Project Solution',    url: t.project_solution_file_url, color: 'text-fuchsia-600' });
+                      return f;
+                    };
+                    const ViewTopicLine = ({ t }: { t: any }) => {
+                      const files = vFileEntries(t);
+                      return (
+                        <div className="ml-5 mt-1">
+                          <div className="flex items-center gap-1.5 text-slate-500 text-xs">
+                            <span>{typeIcon[t.topic_type] || '📄'}</span>
+                            <span className="font-medium text-slate-600">{t.title}</span>
+                            <span className="text-slate-300">·</span>
+                            <span className="text-slate-400">{t.topic_type || 'topic'}</span>
+                            {t.is_free_preview && <span className="font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">free</span>}
+                            {files.length > 0 && <span className="text-slate-400">{files.length} file{files.length > 1 ? 's' : ''}</span>}
+                          </div>
+                          {files.length > 0 ? (
+                            <div className="ml-4 mt-0.5 space-y-px">
+                              {files.map((f, i) => (
+                                <div key={f.label} className="flex items-center gap-1.5 text-[11px]">
+                                  <span className="text-slate-300 select-none w-3 text-center">{i === files.length - 1 ? '└' : '├'}</span>
+                                  {f.url ? (
+                                    <a href={f.url} target="_blank" rel="noopener noreferrer" className={cn('hover:underline flex items-center gap-1', f.color)}>
+                                      {f.label} <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                                    </a>
+                                  ) : (
+                                    <span className="text-slate-400">{f.label}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="ml-4 mt-0.5 text-[10px] text-slate-300 italic">└ no files</div>
+                          )}
+                        </div>
+                      );
+                    };
                     return (
                       <div>
                         <div className="flex items-center justify-between mb-2">
@@ -422,28 +511,18 @@ export default function CourseBuilderPage() {
                         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 text-sm">
                           {mods.map((m: any) => (
                             <div key={m.id} className="px-3 py-2">
-                              <div className="flex items-center gap-2 font-medium text-slate-700"><Package className="w-3.5 h-3.5 text-amber-500" /> {m.title}</div>
+                              <div className="flex items-center gap-2 font-medium text-slate-700"><Package className="w-3.5 h-3.5 text-amber-500" /> {m.title}
+                                <span className="text-[10px] text-slate-400 font-normal">{childOf(m.id).filter((x: any) => x.unit_type === 'chapter').length} ch · {childOf(m.id).filter((x: any) => x.unit_type === 'topic').length + childOf(m.id).filter((x: any) => x.unit_type === 'chapter').flatMap((ch: any) => childOf(ch.id)).length} topics</span>
+                              </div>
                               {childOf(m.id).map((ch: any) => ch.unit_type === 'chapter' ? (
                                 <div key={ch.id} className="ml-5 mt-1.5">
-                                  <div className="flex items-center gap-2 text-slate-600"><FolderTree className="w-3.5 h-3.5 text-blue-400" /> {ch.title}</div>
-                                  {childOf(ch.id).map((t: any) => (
-                                    <div key={t.id} className="ml-5 mt-1 flex items-center gap-2 text-slate-500 text-xs">
-                                      <span>{typeIcon[t.topic_type] || '📄'}</span> {t.title}
-                                      <span className="text-slate-300">·</span>
-                                      <span className="text-slate-400">{t.topic_type}</span>
-                                      {t.is_free_preview && <span className="text-emerald-600 font-medium">free</span>}
-                                      {t.video && <span className="text-orange-500">bunny</span>}
-                                      {t.youtube_url && !t.video && <span className="text-red-500">youtube</span>}
-                                    </div>
-                                  ))}
+                                  <div className="flex items-center gap-2 text-slate-600"><FolderTree className="w-3.5 h-3.5 text-blue-400" /> {ch.title}
+                                    <span className="text-[10px] text-slate-400">{childOf(ch.id).length} topics</span>
+                                  </div>
+                                  {childOf(ch.id).map((t: any) => <ViewTopicLine key={t.id} t={t} />)}
                                 </div>
                               ) : (
-                                <div key={ch.id} className="ml-5 mt-1 flex items-center gap-2 text-slate-500 text-xs">
-                                  <span>{typeIcon[ch.topic_type] || '📄'}</span> {ch.title}
-                                  <span className="text-slate-300">·</span>
-                                  <span className="text-slate-400">{ch.topic_type}</span>
-                                  {ch.is_free_preview && <span className="text-emerald-600 font-medium">free</span>}
-                                </div>
+                                <ViewTopicLine key={ch.id} t={ch} />
                               ))}
                             </div>
                           ))}
@@ -538,7 +617,7 @@ export default function CourseBuilderPage() {
   return (
     <div className="animate-fade-in">
       <div className="flex items-center gap-3 mb-1">
-        <button onClick={() => setView('list')} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><ArrowLeft className="w-5 h-5" /></button>
+        <button onClick={() => { setView('list'); syncUrl(); }} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><ArrowLeft className="w-5 h-5" /></button>
         <h1 className="text-xl font-bold text-slate-800">{course?.title || 'New Course'}</h1>
         {course?.status && <StatusBadge status={course.status} />}
       </div>
@@ -576,7 +655,7 @@ export default function CourseBuilderPage() {
       {/* tabs */}
       <div className="flex gap-1 border-b border-slate-200 ml-10 mb-5">
         {TABS.map(t => (
-          <button key={t.id} disabled={t.id !== 'basics' && needsCourse} onClick={() => setTab(t.id)}
+          <button key={t.id} disabled={t.id !== 'basics' && needsCourse} onClick={() => { setTab(t.id); syncUrl(course?.id, t.id); }}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${tab === t.id ? 'border-violet-500 text-violet-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
             <t.icon className="w-4 h-4" /> {t.label}
           </button>
@@ -852,15 +931,62 @@ function CurriculumTab({ courseId, units, reload }: any) {
     if (r.success) reload(); else toast.error(r.error || 'Failed');
   }
 
+  /** Build a list of file entries for a topic with label, url, icon & color */
+  function getFileEntries(t: any) {
+    const files: { label: string; url: string | null; icon: any; color: string; badgeColor: string }[] = [];
+    if (t.video)                     files.push({ label: 'Bunny Stream Video', url: t.video, icon: Video,          color: 'text-orange-500', badgeColor: 'bg-orange-100 text-orange-700' });
+    if (t.youtube_url && !t.video)   files.push({ label: 'YouTube / External', url: t.youtube_url, icon: Video,    color: 'text-red-500',    badgeColor: 'bg-red-100 text-red-600' });
+    if (t.exercise_pdf)              files.push({ label: 'Exercise PDF',       url: t.exercise_pdf, icon: FlaskConical, color: 'text-emerald-500', badgeColor: 'bg-emerald-100 text-emerald-700' });
+    if (t.exercise_solution_pdf)     files.push({ label: 'Exercise Solution',  url: t.exercise_solution_pdf, icon: FlaskConical, color: 'text-teal-500', badgeColor: 'bg-teal-100 text-teal-700' });
+    if (t.assignment_pdf)            files.push({ label: 'Assignment PDF',     url: t.assignment_pdf, icon: ClipboardList, color: 'text-blue-500', badgeColor: 'bg-blue-100 text-blue-700' });
+    if (t.article_pdf)               files.push({ label: 'Article PDF',        url: t.article_pdf, icon: FileText,  color: 'text-indigo-500', badgeColor: 'bg-indigo-100 text-indigo-700' });
+    if (t.project_pdf)               files.push({ label: 'Project PDF',        url: t.project_pdf, icon: BookOpen,  color: 'text-purple-500', badgeColor: 'bg-purple-100 text-purple-700' });
+    if (t.project_solution_file_url) files.push({ label: 'Project Solution',   url: t.project_solution_file_url, icon: Package, color: 'text-fuchsia-500', badgeColor: 'bg-fuchsia-100 text-fuchsia-700' });
+    return files;
+  }
+
   const TopicRow = ({ t }: { t: any }) => {
     const Icon = TOPIC_ICON[t.topic_type] || FileText;
+    const files = getFileEntries(t);
     return (
-      <div className="flex items-center justify-between pl-10 pr-3 py-1.5 hover:bg-slate-50 rounded">
-        <span className="flex items-center gap-2 text-sm text-slate-600"><Icon className="w-4 h-4 text-violet-400" /> {t.title} <span className="text-xs text-slate-400">· {t.topic_type}</span></span>
-        <span className="flex gap-1">
-          <button onClick={() => openEdit(t)} className="text-slate-400 hover:text-blue-600"><Pencil className="w-3.5 h-3.5" /></button>
-          <button onClick={() => del(t)} className="text-slate-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
-        </span>
+      <div className="pl-10 pr-3 py-1.5 hover:bg-slate-50 rounded">
+        {/* ── topic header row ── */}
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2 text-sm text-slate-600">
+            <Icon className="w-4 h-4 text-violet-400" /> {t.title}
+            <span className="text-xs text-slate-400">· {t.topic_type || 'topic'}</span>
+            {t.is_free_preview && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">free</span>}
+            {files.length > 0 && <span className="text-[10px] text-slate-400">{files.length} file{files.length > 1 ? 's' : ''}</span>}
+          </span>
+          <span className="flex gap-1 flex-shrink-0">
+            <button onClick={() => openEdit(t)} className="text-slate-400 hover:text-blue-600"><Pencil className="w-3.5 h-3.5" /></button>
+            <button onClick={() => del(t)} className="text-slate-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+          </span>
+        </div>
+        {/* ── file tree under the topic ── */}
+        {files.length > 0 && (
+          <div className="ml-6 mt-1 space-y-0.5">
+            {files.map((f, i) => {
+              const FIcon = f.icon;
+              const isLast = i === files.length - 1;
+              return (
+                <div key={f.label} className="flex items-center gap-1.5 text-xs">
+                  <span className="text-slate-300 select-none w-4 text-center">{isLast ? '└' : '├'}</span>
+                  <FIcon className={cn('w-3 h-3 flex-shrink-0', f.color)} />
+                  {f.url ? (
+                    <a href={f.url} target="_blank" rel="noopener noreferrer"
+                      className={cn('hover:underline flex items-center gap-1', f.color)}>
+                      {f.label} <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                    </a>
+                  ) : (
+                    <span className="text-slate-400">{f.label}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {files.length === 0 && <div className="ml-6 mt-0.5 text-[10px] text-slate-300 italic flex items-center gap-1"><span className="select-none">└</span> no files uploaded</div>}
       </div>
     );
   };
@@ -872,7 +998,19 @@ function CurriculumTab({ courseId, units, reload }: any) {
       {modules.map((m: any) => (
         <div key={m.id} className="border border-slate-200 rounded-lg">
           <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-t-lg">
-            <span className="flex items-center gap-2 font-semibold text-slate-700 text-sm"><Package className="w-4 h-4 text-amber-500" /> {m.title}</span>
+            <span className="flex items-center gap-2 font-semibold text-slate-700 text-sm">
+              <Package className="w-4 h-4 text-amber-500" /> {m.title}
+              {(() => {
+                const allKids = childrenOf(m.id);
+                const chaps = allKids.filter((x: any) => x.unit_type === 'chapter');
+                // collect all topics: direct children + children of chapters
+                const directTopics = allKids.filter((x: any) => x.unit_type === 'topic');
+                const chapTopics = chaps.flatMap((ch: any) => childrenOf(ch.id));
+                const topics = [...directTopics, ...chapTopics];
+                if (!allKids.length) return null;
+                return <span className="text-[10px] text-slate-400 font-normal ml-1">{chaps.length} ch · {topics.length} topics</span>;
+              })()}
+            </span>
             <span className="flex gap-1 items-center">
               <button onClick={() => openAdd('chapter', m.id)} className="text-xs text-violet-600 hover:underline">+ Chapter</button>
               <button onClick={() => openAdd('topic', m.id)} className="text-xs text-violet-600 hover:underline ml-2">+ Topic</button>
@@ -884,7 +1022,16 @@ function CurriculumTab({ courseId, units, reload }: any) {
             {childrenOf(m.id).map((ch: any) => ch.unit_type === 'chapter' ? (
               <div key={ch.id}>
                 <div className="flex items-center justify-between px-3 py-1.5">
-                  <span className="flex items-center gap-2 text-sm font-medium text-slate-600"><FolderTree className="w-4 h-4 text-blue-400" /> {ch.title}</span>
+                  <span className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                    <FolderTree className="w-4 h-4 text-blue-400" /> {ch.title}
+                    {(() => {
+                      const kids = childrenOf(ch.id);
+                      if (!kids.length) return null;
+                      const vids = kids.filter((t: any) => t.video || t.youtube_url).length;
+                      const pdfs = kids.filter((t: any) => t.exercise_pdf || t.assignment_pdf || t.article_pdf || t.project_pdf).length;
+                      return <span className="text-[10px] text-slate-400 ml-1">{kids.length} topics{vids ? ` · ${vids} video` : ''}{pdfs ? ` · ${pdfs} pdf` : ''}</span>;
+                    })()}
+                  </span>
                   <span className="flex gap-1 items-center">
                     <button onClick={() => openAdd('topic', ch.id)} className="text-xs text-violet-600 hover:underline">+ Topic</button>
                     <button onClick={() => openEdit(ch)} className="text-slate-400 hover:text-blue-600 ml-2"><Pencil className="w-3.5 h-3.5" /></button>
