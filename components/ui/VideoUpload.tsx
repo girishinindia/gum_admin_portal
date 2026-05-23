@@ -160,8 +160,14 @@ export function VideoUpload({
   function handleUrlInput(e: React.ChangeEvent<HTMLInputElement>) {
     const next = e.target.value;
     setUrlValue(next);
-    setPickedFile(null);
-    onFileChange(null);
+    // Only notify the parent about file clearing if there was actually a picked
+    // file.  Without this guard, every keystroke fires onFileChange(null) which
+    // CurriculumTab interprets as "delete the server-side video" — an async API
+    // call that races back and overwrites the youtube_url the user is typing.
+    if (pickedFile) {
+      setPickedFile(null);
+      onFileChange(null);
+    }
     onUrlChange(next.trim() ? next.trim() : null);
   }
 

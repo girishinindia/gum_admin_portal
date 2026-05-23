@@ -14,7 +14,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import {
   Plus, Pencil, Trash2, ArrowLeft, CheckCircle, XCircle, Send, ShieldCheck,
   Package, FolderTree, FileText, Video, BookOpen, ClipboardList, FlaskConical, Loader2,
-  BarChart3, Clock, RotateCcw, AlertCircle,
+  BarChart3, Clock, RotateCcw, AlertCircle, Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -66,6 +66,9 @@ export default function CourseBuilderPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showTrash, setShowTrash] = useState(false);
   const [stats, setStats] = useState({ total: 0, published: 0, pending: 0, trash: 0 });
+  const [viewing, setViewing] = useState<any | null>(null);
+  const [viewChildren, setViewChildren] = useState<{ highlights: any[]; units: any[]; faqs: any[]; capstones: any[]; miniProjects: any[] }>({ highlights: [], units: [], faqs: [], capstones: [], miniProjects: [] });
+  const [viewLoading, setViewLoading] = useState(false);
 
   const [languages, setLanguages] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -232,6 +235,30 @@ export default function CourseBuilderPage() {
     if (r.success) { toast.success('Permanently deleted'); fetchCourses(); refreshStats(); } else toast.error(r.error || 'Failed');
   }
 
+  async function openView(c: any) {
+    setViewing(c);
+    setViewLoading(true);
+    try {
+      const [cr, h, u, f, cp, mp] = await Promise.all([
+        api.getAuthoringCourse(c.id),
+        api.listAuthoringHighlights(c.id),
+        api.listAuthoringUnits(c.id),
+        api.listAuthoringFaqs(c.id),
+        api.listAuthoringCapstones(c.id),
+        api.listAuthoringMiniProjects(c.id),
+      ]);
+      if (cr.success && cr.data) setViewing(cr.data);
+      setViewChildren({
+        highlights: h.data || [],
+        units: u.data || [],
+        faqs: f.data || [],
+        capstones: cp.data || [],
+        miniProjects: mp.data || [],
+      });
+    } catch { /* non-fatal — dialog still shows basic info */ }
+    setViewLoading(false);
+  }
+
   /* ─────────────── LIST VIEW ─────────────── */
   if (view === 'list') {
     const STAT_CARDS = [
@@ -314,6 +341,7 @@ export default function CourseBuilderPage() {
                       </>
                     ) : (
                       <>
+                        <button onClick={() => openView(c)} className="p-1.5 text-slate-400 hover:text-sky-600" title="View details"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => openEdit(c)} className="p-1.5 text-slate-400 hover:text-blue-600" title="Edit"><Pencil className="w-4 h-4" /></button>
                         <button onClick={() => doDelete(c)} className="p-1.5 text-slate-400 hover:text-red-600" title="Trash"><Trash2 className="w-4 h-4" /></button>
                       </>
@@ -324,6 +352,174 @@ export default function CourseBuilderPage() {
             </tbody>
           </table>
         </div>
+
+        {/* ── View Details Dialog ── */}
+        <Dialog open={!!viewing} onClose={() => setViewing(null)} title="Course Details" size="lg">
+          {viewing && (
+            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Header */}
+              <div className="flex items-start gap-4">
+                {viewing.thumbnail_url ? (
+                  <img src={viewing.thumbnail_url} alt="" className="w-24 h-16 rounded-lg object-cover border border-slate-200 flex-shrink-0" />
+                ) : (
+                  <div className="w-24 h-16 rounded-lg bg-violet-50 flex items-center justify-center border border-violet-200 flex-shrink-0">
+                    <BookOpen className="w-8 h-8 text-violet-400" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold text-slate-900">{viewing.title}</h3>
+                  {viewing.subtitle && <p className="text-sm text-slate-500 mt-0.5">{viewing.subtitle}</p>}
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <StatusBadge status={viewing.status} />
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 capitalize">{viewing.level}</span>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{viewing.is_free ? 'Free' : `₹${viewing.price ?? 0}`}</span>
+                    {viewing.verified_at && <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700"><ShieldCheck className="w-3 h-3" /> Verified</span>}
+                    {viewing.has_certificate && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Certificate</span>}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1.5">
+                    Instructor: {instructors.find((i: any) => i.id === viewing.instructor_id)?.full_name || instructors.find((i: any) => i.id === viewing.instructor_id)?.email || `#${viewing.instructor_id}`}
+                    {viewing.category_id && <> · Category: {subCategories.find((s: any) => s.id === viewing.category_id)?.name || `#${viewing.category_id}`}</>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Short intro */}
+              {viewing.short_intro && (
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <dt className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Short Intro</dt>
+                  <dd className="text-sm text-slate-700">{viewing.short_intro}</dd>
+                </div>
+              )}
+
+              {/* Details grid */}
+              <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+                <div><dt className="text-xs font-medium text-slate-400 uppercase">Price</dt><dd className="text-sm text-slate-800 mt-0.5">{viewing.is_free ? 'Free' : `₹${viewing.price ?? '--'}`}</dd></div>
+                <div><dt className="text-xs font-medium text-slate-400 uppercase">Original Price</dt><dd className="text-sm text-slate-800 mt-0.5">{viewing.original_price ? `₹${viewing.original_price}` : '--'}</dd></div>
+                <div><dt className="text-xs font-medium text-slate-400 uppercase">Language</dt><dd className="text-sm text-slate-800 mt-0.5">{languages.find((l: any) => l.id === viewing.language_id)?.name || '--'}</dd></div>
+                <div><dt className="text-xs font-medium text-slate-400 uppercase">Created</dt><dd className="text-sm text-slate-800 mt-0.5">{viewing.created_at ? new Date(viewing.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '--'}</dd></div>
+                <div><dt className="text-xs font-medium text-slate-400 uppercase">Updated</dt><dd className="text-sm text-slate-800 mt-0.5">{viewing.updated_at ? new Date(viewing.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '--'}</dd></div>
+                {viewing.rejection_reason && <div className="col-span-3"><dt className="text-xs font-medium text-red-400 uppercase">Rejection Reason</dt><dd className="text-sm text-red-700 mt-0.5">{viewing.rejection_reason}</dd></div>}
+              </div>
+
+              {viewLoading ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
+              ) : (
+                <>
+                  {/* Curriculum tree */}
+                  {viewChildren.units.length > 0 && (() => {
+                    const vu = viewChildren.units;
+                    const mods = vu.filter((x: any) => x.unit_type === 'module');
+                    const chaps = vu.filter((x: any) => x.unit_type === 'chapter');
+                    const topics = vu.filter((x: any) => x.unit_type === 'topic');
+                    const childOf = (pid: number) => vu.filter((x: any) => x.parent_unit_id === pid);
+                    const typeIcon: Record<string, string> = { video: '🎬', article: '📝', quiz: '📋', exercise: '🧪', project: '📦' };
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5"><FolderTree className="w-4 h-4 text-violet-500" /> Curriculum</h4>
+                          <span className="text-xs text-slate-400">{mods.length} modules · {chaps.length} chapters · {topics.length} topics</span>
+                        </div>
+                        <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 text-sm">
+                          {mods.map((m: any) => (
+                            <div key={m.id} className="px-3 py-2">
+                              <div className="flex items-center gap-2 font-medium text-slate-700"><Package className="w-3.5 h-3.5 text-amber-500" /> {m.title}</div>
+                              {childOf(m.id).map((ch: any) => ch.unit_type === 'chapter' ? (
+                                <div key={ch.id} className="ml-5 mt-1.5">
+                                  <div className="flex items-center gap-2 text-slate-600"><FolderTree className="w-3.5 h-3.5 text-blue-400" /> {ch.title}</div>
+                                  {childOf(ch.id).map((t: any) => (
+                                    <div key={t.id} className="ml-5 mt-1 flex items-center gap-2 text-slate-500 text-xs">
+                                      <span>{typeIcon[t.topic_type] || '📄'}</span> {t.title}
+                                      <span className="text-slate-300">·</span>
+                                      <span className="text-slate-400">{t.topic_type}</span>
+                                      {t.is_free_preview && <span className="text-emerald-600 font-medium">free</span>}
+                                      {t.video && <span className="text-orange-500">bunny</span>}
+                                      {t.youtube_url && !t.video && <span className="text-red-500">youtube</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div key={ch.id} className="ml-5 mt-1 flex items-center gap-2 text-slate-500 text-xs">
+                                  <span>{typeIcon[ch.topic_type] || '📄'}</span> {ch.title}
+                                  <span className="text-slate-300">·</span>
+                                  <span className="text-slate-400">{ch.topic_type}</span>
+                                  {ch.is_free_preview && <span className="text-emerald-600 font-medium">free</span>}
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Highlights */}
+                  {viewChildren.highlights.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-violet-500" /> Highlights ({viewChildren.highlights.length})</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {viewChildren.highlights.map((h: any) => (
+                          <span key={h.id} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
+                            <span className="font-semibold capitalize">{h.kind}:</span> {h.text}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* FAQs */}
+                  {viewChildren.faqs.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FileText className="w-4 h-4 text-violet-500" /> FAQs ({viewChildren.faqs.length})</h4>
+                      <div className="space-y-2">
+                        {viewChildren.faqs.map((faq: any) => (
+                          <div key={faq.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                            <div className="text-sm font-medium text-slate-800">Q: {faq.question}</div>
+                            <div className="text-xs text-slate-500 mt-1">A: {faq.answer}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Capstones & Mini Projects side by side */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {viewChildren.capstones.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><Package className="w-4 h-4 text-violet-500" /> Capstones ({viewChildren.capstones.length})</h4>
+                        <div className="space-y-1">
+                          {viewChildren.capstones.map((cp: any) => (
+                            <div key={cp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
+                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {cp.title}
+                              {cp.solution_github_url && <a href={cp.solution_github_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">git</a>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {viewChildren.miniProjects.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FlaskConical className="w-4 h-4 text-violet-500" /> Mini Projects ({viewChildren.miniProjects.length})</h4>
+                        <div className="space-y-1">
+                          {viewChildren.miniProjects.map((mp: any) => (
+                            <div key={mp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
+                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {mp.title}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Footer */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button variant="outline" onClick={() => setViewing(null)}>Close</Button>
+                <Button onClick={() => { setViewing(null); openEdit(viewing); }}><Pencil className="w-4 h-4" /> Edit</Button>
+              </div>
+            </div>
+          )}
+        </Dialog>
       </div>
     );
   }
