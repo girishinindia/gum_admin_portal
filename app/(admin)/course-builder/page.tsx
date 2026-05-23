@@ -609,6 +609,20 @@ function CourseBuilderInner() {
                             </div>
                           ))}
                         </div>
+                        {/* Orphan / unassigned topics */}
+                        {(() => {
+                          const orphans = vu.filter((x: any) => x.unit_type === 'topic' && !x.parent_unit_id);
+                          if (!orphans.length) return null;
+                          return (
+                            <div className="mt-2 border border-amber-300 rounded-lg bg-amber-50/50 text-sm">
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 rounded-t-lg font-medium text-amber-800">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Unassigned Topics ({orphans.length})
+                                <span className="text-[10px] text-amber-600 font-normal ml-auto">not inside any module</span>
+                              </div>
+                              {orphans.map((t: any) => <ViewTopicLine key={t.id} t={t} />)}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })()}
@@ -1126,6 +1140,25 @@ function CurriculumTab({ courseId, units, reload }: any) {
           </div>
         </div>
       ))}
+
+      {/* ── Orphan / unassigned topics (parent_unit_id is NULL) ── */}
+      {(() => {
+        const orphans = units.filter((x: any) => x.unit_type === 'topic' && !x.parent_unit_id);
+        if (!orphans.length) return null;
+        return (
+          <div className="border border-amber-300 rounded-lg bg-amber-50/50">
+            <div className="flex items-center justify-between bg-amber-100 px-3 py-2 rounded-t-lg">
+              <span className="flex items-center gap-2 font-semibold text-amber-800 text-sm">
+                <AlertCircle className="w-4 h-4 text-amber-600" /> Unassigned Topics ({orphans.length})
+              </span>
+              <span className="text-[10px] text-amber-600">These topics are not inside any module — assign or delete them</span>
+            </div>
+            <div className="p-2 space-y-1">
+              {orphans.map((t: any) => <TopicRow key={t.id} t={t} />)}
+            </div>
+          </div>
+        );
+      })()}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit unit' : 'Add unit'} size="lg">
         <div className="p-6 space-y-4">
