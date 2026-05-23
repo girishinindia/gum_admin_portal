@@ -609,9 +609,10 @@ function CourseBuilderInner() {
                             </div>
                           ))}
                         </div>
-                        {/* Orphan / unassigned topics */}
+                        {/* Orphan / unassigned topics — NULL parent or deleted parent */}
                         {(() => {
-                          const orphans = vu.filter((x: any) => x.unit_type === 'topic' && !x.parent_unit_id);
+                          const vuIds = new Set(vu.map((x: any) => x.id));
+                          const orphans = vu.filter((x: any) => x.unit_type === 'topic' && (!x.parent_unit_id || !vuIds.has(x.parent_unit_id)));
                           if (!orphans.length) return null;
                           return (
                             <div className="mt-2 border border-amber-300 rounded-lg bg-amber-50/50 text-sm">
@@ -1141,9 +1142,10 @@ function CurriculumTab({ courseId, units, reload }: any) {
         </div>
       ))}
 
-      {/* ── Orphan / unassigned topics (parent_unit_id is NULL) ── */}
+      {/* ── Orphan / unassigned topics — parent_unit_id is NULL or points to a deleted unit ── */}
       {(() => {
-        const orphans = units.filter((x: any) => x.unit_type === 'topic' && !x.parent_unit_id);
+        const unitIds = new Set(units.map((x: any) => x.id));
+        const orphans = units.filter((x: any) => x.unit_type === 'topic' && (!x.parent_unit_id || !unitIds.has(x.parent_unit_id)));
         if (!orphans.length) return null;
         return (
           <div className="border border-amber-300 rounded-lg bg-amber-50/50">
