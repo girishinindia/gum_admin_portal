@@ -281,7 +281,7 @@ export default function WebinarsPage() {
   function openCreate() {
     setEditing(null); setDialogKey(k => k + 1); setActiveTab('basic');
     reset({
-      title: '', code: '', slug: '', is_active: true,
+      title: '', is_active: true,
       course_id: '', chapter_id: '', webinar_owner: 'system', webinar_status: 'draft',
       instructor_id: '', max_attendees: '', price: '', is_free: false,
       scheduled_at: '', duration_minutes: '', meeting_platform: 'zoom',
@@ -293,7 +293,7 @@ export default function WebinarsPage() {
   function openEdit(c: any) {
     setEditing(c); setDialogKey(k => k + 1); setActiveTab('basic');
     reset({
-      title: c.title || '', code: c.code || '', slug: c.slug || '',
+      title: c.title || '',
       is_active: c.is_active ?? true,
       course_id: c.course_id ?? '', chapter_id: c.chapter_id ?? '',
       webinar_owner: c.webinar_owner || 'system',
@@ -915,12 +915,21 @@ export default function WebinarsPage() {
 
           {activeTab === 'basic' && (
             <div className="space-y-4">
+              {/* Code & Slug — auto-generated, read-only on edit, hidden on create */}
+              {editing && (
+                <div className="grid grid-cols-2 gap-4 px-3 py-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <div>
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Code</span>
+                    <p className="text-sm font-mono text-slate-700 mt-0.5">{editing.code || '--'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Slug</span>
+                    <p className="text-sm font-mono text-slate-700 mt-0.5">{editing.slug ? `/${editing.slug}` : '--'}</p>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Title" {...register('title')} placeholder="Webinar title (or auto from English translation)" />
-                <Input label="Code" {...register('code')} placeholder="e.g. WEB-2026-JAN" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Slug" {...register('slug')} placeholder="auto-generated or custom" />
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Course</label>
                   <select className={cn(selectClass, 'w-full')} {...register('course_id')}>
@@ -982,7 +991,7 @@ export default function WebinarsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Scheduled At" type="datetime-local" {...register('scheduled_at')} />
-                <Input label="Duration (minutes)" type="number" {...register('duration_minutes')} placeholder="e.g. 60" />
+                <Input label="Duration (minutes)" type="number" min="1" {...register('duration_minutes')} placeholder="e.g. 60" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -994,9 +1003,9 @@ export default function WebinarsPage() {
                     <option value="custom">Custom</option>
                   </select>
                 </div>
-                <Input label="Meeting URL" {...register('meeting_url')} placeholder="https://..." />
+                <Input label="Meeting URL" type="url" {...register('meeting_url')} placeholder="https://..." />
               </div>
-              <Input label="Recording URL" {...register('recording_url')} placeholder="https://..." />
+              <Input label="Recording URL" type="url" {...register('recording_url')} placeholder="https://..." />
               <Input label="Chapter ID" type="number" {...register('chapter_id')} placeholder="Optional chapter reference" />
             </div>
           )}
@@ -1004,11 +1013,11 @@ export default function WebinarsPage() {
           {activeTab === 'pricing' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Price (INR)" type="number" step="0.01" placeholder="0.00"
+                <Input label="Price (INR)" type="number" step="0.01" min="0" placeholder="0.00"
                   disabled={watchedIsFree}
                   hint={watchedIsFree ? 'Free webinar — price is 0' : undefined}
                   {...register('price')} />
-                <Input label="Max Attendees" type="number" {...register('max_attendees')} placeholder="Unlimited if empty" />
+                <Input label="Max Attendees" type="number" min="1" {...register('max_attendees')} placeholder="Unlimited if empty" />
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
