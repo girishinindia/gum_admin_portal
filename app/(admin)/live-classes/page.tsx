@@ -253,6 +253,11 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
 
   const [actionLoaders, setActionLoaders] = useState<Record<number, string>>({});
 
+  // Phase 48 — bulk selection (same pattern as webinars/podcasts)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -263,6 +268,7 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
       const res = await api.getLiveSessions(params);
       setData(res.data || []);
       setTotal(res.pagination?.total || 0);
+      setSelectedIds(new Set());
     } catch { toast.error('Failed to load sessions'); }
     setLoading(false);
   }, [page, pageSize, sort, asc, showTrash, search, statusFilter, typeFilter]);
@@ -421,6 +427,74 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
     setActionLoaders(p => { const n = { ...p }; delete n[id]; return n; });
   }
 
+  // ── Bulk selection helpers ──
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === data.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(data.map(i => i.id)));
+    }
+  }
+
+  async function handleBulkSoftDelete() {
+    if (!confirm(`Move ${selectedIds.size} session(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) {
+      try { await api.softDeleteLiveSession(ids[i]); ok++; } catch {}
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    toast.success(`${ok} session(s) moved to trash`);
+    setSelectedIds(new Set());
+    fetchData(); fetchTrashCount(); onStatsChange();
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
+  async function handleBulkRestore() {
+    if (!confirm(`Restore ${selectedIds.size} session(s)?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) {
+      try { await api.restoreLiveSession(ids[i]); ok++; } catch {}
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    toast.success(`${ok} session(s) restored`);
+    setSelectedIds(new Set());
+    fetchData(); fetchTrashCount(); onStatsChange();
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} session(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) {
+      try { await api.permanentDeleteLiveSession(ids[i]); ok++; } catch {}
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    toast.success(`${ok} session(s) permanently deleted`);
+    setSelectedIds(new Set());
+    fetchData(); fetchTrashCount(); onStatsChange();
+    setBulkActionLoading(false);
+    setBulkProgress({ done: 0, total: 0 });
+  }
+
   return (
     <>
       <DataToolbar
@@ -454,10 +528,37 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
       ) : data.length === 0 ? (
         <EmptyState icon={Video} title={showTrash ? 'Trash is empty' : 'No sessions yet'} description={showTrash ? 'No deleted sessions found' : 'Create your first live session to get started'} />
       ) : (
-        <div className="mt-4 overflow-x-auto">
+        <div className={cn('mt-4 bg-white rounded-xl border overflow-hidden shadow-sm', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {/* Bulk action toolbar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
+              <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>
+                      {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                  <X className="w-3.5 h-3.5" /> Clear
+                </Button>
+              </div>
+            </div>
+          )}
+          <div className="overflow-x-auto">
           <Table>
             <THead>
               <TR>
+                <TH className="w-10"><input type="checkbox" checked={data.length > 0 && selectedIds.size === data.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                 <TH className="w-12">#</TH>
                 <TH className="cursor-pointer" onClick={() => toggleSort('id')}><div className="flex items-center gap-1">ID <SortIcon field="id" /></div></TH>
                 <TH className="cursor-pointer" onClick={() => toggleSort('title')}><div className="flex items-center gap-1">TITLE <SortIcon field="title" /></div></TH>
@@ -477,7 +578,8 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
               {data.map((item, idx) => {
                 const actionState = actionLoaders[item.id];
                 return (
-                  <TR key={item.id}>
+                  <TR key={item.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(item.id) && 'bg-brand-50/40')}>
+                    <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                     <TD className="text-slate-400 text-xs">{(page - 1) * pageSize + idx + 1}</TD>
                     <TD><span className="text-sm font-medium text-slate-900">{item.id}</span></TD>
                     <TD><div className="text-sm font-medium text-slate-900 truncate max-w-[200px]">{item.title || '--'}</div></TD>
@@ -527,6 +629,7 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
               })}
             </TBody>
           </Table>
+          </div>
         </div>
       )}
 

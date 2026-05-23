@@ -22,17 +22,27 @@ export function Dropdown({ trigger, children, align = 'right', width = 'w-72', c
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Phase 48 — measure menu height after first render; if it would overflow
+  // below the viewport, flip it upward (above the trigger). This prevents
+  // the last-row dropdown in scrollable tables from being clipped.
   const computeCoords = useCallback(() => {
     const el = triggerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    if (align === 'right') setCoords({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) });
-    else setCoords({ top: r.bottom + 8, left: r.left });
+    const menuH = menuRef.current?.offsetHeight || 200; // estimate if not yet measured
+    const gap = 8;
+    const spaceBelow = window.innerHeight - r.bottom - gap;
+    const fitsBelow = spaceBelow >= menuH;
+    const top = fitsBelow ? r.bottom + gap : r.top - gap - menuH;
+    if (align === 'right') setCoords({ top, right: Math.max(8, window.innerWidth - r.right) });
+    else setCoords({ top, left: r.left });
   }, [align]);
 
   useEffect(() => {
     if (!open) return;
     computeCoords();
+    // Re-compute after one frame so menuRef has real height for flip logic
+    const raf = requestAnimationFrame(() => computeCoords());
     function onClick(e: MouseEvent) {
       const t = e.target as Node;
       if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
@@ -45,6 +55,7 @@ export function Dropdown({ trigger, children, align = 'right', width = 'w-72', c
     window.addEventListener('resize', reposition);
     window.addEventListener('scroll', reposition, true);
     return () => {
+      cancelAnimationFrame(raf);
       document.removeEventListener('mousedown', onClick);
       document.removeEventListener('keydown', onEsc);
       window.removeEventListener('resize', reposition);
