@@ -145,6 +145,7 @@ function CategoriesTab() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
   const [viewing, setViewing] = useState<any | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
 
@@ -251,13 +252,18 @@ function CategoriesTab() {
     // The empty-string skip above would otherwise drop it and keep the old text.
     payload.description = data.description ?? '';
 
-    const res = editing
-      ? await api.updateTicketCategory(editing.id, payload)
-      : await api.createTicketCategory(payload);
-    if (res.success) {
-      toast.success(editing ? 'Category updated' : 'Category created');
-      setDialogOpen(false); load(); refreshSummary();
-    } else toast.error(res.error || 'Failed');
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = editing
+        ? await api.updateTicketCategory(editing.id, payload)
+        : await api.createTicketCategory(payload);
+      if (res.success) {
+        toast.success(editing ? 'Category updated' : 'Category created');
+        setDialogOpen(false); load(); refreshSummary();
+      } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e.message || 'Failed'); }
+    setSaving(false);
   }
 
   async function onSoftDelete(c: any) {
@@ -558,7 +564,7 @@ function CategoriesTab() {
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">{editing ? 'Update' : 'Create'}</Button>
+            <Button type="submit" disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{editing ? 'Update' : 'Create'}</Button>
           </div>
         </form>
       </Dialog>
@@ -574,6 +580,7 @@ function PrioritiesTab() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
   const [viewing, setViewing] = useState<any | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
 
@@ -676,13 +683,18 @@ function PrioritiesTab() {
       payload[k] = v;
     });
 
-    const res = editing
-      ? await api.updateTicketPriority(editing.id, payload)
-      : await api.createTicketPriority(payload);
-    if (res.success) {
-      toast.success(editing ? 'Priority updated' : 'Priority created');
-      setDialogOpen(false); load(); refreshSummary();
-    } else toast.error(res.error || 'Failed');
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = editing
+        ? await api.updateTicketPriority(editing.id, payload)
+        : await api.createTicketPriority(payload);
+      if (res.success) {
+        toast.success(editing ? 'Priority updated' : 'Priority created');
+        setDialogOpen(false); load(); refreshSummary();
+      } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e.message || 'Failed'); }
+    setSaving(false);
   }
 
   async function onSoftDelete(c: any) {
@@ -1003,7 +1015,7 @@ function PrioritiesTab() {
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">{editing ? 'Update' : 'Create'}</Button>
+            <Button type="submit" disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{editing ? 'Update' : 'Create'}</Button>
           </div>
         </form>
       </Dialog>
@@ -1057,6 +1069,9 @@ function TicketsTab({ onViewDetail }: { onViewDetail: (id: number) => void }) {
   const [assignDialogTicket, setAssignDialogTicket] = useState<any | null>(null);
   const [assignDialogValue, setAssignDialogValue] = useState('');
   const [assignDialogLoading, setAssignDialogLoading] = useState(false);
+
+  // Phase 48 — prevent double-submit on create/edit
+  const [saving, setSaving] = useState(false);
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset, setValue, watch } = useForm();
@@ -1146,23 +1161,28 @@ function TicketsTab({ onViewDetail }: { onViewDetail: (id: number) => void }) {
   }
 
   async function onSubmit(data: any) {
-    const payload: Record<string, any> = {};
-    Object.keys(data).forEach(k => {
-      const v = data[k];
-      if (v === '' || v === undefined || v === null) return;
-      if (typeof v === 'boolean') { payload[k] = v; return; }
-      const numericFields = ['category_id', 'priority_id', 'user_id', 'related_id'];
-      if (numericFields.includes(k) && v !== '') { payload[k] = Number(v); return; }
-      payload[k] = v;
-    });
+    if (saving) return; // Phase 48 — prevent double-submit
+    setSaving(true);
+    try {
+      const payload: Record<string, any> = {};
+      Object.keys(data).forEach(k => {
+        const v = data[k];
+        if (v === '' || v === undefined || v === null) return;
+        if (typeof v === 'boolean') { payload[k] = v; return; }
+        const numericFields = ['category_id', 'priority_id', 'user_id', 'related_id'];
+        if (numericFields.includes(k) && v !== '') { payload[k] = Number(v); return; }
+        payload[k] = v;
+      });
 
-    const res = editing
-      ? await api.updateSupportTicket(editing.id, payload)
-      : await api.createSupportTicket(payload);
-    if (res.success) {
-      toast.success(editing ? 'Ticket updated' : 'Ticket created');
-      setDialogOpen(false); load(); refreshSummary();
-    } else toast.error(res.error || 'Failed');
+      const res = editing
+        ? await api.updateSupportTicket(editing.id, payload)
+        : await api.createSupportTicket(payload);
+      if (res.success) {
+        toast.success(editing ? 'Ticket updated' : 'Ticket created');
+        setDialogOpen(false); load(); refreshSummary();
+      } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e.message || 'Failed'); }
+    setSaving(false);
   }
 
   function openStatusChange(ticket: any) {
@@ -1544,7 +1564,7 @@ function TicketsTab({ onViewDetail }: { onViewDetail: (id: number) => void }) {
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">{editing ? 'Update' : 'Create'}</Button>
+            <Button type="submit" disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{editing ? 'Update' : 'Create'}</Button>
           </div>
         </form>
       </Dialog>
