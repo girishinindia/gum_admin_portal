@@ -15,7 +15,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import {
   Plus, Pencil, Trash2, ArrowLeft, CheckCircle, XCircle, Send, ShieldCheck,
   Package, FolderTree, FileText, Video, BookOpen, ClipboardList, FlaskConical, Loader2,
-  BarChart3, Clock, RotateCcw, AlertCircle, Eye, ExternalLink,
+  BarChart3, Clock, RotateCcw, AlertCircle, Eye, ExternalLink, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -78,6 +78,11 @@ function CourseBuilderInner() {
   const [viewChildren, setViewChildren] = useState<{ highlights: any[]; units: any[]; faqs: any[]; capstones: any[]; miniProjects: any[] }>({ highlights: [], units: [], faqs: [], capstones: [], miniProjects: [] });
   const [viewLoading, setViewLoading] = useState(false);
 
+  /* ── multi-select / bulk actions ── */
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+
   const [languages, setLanguages] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [subCategories, setSubCategories] = useState<any[]>([]);
@@ -136,6 +141,9 @@ function CourseBuilderInner() {
       });
     } catch { /* non-fatal */ }
   }, []);
+
+  // Reset selection when switching filters / trash
+  useEffect(() => { setSelectedIds(new Set()); }, [showTrash, statusFilter]);
 
   useEffect(() => { if (view === 'list') { fetchCourses(); refreshStats(); } }, [view, fetchCourses, refreshStats]);
   useEffect(() => {
@@ -303,6 +311,60 @@ function CourseBuilderInner() {
     setViewLoading(false);
   }
 
+  /* ── bulk-select helpers ── */
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+  function toggleSelectAll() {
+    if (selectedIds.size === courses.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(courses.map(c => c.id)));
+  }
+  async function handleBulkSoftDelete() {
+    if (!confirm(`Move ${selectedIds.size} course(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.softDeleteAuthoringCourse(ids[i]);
+      if (res.success) ok++;
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    toast.success(`${ok} course(s) moved to trash`);
+    setSelectedIds(new Set()); fetchCourses(); refreshStats();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
+  async function handleBulkRestore() {
+    if (!confirm(`Restore ${selectedIds.size} course(s)?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.restoreAuthoringCourse(ids[i]);
+      if (res.success) ok++;
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    toast.success(`${ok} course(s) restored`);
+    setSelectedIds(new Set()); fetchCourses(); refreshStats();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
+  async function handleBulkPermanentDelete() {
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} course(s)? This removes all curriculum, highlights & FAQs and cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const res = await api.deleteAuthoringCourse(ids[i]);
+      if (res.success) ok++;
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    toast.success(`${ok} course(s) permanently deleted`);
+    setSelectedIds(new Set()); fetchCourses(); refreshStats();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
+
   /* ─────────────── LIST VIEW ─────────────── */
   if (view === 'list') {
     const STAT_CARDS = [
@@ -353,10 +415,29 @@ function CourseBuilderInner() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className={cn('bg-white rounded-xl border overflow-hidden', showTrash ? 'border-amber-200' : 'border-slate-200')}>
+          {/* Bulk action bar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
+              <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
+              </div>
+            </div>
+          )}
+
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
+                <th className="w-10 px-4 py-3"><input type="checkbox" checked={courses.length > 0 && selectedIds.size === courses.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></th>
                 <th className="text-left px-4 py-3">Title</th>
                 <th className="text-left px-4 py-3">Level</th>
                 <th className="text-left px-4 py-3">Price</th>
@@ -367,11 +448,12 @@ function CourseBuilderInner() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
               ) : courses.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400">{showTrash ? 'Trash is empty' : 'No courses yet. Click "Add course".'}</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">{showTrash ? 'Trash is empty' : 'No courses yet. Click "Add course".'}</td></tr>
               ) : courses.map(c => (
-                <tr key={c.id} className="hover:bg-slate-50">
+                <tr key={c.id} className={cn('hover:bg-slate-50', showTrash && 'bg-amber-50/30', selectedIds.has(c.id) && 'bg-brand-50/40')}>
+                  <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></td>
                   <td className="px-4 py-3 font-medium text-slate-800">{c.title}</td>
                   <td className="px-4 py-3 text-slate-600 capitalize">{c.level}</td>
                   <td className="px-4 py-3 text-slate-600">{c.is_free ? 'Free' : `₹${c.price ?? 0}`}</td>
