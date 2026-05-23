@@ -239,8 +239,14 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [saving, setSaving] = useState(false);
-  const { register, handleSubmit, reset, watch } = useForm();
+  const { register, handleSubmit, reset, watch, setValue } = useForm();
   const isRecurring = watch('is_recurring');
+  const watchedItemType = watch('item_type');
+
+  // Phase 48 — dropdown data for instructor & item pickers
+  const [instructors, setInstructors] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
 
   const [viewOpen, setViewOpen] = useState(false);
   const [viewItem, setViewItem] = useState<any>(null);
@@ -281,6 +287,34 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
   }, []);
 
   useEffect(() => { fetchData(); fetchTrashCount(); }, [fetchData, fetchTrashCount]);
+
+  // Phase 48 — load instructor list once on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.listAssignableUsers('instructor');
+        setInstructors(res.data || []);
+      } catch {}
+    })();
+  }, []);
+
+  // Phase 48 — load items whenever item_type changes
+  useEffect(() => {
+    if (!watchedItemType) { setItems([]); return; }
+    let cancelled = false;
+    (async () => {
+      setItemsLoading(true);
+      try {
+        let res: any;
+        if (watchedItemType === 'course') res = await api.listCourses('?limit=500');
+        else if (watchedItemType === 'batch') res = await api.listCourseBatches('?limit=500');
+        else if (watchedItemType === 'webinar') res = await api.listWebinars('?limit=500');
+        if (!cancelled) setItems(res?.data || []);
+      } catch {}
+      if (!cancelled) setItemsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [watchedItemType]);
 
   function toggleSort(field: SessionSortField) {
     if (sort === field) setAsc(!asc);
@@ -591,7 +625,7 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
                       ) : <span className="text-xs text-slate-400">--</span>}
                     </TD>
                     <TD><span className="text-sm text-slate-700">{item.item_id || '--'}</span></TD>
-                    <TD><span className="text-sm text-slate-700">{item.instructor?.name || item.instructor_id || '--'}</span></TD>
+                    <TD><span className="text-sm text-slate-700">{item.users ? `${item.users.first_name || ''} ${item.users.last_name || ''}`.trim() || item.users.email : (item.instructor_id || '--')}</span></TD>
                     <TD>
                       <span className={cn('inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium', SESSION_STATUS_COLORS[item.session_status] || 'bg-slate-100 text-slate-600')}>
                         {capitalize(item.session_status || '')}
@@ -657,7 +691,7 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
                 that Supabase would reject for constraint violation. */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Item Type <span className="text-rose-500">*</span></label>
-              <select {...register('item_type', { required: true })} required className={selectClass + ' w-full'}>
+              <select {...register('item_type', { required: true, onChange: () => setValue('item_id', '') })} required className={selectClass + ' w-full'}>
                 <option value="">Select type</option>
                 <option value="course">Course</option>
                 <option value="batch">Batch</option>
@@ -665,12 +699,22 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item ID <span className="text-rose-500">*</span></label>
-              <Input {...register('item_id', { required: true })} required type="number" min={1} placeholder="Item ID" />
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{watchedItemType ? capitalize(watchedItemType) : 'Item'} <span className="text-rose-500">*</span></label>
+              <select {...register('item_id', { required: true })} required className={selectClass + ' w-full'} disabled={!watchedItemType || itemsLoading}>
+                <option value="">{itemsLoading ? 'Loading...' : !watchedItemType ? 'Select type first' : `Select ${capitalize(watchedItemType)}`}</option>
+                {items.map((it: any) => (
+                  <option key={it.id} value={it.id}>#{it.id} — {it.name || it.title || `ID ${it.id}`}</option>
+                ))}
+              </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Instructor ID <span className="text-rose-500">*</span></label>
-              <Input {...register('instructor_id', { required: true })} required type="number" min={1} placeholder="Instructor ID" />
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Instructor <span className="text-rose-500">*</span></label>
+              <select {...register('instructor_id', { required: true })} required className={selectClass + ' w-full'}>
+                <option value="">Select instructor</option>
+                {instructors.map((u: any) => (
+                  <option key={u.id} value={u.id}>#{u.id} — {u.full_name || u.email}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
@@ -757,7 +801,7 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
               <DetailRow label="Description" value={viewItem.description} />
               <DetailRow label="Item Type" value={capitalize(viewItem.item_type || '')} />
               <DetailRow label="Item ID" value={String(viewItem.item_id || '--')} />
-              <DetailRow label="Instructor" value={viewItem.instructor?.name || String(viewItem.instructor_id || '--')} />
+              <DetailRow label="Instructor" value={viewItem.users ? `${viewItem.users.first_name || ''} ${viewItem.users.last_name || ''}`.trim() || viewItem.users.email : String(viewItem.instructor_id || '--')} />
               <DetailRow label="Status" value={capitalize(viewItem.session_status || '')} />
               <DetailRow label="Platform" value={capitalize(viewItem.meeting_platform || '')} />
               <DetailRow label="Scheduled At" value={formatDateTime(viewItem.scheduled_at)} />
