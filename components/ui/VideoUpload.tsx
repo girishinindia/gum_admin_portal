@@ -184,6 +184,13 @@ export function VideoUpload({
             <button
               type="button"
               onClick={() => {
+                // Block switching to URL mode when a Bunny Stream video
+                // already exists — the user must remove it first (X button)
+                // so the backend doesn't ignore the external URL.
+                if (mode === 'file' && value && isBunnyEmbed(value)) {
+                  setError('Remove the existing Bunny Stream video first (click ✕), then paste your external URL');
+                  return;
+                }
                 setMode((m) => (m === 'file' ? 'url' : 'file'));
                 setError(null);
               }}

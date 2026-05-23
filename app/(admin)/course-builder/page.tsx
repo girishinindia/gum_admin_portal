@@ -920,6 +920,11 @@ function CurriculumTab({ courseId, units, reload }: any) {
               </div>
             )}
           </div>
+          {u.unit_type === 'topic' && (
+            <Field label="Topic type">
+              <Select value={u.topic_type || 'video'} onChange={e => setU({ ...u, topic_type: e.target.value })} options={TOPIC_TYPES} />
+            </Field>
+          )}
           {u.unit_type === 'topic' && <>
             {!editing && (
               <p className="text-xs text-amber-600">Save the topic first, then re-open it to upload media &amp; files.</p>
