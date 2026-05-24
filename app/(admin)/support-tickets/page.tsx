@@ -18,6 +18,7 @@ import {
   CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle,
   Loader2, X, Ticket, Inbox, MessageSquare, UserPlus,
   ArrowLeft, Send, Paperclip, Clock, RefreshCw,
+  Upload, Download, File, Image, FileText,
 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -1056,6 +1057,7 @@ function TicketsTab({ onViewDetail }: { onViewDetail: (id: number) => void }) {
 
   const [categories, setCategories] = useState<any[]>([]);
   const [priorities, setPriorities] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
 
   // Status change dialog
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -1100,6 +1102,9 @@ function TicketsTab({ onViewDetail }: { onViewDetail: (id: number) => void }) {
     });
     api.getTicketPriorities({ limit: 200, is_active: 'true' }).then(res => {
       if (res.success) setPriorities(res.data || []);
+    });
+    api.listUsers('?limit=500&sort=id&order=asc').then(res => {
+      if (res.success) setAllUsers(res.data || []);
     });
   }, []);
 
@@ -1476,7 +1481,7 @@ function TicketsTab({ onViewDetail }: { onViewDetail: (id: number) => void }) {
                     </span>
                   </TD>
                   <TD className="py-2.5"><span className="text-sm text-slate-600">{c.users ? `${c.users.first_name || ''} ${c.users.last_name || ''}`.trim() : (c.user_name || '--')}</span></TD>
-                  <TD className="py-2.5"><span className="text-sm text-slate-600">{c.assigned_user ? `${c.assigned_user.first_name || ''} ${c.assigned_user.last_name || ''}`.trim() : (c.assigned_to_name || '--')}</span></TD>
+                  <TD className="py-2.5"><span className="text-sm text-slate-600">{c.assignee ? `${c.assignee.first_name || ''} ${c.assignee.last_name || ''}`.trim() : (c.assigned_to_name || '--')}</span></TD>
                   <TD className="py-2.5"><span className="text-xs text-slate-500">{c.created_at ? fromNow(c.created_at) : '--'}</span></TD>
                   {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{c.deleted_at ? fromNow(c.deleted_at) : '--'}</span></TD>}
                   <TD className="py-2.5">
@@ -1595,8 +1600,11 @@ function TicketsTab({ onViewDetail }: { onViewDetail: (id: number) => void }) {
       <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)} title="Assign Ticket" size="sm">
         <div className="p-6 space-y-4">
           <div>
-            <label className="block mb-1.5 text-sm font-medium text-slate-700">Assign To (User ID)</label>
-            <Input value={assignDialogValue} onChange={e => setAssignDialogValue(e.target.value)} type="number" placeholder="Enter user ID to assign" />
+            <label className="block mb-1.5 text-sm font-medium text-slate-700">Assign To</label>
+            <select className={selectClass + ' w-full'} value={assignDialogValue} onChange={e => setAssignDialogValue(e.target.value)}>
+              <option value="">-- Unassigned --</option>
+              {allUsers.map(u => <option key={u.id} value={u.id}>#{u.id} — {u.first_name || ''} {u.last_name || ''} {u.email ? `(${u.email})` : ''}</option>)}
+            </select>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
@@ -1636,11 +1644,22 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignValue, setAssignValue] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+
+  // Attachment upload
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
+  const [deletingAttId, setDeletingAttId] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadTicket();
     loadMessages();
     loadAttachments();
+    api.listUsers('?limit=500&sort=id&order=asc').then(res => {
+      if (res.success) setAllUsers(res.data || []);
+    });
   }, [ticketId]);
 
   async function loadTicket() {
@@ -1662,6 +1681,55 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
     const res = await api.getTicketAttachments({ ticket_id: ticketId, limit: 200 });
     if (res.success) setAttachments(res.data || []);
     setAttachmentsLoading(false);
+  }
+
+  async function handleUploadFiles(files: FileList | File[]) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setUploadProgress(0);
+    let uploaded = 0;
+    for (const file of Array.from(files)) {
+      try {
+        const res = await api.uploadTicketAttachment(ticketId, file, (pct) => {
+          setUploadProgress(Math.round((uploaded / files.length) * 100 + pct / files.length));
+        });
+        if (res.success) uploaded++;
+        else toast.error(res.error || `Failed to upload ${file.name}`);
+      } catch (e: any) {
+        toast.error(e.message || `Failed to upload ${file.name}`);
+      }
+    }
+    setUploading(false);
+    setUploadProgress(0);
+    if (uploaded > 0) {
+      toast.success(`${uploaded} file(s) uploaded`);
+      loadAttachments();
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) handleUploadFiles(e.dataTransfer.files);
+  }
+
+  function handleDragOver(e: React.DragEvent) { e.preventDefault(); setDragOver(true); }
+  function handleDragLeave(e: React.DragEvent) { e.preventDefault(); setDragOver(false); }
+
+  async function handleDeleteAttachment(att: any) {
+    if (!confirm(`Delete attachment "${att.file_name}"? This cannot be undone.`)) return;
+    setDeletingAttId(att.id);
+    const res = await api.deleteTicketAttachment(att.id);
+    setDeletingAttId(null);
+    if (res.success) { toast.success('Attachment deleted'); loadAttachments(); }
+    else toast.error(res.error || 'Failed to delete');
+  }
+
+  function getFileIcon(mimeType: string) {
+    if (!mimeType) return File;
+    if (mimeType.startsWith('image/')) return Image;
+    if (mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('text')) return FileText;
+    return File;
   }
 
   async function handleSendMessage() {
@@ -1773,7 +1841,7 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
         <div className="grid grid-cols-4 gap-x-8 gap-y-4 pt-4 border-t border-slate-100">
           <DetailRow label="Category" value={ticket.ticket_categories?.name || ticket.category_name} />
           <DetailRow label="User" value={ticket.users ? `${ticket.users.first_name || ''} ${ticket.users.last_name || ''}`.trim() : (ticket.user_name || undefined)} />
-          <DetailRow label="Assigned To" value={ticket.assigned_user ? `${ticket.assigned_user.first_name || ''} ${ticket.assigned_user.last_name || ''}`.trim() : (ticket.assigned_to_name || undefined)} />
+          <DetailRow label="Assigned To" value={ticket.assignee ? `${ticket.assignee.first_name || ''} ${ticket.assignee.last_name || ''}`.trim() : (ticket.assigned_to_name || undefined)} />
           <DetailRow label="Related" value={ticket.related_type ? `${capitalize(ticket.related_type)}${ticket.related_id ? ` #${ticket.related_id}` : ''}` : undefined} />
           <DetailRow label="Created" value={ticket.created_at ? new Date(ticket.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : undefined} />
           <DetailRow label="Updated" value={ticket.updated_at ? fromNow(ticket.updated_at) : undefined} />
@@ -1836,30 +1904,79 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
 
       {/* Attachments Section */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm mb-6">
-        <div className="px-6 py-4 border-b border-slate-200">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attachments ({attachments.length})</h3>
+          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+            <Upload className="w-3.5 h-3.5" /> Upload Files
+          </Button>
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={e => { if (e.target.files) { handleUploadFiles(e.target.files); e.target.value = ''; } }} />
         </div>
 
+        {/* Drag & Drop Zone */}
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={cn(
+            'mx-6 mt-4 mb-2 border-2 border-dashed rounded-lg p-4 text-center transition-colors',
+            dragOver ? 'border-brand-400 bg-brand-50' : 'border-slate-200 bg-slate-50/50',
+            uploading && 'pointer-events-none opacity-60'
+          )}
+        >
+          {uploading ? (
+            <div className="space-y-2">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto text-brand-500" />
+              <p className="text-sm text-slate-600">Uploading... {uploadProgress}%</p>
+              <div className="w-full bg-slate-200 rounded-full h-1.5">
+                <div className="bg-brand-500 h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Upload className="w-5 h-5 mx-auto text-slate-400" />
+              <p className="text-sm text-slate-500">Drag & drop files here, or click <span className="text-brand-600 font-medium cursor-pointer" onClick={() => fileInputRef.current?.click()}>browse</span></p>
+              <p className="text-xs text-slate-400">Max 25 MB per file · Images, PDF, Office docs, archives, audio, video</p>
+            </div>
+          )}
+        </div>
+
+        {/* Attachment List */}
         {attachmentsLoading ? (
           <div className="p-6 space-y-2">
             {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
           </div>
         ) : attachments.length === 0 ? (
-          <div className="p-6 text-center text-sm text-slate-500">No attachments</div>
+          <div className="p-6 text-center text-sm text-slate-500">No attachments yet</div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {attachments.map(att => (
-              <div key={att.id} className="px-6 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Paperclip className="w-4 h-4 text-slate-400" />
-                  <div>
-                    <div className="text-sm font-medium text-slate-900">{att.file_name || att.original_name || 'Attachment'}</div>
-                    <div className="text-xs text-slate-400">{att.file_type || '--'} {att.file_size ? `(${(att.file_size / 1024).toFixed(1)} KB)` : ''}</div>
+            {attachments.map(att => {
+              const FileIcon = getFileIcon(att.file_type);
+              return (
+                <div key={att.id} className="px-6 py-3 flex items-center justify-between group">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-slate-900 truncate">{att.file_name || 'Attachment'}</div>
+                      <div className="text-xs text-slate-400">
+                        {att.file_type?.split('/').pop() || '--'}
+                        {att.file_size ? ` · ${att.file_size > 1048576 ? `${(att.file_size / 1048576).toFixed(1)} MB` : `${(att.file_size / 1024).toFixed(1)} KB`}` : ''}
+                        {att.created_at ? ` · ${fromNow(att.created_at)}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {att.file_url && (
+                      <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Download">
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <button onClick={() => handleDeleteAttachment(att)} disabled={deletingAttId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete">
+                      {deletingAttId === att.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
                 </div>
-                <span className="text-xs text-slate-400">{att.created_at ? fromNow(att.created_at) : '--'}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1890,8 +2007,11 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
       <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)} title="Assign Ticket" size="sm">
         <div className="p-6 space-y-4">
           <div>
-            <label className="block mb-1.5 text-sm font-medium text-slate-700">Assign To (User ID)</label>
-            <Input value={assignValue} onChange={e => setAssignValue(e.target.value)} type="number" placeholder="Enter user ID to assign" />
+            <label className="block mb-1.5 text-sm font-medium text-slate-700">Assign To</label>
+            <select className={selectClass + ' w-full'} value={assignValue} onChange={e => setAssignValue(e.target.value)}>
+              <option value="">-- Unassigned --</option>
+              {allUsers.map(u => <option key={u.id} value={u.id}>#{u.id} — {u.first_name || ''} {u.last_name || ''} {u.email ? `(${u.email})` : ''}</option>)}
+            </select>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>

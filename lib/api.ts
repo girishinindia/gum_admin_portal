@@ -2227,6 +2227,20 @@ export const api = {
   },
   getTicketAttachment: (id: number) => request(`/ticket-attachments/${id}`),
   createTicketAttachment: (data: any) => request('/ticket-attachments', { method: 'POST', body: JSON.stringify(data) }),
+  uploadTicketAttachment: (ticketId: number, file: File, onProgress?: (pct: number) => void): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      fd.append('ticket_id', String(ticketId));
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_URL}/ticket-attachments/upload`);
+      if (tokens.access) xhr.setRequestHeader('Authorization', `Bearer ${tokens.access}`);
+      if (onProgress) xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
+      xhr.onload = () => { try { resolve(JSON.parse(xhr.responseText)); } catch { reject(new Error('Invalid response')); } };
+      xhr.onerror = () => reject(new Error('Upload failed'));
+      xhr.send(fd);
+    });
+  },
   deleteTicketAttachment: (id: number) => request(`/ticket-attachments/${id}`, { method: 'DELETE' }),
 
   // ══════════════════════════════════════════════
