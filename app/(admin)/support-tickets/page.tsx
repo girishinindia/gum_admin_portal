@@ -1310,14 +1310,14 @@ function TicketsTab({ onViewDetail }: { onViewDetail: (id: number) => void }) {
   return (
     <>
       {/* Ticket Stats Cards */}
-      {stats && (
+      {stats?.by_status && (
         <div className="grid grid-cols-5 gap-4 mb-5">
           {[
-            { label: 'Open', value: stats.open ?? 0, icon: Inbox, color: 'bg-blue-50 text-blue-600' },
-            { label: 'In Progress', value: stats.in_progress ?? 0, icon: Clock, color: 'bg-amber-50 text-amber-600' },
-            { label: 'Awaiting Reply', value: stats.awaiting_reply ?? 0, icon: MessageSquare, color: 'bg-purple-50 text-purple-600' },
-            { label: 'Resolved', value: stats.resolved ?? 0, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
-            { label: 'Closed', value: stats.closed ?? 0, icon: XCircle, color: 'bg-slate-100 text-slate-600' },
+            { label: 'Open', value: stats.by_status.open ?? 0, icon: Inbox, color: 'bg-blue-50 text-blue-600' },
+            { label: 'In Progress', value: stats.by_status.in_progress ?? 0, icon: Clock, color: 'bg-amber-50 text-amber-600' },
+            { label: 'Awaiting Reply', value: stats.by_status.awaiting_reply ?? 0, icon: MessageSquare, color: 'bg-purple-50 text-purple-600' },
+            { label: 'Resolved', value: stats.by_status.resolved ?? 0, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
+            { label: 'Closed', value: stats.by_status.closed ?? 0, icon: XCircle, color: 'bg-slate-100 text-slate-600' },
           ].map((card) => {
             const Icon = card.icon;
             return (
