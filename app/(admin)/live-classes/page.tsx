@@ -641,21 +641,21 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
                         <Loader2 className="w-4 h-4 animate-spin text-slate-400 ml-auto" />
                       ) : showTrash ? (
                         <div className="flex items-center gap-1 justify-end">
-                          <Button variant="ghost" size="sm" onClick={() => handleRestore(item.id)}><RotateCcw className="w-4 h-4" /> Restore</Button>
-                          <Button variant="danger" size="sm" onClick={() => handlePermanentDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
+                          <button onClick={() => handleRestore(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handlePermanentDelete(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       ) : (
-                        <Dropdown trigger={<MoreVertical className="w-4 h-4 text-slate-500 hover:text-slate-700" />} align="right" width="w-48">
-                          <DropdownItem icon={Eye} onClick={() => openView(item.id)}>View</DropdownItem>
-                          <DropdownItem icon={Edit2} onClick={() => openForm(item)}>Edit</DropdownItem>
-                          <DropdownDivider />
-                          {item.session_status === 'scheduled' && <DropdownItem icon={Play} onClick={() => handleStart(item.id)}>Start Session</DropdownItem>}
-                          {item.session_status === 'live' && <DropdownItem icon={Square} onClick={() => handleEnd(item.id)}>End Session</DropdownItem>}
-                          <DropdownItem icon={Ban} onClick={() => handleCancel(item.id)}>Cancel Session</DropdownItem>
-                          <DropdownItem icon={Clock} onClick={() => openReschedule(item.id)}>Reschedule</DropdownItem>
-                          <DropdownDivider />
-                          <DropdownItem icon={Trash2} danger onClick={() => handleSoftDelete(item.id)}>Delete</DropdownItem>
-                        </Dropdown>
+                        <div className="flex items-center gap-1 justify-end">
+                          <button onClick={() => openView(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => openForm(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleSoftDelete(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <Dropdown trigger={<MoreVertical className="w-3.5 h-3.5 text-slate-400 hover:text-slate-700" />} align="right" width="w-44">
+                            {item.session_status === 'scheduled' && <DropdownItem icon={Play} onClick={() => handleStart(item.id)}>Start Session</DropdownItem>}
+                            {item.session_status === 'live' && <DropdownItem icon={Square} onClick={() => handleEnd(item.id)}>End Session</DropdownItem>}
+                            <DropdownItem icon={Ban} onClick={() => handleCancel(item.id)}>Cancel</DropdownItem>
+                            <DropdownItem icon={Clock} onClick={() => openReschedule(item.id)}>Reschedule</DropdownItem>
+                          </Dropdown>
+                        </div>
                       )}
                     </TD>
                   </TR>
@@ -732,7 +732,7 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Duration (minutes)</label>
-              <Input {...register('duration_minutes')} type="number" placeholder="60" />
+              <Input {...register('duration_minutes')} type="number" min="1" placeholder="60" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Platform</label>
@@ -746,7 +746,7 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Max Attendees</label>
-              <Input {...register('max_attendees')} type="number" placeholder="Max attendees" />
+              <Input {...register('max_attendees')} type="number" min="1" placeholder="Max attendees" />
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Meeting URL</label>
@@ -1086,12 +1086,11 @@ function AttendanceTab() {
                           <Button variant="danger" size="sm" onClick={() => handlePermanentDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
                         </div>
                       ) : (
-                        <Dropdown trigger={<MoreVertical className="w-4 h-4 text-slate-500 hover:text-slate-700" />} align="right" width="w-44">
-                          <DropdownItem icon={Eye} onClick={() => openView(item.id)}>View</DropdownItem>
-                          <DropdownItem icon={Edit2} onClick={() => openForm(item)}>Edit</DropdownItem>
-                          <DropdownDivider />
-                          <DropdownItem icon={Trash2} danger onClick={() => handleSoftDelete(item.id)}>Delete</DropdownItem>
-                        </Dropdown>
+                        <div className="flex items-center gap-1 justify-end">
+                          <button onClick={() => openView(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => openForm(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleSoftDelete(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
                       )}
                     </TD>
                   </TR>
@@ -1430,12 +1429,11 @@ function RecordingsTab() {
                           <Button variant="danger" size="sm" onClick={() => handlePermanentDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
                         </div>
                       ) : (
-                        <Dropdown trigger={<MoreVertical className="w-4 h-4 text-slate-500 hover:text-slate-700" />} align="right" width="w-44">
-                          <DropdownItem icon={Eye} onClick={() => openView(item.id)}>View</DropdownItem>
-                          <DropdownItem icon={Edit2} onClick={() => openForm(item)}>Edit</DropdownItem>
-                          <DropdownDivider />
-                          <DropdownItem icon={Trash2} danger onClick={() => handleSoftDelete(item.id)}>Delete</DropdownItem>
-                        </Dropdown>
+                        <div className="flex items-center gap-1 justify-end">
+                          <button onClick={() => openView(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => openForm(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleSoftDelete(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
                       )}
                     </TD>
                   </TR>
