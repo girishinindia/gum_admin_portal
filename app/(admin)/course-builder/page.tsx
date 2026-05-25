@@ -943,15 +943,36 @@ function CurriculumTab({ courseId, units, reload }: any) {
   const [importOpen, setImportOpen] = useState(false);
   const [importHelpOpen, setImportHelpOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importPreview, setImportPreview] = useState<any[] | null>(null);
+  const [importPreview, setImportPreview] = useState<any | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<any | null>(null);
 
   const VALID_TOPIC_TYPES = ['video', 'article', 'quiz', 'exercise', 'project'];
+  const VALID_HIGHLIGHT_KINDS = ['prerequisite', 'outcome', 'skill', 'audience', 'requirement'];
   const TOPIC_TYPE_COLORS: Record<string, string> = { video: 'text-sky-600', article: 'text-emerald-600', quiz: 'text-amber-600', exercise: 'text-violet-600', project: 'text-rose-600' };
+  const HIGHLIGHT_KIND_COLORS: Record<string, string> = { prerequisite: 'text-amber-600', outcome: 'text-emerald-600', skill: 'text-sky-600', audience: 'text-violet-600', requirement: 'text-rose-600' };
 
-  function parseImportPreview(content: string) {
+  /** Split content by [SECTION] markers */
+  function splitImportSections(content: string): Record<string, string> {
+    const markerRe = /^\[([A-Z_]+)\]\s*$/;
     const lines = content.split(/\r?\n/);
+    const sections: Record<string, string> = {};
+    let cur: string | null = null;
+    let curLines: string[] = [];
+    let hasMarkers = false;
+    for (const line of lines) {
+      const m = line.trim().match(markerRe);
+      if (m) { hasMarkers = true; if (cur) sections[cur] = curLines.join('\n'); cur = m[1]; curLines = []; }
+      else curLines.push(line);
+    }
+    if (cur) sections[cur] = curLines.join('\n');
+    if (!hasMarkers) sections['CURRICULUM'] = content;
+    return sections;
+  }
+
+  /** Parse curriculum block into module tree (for preview) */
+  function parseCurriculumPreview(block: string) {
+    const lines = block.split(/\r?\n/);
     const mods: any[] = [];
     let curMod: any = null, curCh: any = null, curTopic: any = null, lastEntity: string | null = null;
     for (const raw of lines) {
@@ -980,6 +1001,54 @@ function CurriculumTab({ courseId, units, reload }: any) {
     return mods;
   }
 
+  /** Parse full import file into structured preview */
+  function parseImportPreview(content: string) {
+    const sections = splitImportSections(content);
+    const preview: any = { hasCourse: false, hasHighlights: false, hasFaq: false, hasCurriculum: false, courseFields: {} as Record<string, string>, highlights: [] as any[], faqs: [] as any[], modules: [] as any[] };
+
+    // [COURSE]
+    if (sections['COURSE']) {
+      preview.hasCourse = true;
+      for (const raw of sections['COURSE'].split(/\r?\n/)) {
+        const t = raw.trim();
+        if (!t || t.startsWith('#')) continue;
+        const ci = t.indexOf(':');
+        if (ci > 0) { preview.courseFields[t.slice(0, ci).trim().toLowerCase()] = t.slice(ci + 1).trim(); }
+      }
+    }
+    // [HIGHLIGHTS]
+    if (sections['HIGHLIGHTS']) {
+      preview.hasHighlights = true;
+      for (const raw of sections['HIGHLIGHTS'].split(/\r?\n/)) {
+        const t = raw.trim();
+        if (!t || t.startsWith('#')) continue;
+        const ci = t.indexOf(':');
+        if (ci > 0) {
+          const kind = t.slice(0, ci).trim().toLowerCase();
+          const text = t.slice(ci + 1).trim();
+          if (VALID_HIGHLIGHT_KINDS.includes(kind) && text) preview.highlights.push({ kind, text });
+        }
+      }
+    }
+    // [FAQ]
+    if (sections['FAQ']) {
+      preview.hasFaq = true;
+      let curQ: string | null = null;
+      for (const raw of sections['FAQ'].split(/\r?\n/)) {
+        const t = raw.trim();
+        if (!t || t.startsWith('#')) continue;
+        if (/^Q\s*:\s*/i.test(t)) { curQ = t.replace(/^Q\s*:\s*/i, '').trim(); }
+        else if (/^A\s*:\s*/i.test(t) && curQ) { preview.faqs.push({ question: curQ, answer: t.replace(/^A\s*:\s*/i, '').trim() }); curQ = null; }
+      }
+    }
+    // [CURRICULUM]
+    if (sections['CURRICULUM']) {
+      preview.hasCurriculum = true;
+      preview.modules = parseCurriculumPreview(sections['CURRICULUM']);
+    }
+    return preview;
+  }
+
   function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return;
     setImportFile(file); setImportResult(null);
@@ -1001,9 +1070,51 @@ function CurriculumTab({ courseId, units, reload }: any) {
 
   function downloadSampleFile(type: 'new' | 'update') {
     const samples: Record<string, string> = {
-      new: `# Sample: Create New Course Structure
+      new: `# Sample: Full Course Import — Create New
+# This file imports course details, highlights, FAQs, AND curriculum
+# All sections are optional — include only what you need
 # Lines starting with # are comments (ignored)
-# Use TAB characters for indentation
+
+[COURSE]
+title: Introduction to Web Development
+subtitle: Build modern websites from scratch
+short_intro: Learn HTML, CSS, and JavaScript step by step
+long_intro: This comprehensive course takes you from absolute beginner to building complete websites. You will learn the core technologies of the web — HTML for structure, CSS for styling, and JavaScript for interactivity.
+level: beginner
+price: 499
+original_price: 999
+is_free: false
+has_certificate: true
+
+[HIGHLIGHTS]
+# Format: kind: text
+# Kinds: prerequisite, outcome, skill, audience, requirement
+prerequisite: Basic computer literacy
+prerequisite: A laptop or desktop computer
+outcome: Build responsive websites from scratch
+outcome: Write clean, semantic HTML
+outcome: Style pages with modern CSS (Flexbox, Grid)
+outcome: Add interactivity with JavaScript
+skill: HTML5
+skill: CSS3
+skill: JavaScript ES6+
+skill: Responsive Design
+audience: Aspiring web developers
+audience: Designers who want to code
+requirement: A code editor (VS Code recommended)
+requirement: Chrome or Firefox browser
+
+[FAQ]
+Q: Do I need programming experience?
+A: No! This course starts from the very basics. If you can use a computer, you can learn web development.
+Q: What tools do I need?
+A: Just a code editor (VS Code is free) and a modern web browser. Everything else is taught in the course.
+Q: How long does the course take?
+A: Most students complete it in 4-6 weeks at 5-10 hours per week. But you have lifetime access to go at your own pace.
+Q: Will I get a certificate?
+A: Yes! Upon completing all modules and passing the final project, you receive a verified certificate.
+
+[CURRICULUM]
 # 0 tabs = Module, 1 tab = Chapter, 2 tabs = Topic | type
 # Supported topic types: video, article, quiz, exercise, project
 # Optional properties: summary, is_free_preview, points, youtube_url
@@ -1052,10 +1163,49 @@ JavaScript Essentials
 \t\tMini Project | project
 \t\t\tsummary: Build a calculator app
 \t\t\tpoints: 50`,
-      update: `# Sample: Update Existing Course Structure
+      update: `# Sample: Full Course Import — Update Existing
+# Update course details + add/modify highlights, FAQs, curriculum
+# Sections included will REPLACE existing data (highlights & FAQs)
+# Curriculum uses id: to update specific units
+
+[COURSE]
+# Only include fields you want to change
+title: Introduction to Web Development (Updated)
+subtitle: Build modern, responsive websites from scratch
+price: 399
+original_price: 799
+
+[HIGHLIGHTS]
+# WARNING: Including this section REPLACES all existing highlights
+prerequisite: Basic computer literacy
+prerequisite: A laptop or desktop computer
+outcome: Build responsive websites from scratch
+outcome: Write clean, semantic HTML
+outcome: Master CSS Flexbox and Grid layouts
+outcome: Add interactivity with JavaScript
+outcome: Deploy your website to the internet
+skill: HTML5
+skill: CSS3
+skill: JavaScript ES6+
+skill: Responsive Design
+skill: Git & GitHub
+audience: Aspiring web developers
+audience: Designers who want to code
+audience: Career changers entering tech
+requirement: A code editor (VS Code recommended)
+
+[FAQ]
+# WARNING: Including this section REPLACES all existing FAQs
+Q: Do I need programming experience?
+A: No! This course starts from the very basics.
+Q: What tools do I need?
+A: Just a code editor (VS Code is free) and a modern web browser.
+Q: Is the certificate recognized?
+A: Our certificates are widely accepted by employers in the tech industry.
+
+[CURRICULUM]
 # Add "id: N" below a heading to UPDATE that existing unit
 # Lines WITHOUT id: will CREATE new units
-# You can mix updates and new items freely
 
 Introduction to Web Development
 \tid: 42
@@ -1080,7 +1230,7 @@ Introduction to Web Development
     const blob = new Blob([samples[type]], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = type === 'new' ? 'sample_new_course_structure.txt' : 'sample_update_course_structure.txt'; a.click();
+    a.href = url; a.download = type === 'new' ? 'sample_full_course_import.txt' : 'sample_full_course_update.txt'; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -1237,7 +1387,7 @@ Introduction to Web Development
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={() => openAdd('module', null)}><Plus className="w-4 h-4" /> Add module</Button>
-        <Button size="sm" variant="outline" onClick={() => { setImportOpen(true); setImportFile(null); setImportPreview(null); setImportResult(null); }}><Upload className="w-4 h-4" /> Import from Text</Button>
+        <Button size="sm" variant="outline" onClick={() => { setImportOpen(true); setImportFile(null); setImportPreview(null); setImportResult(null); }}><Upload className="w-4 h-4" /> Import from File</Button>
       </div>
       {modules.length === 0 && <p className="text-sm text-slate-400">No modules yet.</p>}
       {modules.map((m: any) => (
@@ -1407,11 +1557,11 @@ Introduction to Web Development
         </div>
       </Dialog>
 
-      {/* ─── Import Course Structure Dialog ─── */}
-      <Dialog open={importOpen} onClose={() => !importLoading && setImportOpen(false)} title="Import Course Structure" size="lg">
+      {/* ─── Import Course Dialog ─── */}
+      <Dialog open={importOpen} onClose={() => !importLoading && setImportOpen(false)} title="Import Course from Text File" size="lg">
         <div className="space-y-5 p-2">
           <div className="flex items-center justify-between gap-4">
-            <p className="text-sm text-slate-500">Upload a tab-indented <code className="bg-slate-100 px-1 rounded text-xs">.txt</code> file to bulk-create modules, chapters, and topics.</p>
+            <p className="text-sm text-slate-500">Upload a <code className="bg-slate-100 px-1 rounded text-xs">.txt</code> file to import course details, highlights, FAQs, and/or curriculum structure.</p>
             <div className="flex items-center gap-2 shrink-0">
               <button onClick={() => downloadSampleFile('new')} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap border border-emerald-200 rounded-md px-2.5 py-1.5 hover:bg-emerald-50">
                 <Download className="w-3.5 h-3.5" /> New sample
@@ -1445,44 +1595,101 @@ Introduction to Web Development
             </label>
           </div>
 
-          {/* Tree Preview */}
-          {importPreview && importPreview.length > 0 && !importResult && (
-            <div className="border border-slate-200 rounded-lg p-4 max-h-64 overflow-auto bg-slate-50">
-              <div className="flex items-center gap-2 mb-3">
+          {/* Sections Preview */}
+          {importPreview && !importResult && (importPreview.hasCourse || importPreview.hasHighlights || importPreview.hasFaq || importPreview.hasCurriculum) && (
+            <div className="border border-slate-200 rounded-lg p-4 max-h-80 overflow-auto bg-slate-50 space-y-3">
+              <div className="flex items-center gap-2 mb-1">
                 <FolderTree className="w-4 h-4 text-slate-500" />
                 <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Preview</span>
-                <span className="text-xs text-slate-400">
-                  ({importPreview.length} module{importPreview.length !== 1 ? 's' : ''}, {importPreview.reduce((a: number, m: any) => a + m.chapters.length, 0)} chapters, {importPreview.reduce((a: number, m: any) => a + m.chapters.reduce((b: number, c: any) => b + c.topics.length, 0), 0)} topics)
-                </span>
+                <div className="flex gap-1.5 ml-auto">
+                  {importPreview.hasCourse && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">COURSE</span>}
+                  {importPreview.hasHighlights && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">{importPreview.highlights.length} HIGHLIGHTS</span>}
+                  {importPreview.hasFaq && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">{importPreview.faqs.length} FAQs</span>}
+                  {importPreview.hasCurriculum && <span className="text-[10px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-medium">{importPreview.modules.length} MODULES</span>}
+                </div>
               </div>
-              {importPreview.map((mod: any, mi: number) => (
-                <div key={mi} className="mb-2">
-                  <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-700">
-                    <Package className="w-3.5 h-3.5" /> {mod.title}
-                    {mod.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{mod.id} — update</span>}
-                    {mod.summary && <span className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">— {mod.summary}</span>}
-                  </div>
-                  {mod.chapters.map((ch: any, ci: number) => (
-                    <div key={ci} className="ml-5 mt-1">
-                      <div className="flex items-center gap-1.5 text-sm text-blue-600">
-                        <ChevronRight className="w-3 h-3" /> {ch.title}
-                        {ch.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{ch.id}</span>}
-                        {ch.summary && <span className="text-[10px] text-slate-400 truncate max-w-[180px]">— {ch.summary}</span>}
+
+              {/* Course details preview */}
+              {importPreview.hasCourse && Object.keys(importPreview.courseFields).length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-xs font-semibold text-blue-700 mb-1.5">Course Details</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    {Object.entries(importPreview.courseFields).map(([k, v]: [string, any]) => (
+                      <div key={k} className="flex gap-1.5 text-xs">
+                        <span className="text-blue-600 font-medium min-w-[90px]">{k}:</span>
+                        <span className="text-slate-600 truncate">{String(v)}</span>
                       </div>
-                      {ch.topics.map((t: any, ti: number) => (
-                        <div key={ti} className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                          <span>{t.title}</span>
-                          <span className={cn('text-[10px] font-medium', TOPIC_TYPE_COLORS[t.topic_type] || 'text-slate-400')}>{t.topic_type}</span>
-                          {t.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{t.id}</span>}
-                          {t.is_free_preview && <span className="text-[10px] text-green-600 bg-green-50 px-1 rounded">free</span>}
-                          {t.points && <span className="text-[10px] text-violet-600">{t.points}pts</span>}
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Highlights preview */}
+              {importPreview.hasHighlights && importPreview.highlights.length > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                  <p className="text-xs font-semibold text-green-700 mb-1.5">Highlights ({importPreview.highlights.length})</p>
+                  <div className="space-y-0.5">
+                    {importPreview.highlights.map((h: any, i: number) => (
+                      <div key={i} className="flex gap-1.5 text-xs">
+                        <span className={cn('font-medium min-w-[80px]', HIGHLIGHT_KIND_COLORS[h.kind] || 'text-slate-500')}>{h.kind}:</span>
+                        <span className="text-slate-600">{h.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* FAQ preview */}
+              {importPreview.hasFaq && importPreview.faqs.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <p className="text-xs font-semibold text-amber-700 mb-1.5">FAQs ({importPreview.faqs.length})</p>
+                  <div className="space-y-1.5">
+                    {importPreview.faqs.map((f: any, i: number) => (
+                      <div key={i} className="text-xs">
+                        <div className="font-medium text-slate-700">Q: {f.question}</div>
+                        <div className="text-slate-500 pl-3 truncate">A: {f.answer}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Curriculum tree preview */}
+              {importPreview.hasCurriculum && importPreview.modules.length > 0 && (
+                <div className="bg-violet-50 border border-violet-200 rounded-md p-3">
+                  <p className="text-xs font-semibold text-violet-700 mb-1.5">
+                    Curriculum ({importPreview.modules.length} module{importPreview.modules.length !== 1 ? 's' : ''}, {importPreview.modules.reduce((a: number, m: any) => a + m.chapters.length, 0)} chapters, {importPreview.modules.reduce((a: number, m: any) => a + m.chapters.reduce((b: number, c: any) => b + c.topics.length, 0), 0)} topics)
+                  </p>
+                  {importPreview.modules.map((mod: any, mi: number) => (
+                    <div key={mi} className="mb-2">
+                      <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-700">
+                        <Package className="w-3.5 h-3.5" /> {mod.title}
+                        {mod.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{mod.id} — update</span>}
+                        {mod.summary && <span className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">— {mod.summary}</span>}
+                      </div>
+                      {mod.chapters.map((ch: any, ci: number) => (
+                        <div key={ci} className="ml-5 mt-1">
+                          <div className="flex items-center gap-1.5 text-sm text-blue-600">
+                            <ChevronRight className="w-3 h-3" /> {ch.title}
+                            {ch.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{ch.id}</span>}
+                            {ch.summary && <span className="text-[10px] text-slate-400 truncate max-w-[180px]">— {ch.summary}</span>}
+                          </div>
+                          {ch.topics.map((t: any, ti: number) => (
+                            <div key={ti} className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                              <span>{t.title}</span>
+                              <span className={cn('text-[10px] font-medium', TOPIC_TYPE_COLORS[t.topic_type] || 'text-slate-400')}>{t.topic_type}</span>
+                              {t.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{t.id}</span>}
+                              {t.is_free_preview && <span className="text-[10px] text-green-600 bg-green-50 px-1 rounded">free</span>}
+                              {t.points && <span className="text-[10px] text-violet-600">{t.points}pts</span>}
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>
                   ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
 
@@ -1490,22 +1697,47 @@ Introduction to Web Development
           {importResult && !importResult.error && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
               <p className="font-semibold text-emerald-800 mb-2">Import Successful!</p>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                  <div className="text-lg font-bold text-amber-700">{importResult.report?.created?.modules || 0}</div>
-                  <div className="text-xs text-slate-500">Modules</div>
-                  {(importResult.report?.updated?.modules || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.modules} updated</div>}
-                </div>
-                <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                  <div className="text-lg font-bold text-blue-700">{importResult.report?.created?.chapters || 0}</div>
-                  <div className="text-xs text-slate-500">Chapters</div>
-                  {(importResult.report?.updated?.chapters || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.chapters} updated</div>}
-                </div>
-                <div className="bg-white rounded-lg p-2 border border-emerald-100">
-                  <div className="text-lg font-bold text-violet-700">{importResult.report?.created?.topics || 0}</div>
-                  <div className="text-xs text-slate-500">Topics</div>
-                  {(importResult.report?.updated?.topics || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.topics} updated</div>}
-                </div>
+              <div className="space-y-3">
+                {/* Course update */}
+                {importResult.report?.course && (
+                  <div className="bg-white rounded-lg p-2 border border-emerald-100 text-center">
+                    <div className="text-sm font-semibold text-blue-700">Course Details Updated</div>
+                  </div>
+                )}
+                {/* Highlights */}
+                {(importResult.report?.highlights?.added > 0 || importResult.report?.highlights?.removed > 0) && (
+                  <div className="bg-white rounded-lg p-2 border border-emerald-100 flex items-center justify-center gap-3">
+                    <span className="text-sm font-semibold text-green-700">Highlights:</span>
+                    <span className="text-xs text-slate-600">{importResult.report.highlights.added} added, {importResult.report.highlights.removed} old removed</span>
+                  </div>
+                )}
+                {/* FAQs */}
+                {(importResult.report?.faqs?.added > 0 || importResult.report?.faqs?.removed > 0) && (
+                  <div className="bg-white rounded-lg p-2 border border-emerald-100 flex items-center justify-center gap-3">
+                    <span className="text-sm font-semibold text-amber-700">FAQs:</span>
+                    <span className="text-xs text-slate-600">{importResult.report.faqs.added} added, {importResult.report.faqs.removed} old removed</span>
+                  </div>
+                )}
+                {/* Curriculum */}
+                {(importResult.report?.created?.modules > 0 || importResult.report?.updated?.modules > 0 || importResult.report?.created?.chapters > 0 || importResult.report?.created?.topics > 0) && (
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                      <div className="text-lg font-bold text-amber-700">{importResult.report?.created?.modules || 0}</div>
+                      <div className="text-xs text-slate-500">Modules</div>
+                      {(importResult.report?.updated?.modules || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.modules} updated</div>}
+                    </div>
+                    <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                      <div className="text-lg font-bold text-blue-700">{importResult.report?.created?.chapters || 0}</div>
+                      <div className="text-xs text-slate-500">Chapters</div>
+                      {(importResult.report?.updated?.chapters || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.chapters} updated</div>}
+                    </div>
+                    <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                      <div className="text-lg font-bold text-violet-700">{importResult.report?.created?.topics || 0}</div>
+                      <div className="text-xs text-slate-500">Topics</div>
+                      {(importResult.report?.updated?.topics || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.topics} updated</div>}
+                    </div>
+                  </div>
+                )}
               </div>
               {importResult.report?.errors?.length > 0 && (
                 <div className="mt-3 text-xs text-red-600 bg-red-50 rounded p-2">
@@ -1524,7 +1756,7 @@ Introduction to Web Development
             <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importLoading}>
               {importResult ? 'Close' : 'Cancel'}
             </Button>
-            {!importResult && importPreview && importPreview.length > 0 && (
+            {!importResult && importPreview && (importPreview.hasCourse || importPreview.hasHighlights || importPreview.hasFaq || (importPreview.hasCurriculum && importPreview.modules.length > 0)) && (
               <Button onClick={handleImport} disabled={importLoading}>
                 {importLoading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Importing...</>) : (<><Upload className="w-4 h-4" /> Start Import</>)}
               </Button>
@@ -1534,63 +1766,86 @@ Introduction to Web Development
       </Dialog>
 
       {/* ─── Import Help Dialog ─── */}
-      <Dialog open={importHelpOpen} onClose={() => setImportHelpOpen(false)} title="How to Import Course Structure" size="lg">
-        <div className="space-y-5 p-2 text-sm text-slate-700">
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-            <p className="font-semibold text-blue-800 mb-2">File Format</p>
-            <p>Create a <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">.txt</code> file using <strong>tab indentation</strong> to define the hierarchy:</p>
-            <div className="mt-2 bg-white rounded border border-blue-200 p-3 font-mono text-xs leading-relaxed">
-              <div className="text-amber-700 font-bold">Introduction to Web Dev</div>
-              <div className="text-slate-400 pl-6">summary: Full-stack web development</div>
-              <div className="text-blue-600 pl-6">HTML Fundamentals</div>
-              <div className="text-violet-600 pl-12">What is HTML | video</div>
-              <div className="text-slate-400 pl-16">summary: Overview of HTML markup</div>
-              <div className="text-slate-400 pl-16">is_free_preview: true</div>
-              <div className="text-violet-600 pl-12">HTML Practice | exercise</div>
-              <div className="text-slate-400 pl-16">points: 10</div>
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> No tab = Module</div>
-              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> 1 tab = Chapter</div>
-              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-violet-500" /> 2 tabs = Topic | type</div>
+      <Dialog open={importHelpOpen} onClose={() => setImportHelpOpen(false)} title="How to Import Course from Text File" size="lg">
+        <div className="space-y-4 p-2 text-sm text-slate-700">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <p className="font-semibold text-slate-800 mb-2">File Structure — 4 Sections</p>
+            <p>The file uses <code className="bg-slate-200 px-1.5 py-0.5 rounded text-xs">[SECTION]</code> markers to separate different parts. All sections are optional — include only what you need.</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-blue-500" /> <code>[COURSE]</code> — Course metadata</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-green-500" /> <code>[HIGHLIGHTS]</code> — Prerequisites, outcomes, etc.</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-amber-500" /> <code>[FAQ]</code> — Questions &amp; answers</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-violet-500" /> <code>[CURRICULUM]</code> — Module/chapter/topic tree</div>
             </div>
           </div>
 
-          <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
-            <p className="font-semibold text-emerald-800 mb-2">Topic Types</p>
-            <p>Add the type after a pipe <code className="bg-emerald-100 px-1 rounded text-xs">|</code> character:</p>
-            <div className="mt-2 grid grid-cols-5 gap-2 text-xs">
-              <span className="text-sky-600 font-medium">video</span>
-              <span className="text-emerald-600 font-medium">article</span>
-              <span className="text-amber-600 font-medium">quiz</span>
-              <span className="text-violet-600 font-medium">exercise</span>
-              <span className="text-rose-600 font-medium">project</span>
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <p className="font-semibold text-blue-800 mb-2">[COURSE] — Course Details</p>
+            <p>One <code className="bg-blue-100 px-1 rounded text-xs">key: value</code> per line. Only included fields are updated.</p>
+            <div className="mt-2 font-mono text-xs space-y-0.5 bg-white rounded border border-blue-200 p-3">
+              <div><span className="text-blue-600 font-bold">title:</span> Course Title</div>
+              <div><span className="text-blue-600 font-bold">subtitle:</span> Course Subtitle</div>
+              <div><span className="text-blue-600 font-bold">short_intro:</span> Brief description</div>
+              <div><span className="text-blue-600 font-bold">long_intro:</span> Detailed description</div>
+              <div><span className="text-blue-600 font-bold">level:</span> beginner | intermediate | advanced</div>
+              <div><span className="text-blue-600 font-bold">price:</span> 499</div>
+              <div><span className="text-blue-600 font-bold">original_price:</span> 999</div>
+              <div><span className="text-blue-600 font-bold">is_free:</span> true/false</div>
+              <div><span className="text-blue-600 font-bold">has_certificate:</span> true/false</div>
+              <div><span className="text-blue-600 font-bold">category_id:</span> 3 <span className="text-slate-400">— numeric ID</span></div>
+              <div><span className="text-blue-600 font-bold">language_id:</span> 1 <span className="text-slate-400">— numeric ID</span></div>
             </div>
-            <p className="mt-1 text-xs text-emerald-700">Default is <strong>video</strong> if no type specified.</p>
+          </div>
+
+          <div className="bg-green-50 border border-green-100 rounded-lg p-4">
+            <p className="font-semibold text-green-800 mb-2">[HIGHLIGHTS] — Prerequisites, Outcomes, Skills</p>
+            <p>One <code className="bg-green-100 px-1 rounded text-xs">kind: text</code> per line. <strong>Replaces all</strong> existing highlights when included.</p>
+            <div className="mt-2 grid grid-cols-5 gap-2 text-xs font-medium">
+              <span className="text-amber-600">prerequisite</span>
+              <span className="text-emerald-600">outcome</span>
+              <span className="text-sky-600">skill</span>
+              <span className="text-violet-600">audience</span>
+              <span className="text-rose-600">requirement</span>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+            <p className="font-semibold text-amber-800 mb-2">[FAQ] — Questions &amp; Answers</p>
+            <p><code className="bg-amber-100 px-1 rounded text-xs">Q:</code> and <code className="bg-amber-100 px-1 rounded text-xs">A:</code> pairs. <strong>Replaces all</strong> existing FAQs when included.</p>
+            <div className="mt-2 font-mono text-xs bg-white rounded border border-amber-200 p-3">
+              <div><span className="text-amber-600 font-bold">Q:</span> Your question here?</div>
+              <div><span className="text-amber-600 font-bold">A:</span> The answer goes here.</div>
+            </div>
           </div>
 
           <div className="bg-violet-50 border border-violet-100 rounded-lg p-4">
-            <p className="font-semibold text-violet-800 mb-2">Optional Properties</p>
-            <p>Add property lines below any heading (module, chapter, or topic):</p>
-            <div className="mt-2 font-mono text-xs space-y-1 bg-white rounded border border-violet-200 p-3">
-              <div><span className="text-violet-600 font-bold">summary:</span> Description text for this item</div>
-              <div><span className="text-violet-600 font-bold">is_free_preview:</span> true <span className="text-slate-400">— mark topic as free preview</span></div>
-              <div><span className="text-violet-600 font-bold">points:</span> 10 <span className="text-slate-400">— score points for exercises/quizzes</span></div>
-              <div><span className="text-violet-600 font-bold">youtube_url:</span> https://... <span className="text-slate-400">— external video link</span></div>
-              <div><span className="text-violet-600 font-bold">id:</span> 42 <span className="text-slate-400">— UPDATE existing unit (instead of create new)</span></div>
+            <p className="font-semibold text-violet-800 mb-2">[CURRICULUM] — Module/Chapter/Topic Tree</p>
+            <p>Tab-indented hierarchy. Add <code className="bg-violet-100 px-1 rounded text-xs">| type</code> after topic name.</p>
+            <div className="mt-2 bg-white rounded border border-violet-200 p-3 font-mono text-xs leading-relaxed">
+              <div className="text-amber-700 font-bold">Module Name</div>
+              <div className="text-blue-600 pl-6">Chapter Name</div>
+              <div className="text-violet-600 pl-12">Topic Name | video</div>
+              <div className="text-slate-400 pl-16">summary: Description</div>
+              <div className="text-slate-400 pl-16">is_free_preview: true</div>
             </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> 0 tabs = Module</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> 1 tab = Chapter</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-violet-500" /> 2 tabs = Topic</div>
+            </div>
+            <p className="mt-2 text-xs">Topic types: <span className="text-sky-600 font-medium">video</span>, <span className="text-emerald-600 font-medium">article</span>, <span className="text-amber-600 font-medium">quiz</span>, <span className="text-violet-600 font-medium">exercise</span>, <span className="text-rose-600 font-medium">project</span></p>
+            <p className="text-xs">Properties: <code className="bg-violet-100 px-1 rounded">summary</code>, <code className="bg-violet-100 px-1 rounded">is_free_preview</code>, <code className="bg-violet-100 px-1 rounded">points</code>, <code className="bg-violet-100 px-1 rounded">youtube_url</code>, <code className="bg-violet-100 px-1 rounded">id</code> (for updates)</p>
           </div>
 
-          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-            <p className="font-semibold text-amber-800 mb-1">Important Notes</p>
-            <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
-              <li>Use real TAB characters (not spaces) for indentation, or 4+ spaces per level</li>
-              <li>Lines starting with # are treated as comments and ignored</li>
-              <li>Blank lines are ignored</li>
-              <li>Files (PDFs, videos) must be uploaded separately after import via the UI</li>
-              <li>display_order is auto-assigned (1, 2, 3...) based on position in the file</li>
-              <li>To update existing units, include <code className="bg-amber-100 px-1 rounded">id: N</code> below the heading</li>
-              <li>Units without <code className="bg-amber-100 px-1 rounded">id:</code> are always created as new</li>
+          <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+            <p className="font-semibold text-red-800 mb-1">Important Notes</p>
+            <ul className="text-xs text-red-700 space-y-1 list-disc list-inside">
+              <li><strong>[HIGHLIGHTS]</strong> and <strong>[FAQ]</strong> sections REPLACE all existing data when included</li>
+              <li>If you only want to update curriculum, omit [HIGHLIGHTS] and [FAQ] sections</li>
+              <li>Use real TAB characters (not spaces) for curriculum indentation, or 4+ spaces per level</li>
+              <li>Lines starting with # are comments and ignored</li>
+              <li>Files (PDFs, videos, thumbnails) must be uploaded separately via the UI</li>
+              <li>To update existing curriculum units, include <code className="bg-red-100 px-1 rounded">id: N</code> below the heading</li>
               <li>Download sample files to see the exact format in action</li>
             </ul>
           </div>
