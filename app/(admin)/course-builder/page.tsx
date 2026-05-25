@@ -45,14 +45,12 @@ const UNIT_TYPES = [
   { value: 'chapter', label: 'Chapter' },
   { value: 'topic', label: 'Topic (lesson)' },
 ];
-const TOPIC_TYPES = [
-  { value: 'video', label: 'Video' },
-  { value: 'article', label: 'Article (PDF)' },
-  { value: 'quiz', label: 'Quiz' },
-  { value: 'exercise', label: 'Exercise' },
-  { value: 'project', label: 'Project' },
-];
-const TOPIC_ICON: Record<string, any> = { video: Video, article: FileText, quiz: ClipboardList, exercise: FlaskConical, project: BookOpen };
+/* TOPIC_TYPES removed — topic_type dropdown no longer shown; all content types uploaded in one form */
+/* YouTube URL validation — accepts youtube.com/watch, youtu.be/, youtube.com/embed/, youtube.com/shorts/ */
+function isValidYouTubeUrl(url: string): boolean {
+  if (!url.trim()) return true; // empty is fine
+  return /^https?:\/\/(www\.)?(youtube\.com\/(watch|embed|shorts)|youtu\.be\/)/i.test(url.trim());
+}
 
 type Tab = 'basics' | 'highlights' | 'curriculum' | 'faqs' | 'capstones' | 'mini-projects';
 
@@ -808,47 +806,47 @@ JavaScript Essentials
                     const chaps = vu.filter((x: any) => x.unit_type === 'chapter');
                     const topics = vu.filter((x: any) => x.unit_type === 'topic');
                     const childOf = (pid: number) => vu.filter((x: any) => x.parent_unit_id === pid);
-                    const typeIcon: Record<string, string> = { video: '🎬', article: '📝', quiz: '📋', exercise: '🧪', project: '📦' };
-                    const vFileEntries = (t: any) => {
-                      const f: { label: string; url: string | null; color: string }[] = [];
-                      if (t.video)                     f.push({ label: 'Bunny Stream Video', url: t.video,                   color: 'text-orange-600' });
-                      if (t.youtube_url && !t.video)   f.push({ label: 'YouTube / External',  url: t.youtube_url,             color: 'text-red-500' });
-                      if (t.exercise_pdf)              f.push({ label: 'Exercise PDF',        url: t.exercise_pdf,            color: 'text-emerald-600' });
-                      if (t.exercise_solution_pdf)     f.push({ label: 'Exercise Solution',   url: t.exercise_solution_pdf,   color: 'text-teal-600' });
-                      if (t.assignment_pdf)            f.push({ label: 'Assignment PDF',      url: t.assignment_pdf,          color: 'text-blue-600' });
-                      if (t.article_pdf)               f.push({ label: 'Article PDF',         url: t.article_pdf,             color: 'text-indigo-600' });
-                      if (t.project_pdf)               f.push({ label: 'Project PDF',         url: t.project_pdf,             color: 'text-purple-600' });
-                      if (t.project_solution_file_url) f.push({ label: 'Project Solution',    url: t.project_solution_file_url, color: 'text-fuchsia-600' });
-                      return f;
+                    const vFileSlots = (t: any) => {
+                      const hasVid = t.video || t.youtube_url;
+                      return [
+                        { label: t.video ? 'Bunny Stream Video' : t.youtube_url ? 'YouTube / External' : 'Video', url: t.video || t.youtube_url || null, color: 'text-orange-600', uploaded: !!hasVid },
+                        { label: 'Exercise PDF',     url: t.exercise_pdf || null,              color: 'text-emerald-600', uploaded: !!t.exercise_pdf },
+                        { label: 'Exercise Solution', url: t.exercise_solution_pdf || null,     color: 'text-teal-600',    uploaded: !!t.exercise_solution_pdf },
+                        { label: 'Assignment PDF',   url: t.assignment_pdf || null,            color: 'text-blue-600',    uploaded: !!t.assignment_pdf },
+                        { label: 'Article PDF',       url: t.article_pdf || null,              color: 'text-indigo-600',  uploaded: !!t.article_pdf },
+                        { label: 'Project PDF',       url: t.project_pdf || null,              color: 'text-purple-600',  uploaded: !!t.project_pdf },
+                        { label: 'Project Solution',  url: t.project_solution_file_url || null, color: 'text-fuchsia-600', uploaded: !!t.project_solution_file_url },
+                      ];
                     };
                     const ViewTopicLine = ({ t }: { t: any }) => {
-                      const files = vFileEntries(t);
+                      const slots = vFileSlots(t);
+                      const uploaded = slots.filter(s => s.uploaded).length;
+                      const remaining = slots.length - uploaded;
+                      const hasVid = !!(t.video || t.youtube_url);
                       return (
                         <div className="ml-5 mt-1">
                           <div className="flex items-center gap-1.5 text-slate-500 text-xs">
-                            <span>{typeIcon[t.topic_type] || '📄'}</span>
+                            <FileText className="w-3.5 h-3.5 text-violet-400" />
                             <span className="font-medium text-slate-600">{t.title}</span>
-                            <span className="text-slate-300">·</span>
-                            <span className="text-slate-400">{t.topic_type || 'topic'}</span>
-                            {t.is_free_preview && <span className="font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">free</span>}
-                            {files.length > 0 && <span className="text-slate-400">{files.length} file{files.length > 1 ? 's' : ''}</span>}
+                            {hasVid && <span className="font-semibold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-600 text-[10px]">video</span>}
+                            {t.is_free_preview && <span className="font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px]">free</span>}
+                            <span className="text-slate-400">{uploaded}/{slots.length} files</span>
+                            {remaining > 0 && <span className="text-amber-500 text-[10px]">{remaining} remaining</span>}
                           </div>
-                          {files.length > 0 && (
-                            <div className="ml-4 mt-0.5 space-y-px">
-                              {files.map((f, i) => (
-                                <div key={f.label} className="flex items-center gap-1.5 text-[11px]">
-                                  <span className="text-slate-300 select-none w-3 text-center">{i === files.length - 1 ? '└' : '├'}</span>
-                                  {f.url ? (
-                                    <a href={f.url} target="_blank" rel="noopener noreferrer" className={cn('hover:underline flex items-center gap-1', f.color)}>
-                                      {f.label} <ExternalLink className="w-2.5 h-2.5 opacity-60" />
-                                    </a>
-                                  ) : (
-                                    <span className="text-slate-400">{f.label}</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                          <div className="ml-4 mt-0.5 space-y-px">
+                            {slots.map((f, i) => (
+                              <div key={f.label} className="flex items-center gap-1.5 text-[11px]">
+                                <span className="text-slate-300 select-none w-3 text-center">{i === slots.length - 1 ? '└' : '├'}</span>
+                                {f.uploaded && f.url ? (
+                                  <a href={f.url} target="_blank" rel="noopener noreferrer" className={cn('hover:underline flex items-center gap-1', f.color)}>
+                                    {f.label} <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-300 italic">{f.label} — not uploaded</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       );
                     };
@@ -954,7 +952,6 @@ JavaScript Essentials
 
             {/* Preview */}
             {listImportPreview && !listImportResult && (listImportPreview.hasCourse || listImportPreview.hasHighlights || listImportPreview.hasFaq || listImportPreview.hasCurriculum) && (() => {
-              const lpTopicColors: Record<string, string> = { video: 'text-sky-600', article: 'text-emerald-600', quiz: 'text-amber-600', exercise: 'text-violet-600', project: 'text-rose-600' };
               const lpHighlightColors: Record<string, string> = { prerequisite: 'text-amber-600', outcome: 'text-emerald-600', skill: 'text-sky-600', audience: 'text-violet-600', requirement: 'text-rose-600' };
               return (
               <div className="border border-slate-200 rounded-lg p-4 max-h-80 overflow-auto bg-slate-50 space-y-3">
@@ -1027,9 +1024,9 @@ JavaScript Essentials
                             </div>
                             {ch.topics.map((t: any, ti: number) => (
                               <div key={ti} className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                                <FileText className="w-3 h-3 text-violet-400" />
                                 <span>{t.title}</span>
-                                <span className={cn('text-[10px] font-medium', lpTopicColors[t.topic_type] || 'text-slate-400')}>{t.topic_type}</span>
+                                {t.youtube_url && <span className="text-[10px] font-medium text-sky-600 bg-sky-50 px-1 rounded">video</span>}
                                 {t.is_free_preview && <span className="text-[10px] text-green-600 bg-green-50 px-1 rounded">free</span>}
                                 {t.points && <span className="text-[10px] text-violet-600">{t.points}pts</span>}
                               </div>
@@ -1112,7 +1109,7 @@ JavaScript Essentials
             </div>
             <div className="bg-violet-50 border border-violet-100 rounded-lg p-4">
               <p className="font-semibold text-violet-800 mb-1">[CURRICULUM] — tab-indented tree</p>
-              <p className="text-xs text-slate-600">0 tabs = Module, 1 tab = Chapter, 2 tabs = Topic | type. Types: video, article, quiz, exercise, project. Properties: summary, is_free_preview, points, youtube_url</p>
+              <p className="text-xs text-slate-600">0 tabs = Module, 1 tab = Chapter, 2 tabs = Topic. Properties: summary, is_free_preview, points, youtube_url. Files are uploaded via the UI.</p>
             </div>
             <div className="flex justify-end"><Button variant="outline" onClick={() => setListImportHelpOpen(false)}>Close</Button></div>
           </div>
@@ -1368,7 +1365,6 @@ function CurriculumTab({ courseId, units, reload }: any) {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<any | null>(null);
 
-  const TOPIC_TYPE_COLORS: Record<string, string> = { video: 'text-sky-600', article: 'text-emerald-600', quiz: 'text-amber-600', exercise: 'text-violet-600', project: 'text-rose-600' };
   const HIGHLIGHT_KIND_COLORS: Record<string, string> = { prerequisite: 'text-amber-600', outcome: 'text-emerald-600', skill: 'text-sky-600', audience: 'text-violet-600', requirement: 'text-rose-600' };
 
   // Use the shared top-level parser
@@ -1565,13 +1561,14 @@ JavaScript Essentials
 
   function openAdd(unit_type: string, parent_unit_id: number | null) {
     setEditing(null);
-    setU({ unit_type, parent_unit_id: parent_unit_id ?? '', title: '', summary: '', topic_type: 'video', display_order: 0, is_free_preview: false });
+    setU({ unit_type, parent_unit_id: parent_unit_id ?? '', title: '', summary: '', display_order: 0, is_free_preview: false });
     setDialogOpen(true);
   }
   function openEdit(unit: any) { setEditing(unit); setU({ ...unit, parent_unit_id: unit.parent_unit_id ?? '' }); setDialogOpen(true); }
 
   async function save() {
     if (!u.title?.trim()) { toast.error('Title is required'); return; }
+    if (u.youtube_url && !isValidYouTubeUrl(u.youtube_url)) { toast.error('Invalid YouTube URL — must be youtube.com or youtu.be link'); return; }
     const payload: any = { ...u, authoring_course_id: courseId, parent_unit_id: u.parent_unit_id === '' ? null : Number(u.parent_unit_id) };
     if (u.unit_type !== 'topic') payload.topic_type = null;
     const r = editing ? await api.updateAuthoringUnit(editing.id, payload) : await api.createAuthoringUnit(payload);
@@ -1583,62 +1580,63 @@ JavaScript Essentials
     if (r.success) reload(); else toast.error(r.error || 'Failed');
   }
 
-  /** Build a list of file entries for a topic with label, url, icon & color */
-  function getFileEntries(t: any) {
-    const files: { label: string; url: string | null; icon: any; color: string; badgeColor: string }[] = [];
-    if (t.video)                     files.push({ label: 'Bunny Stream Video', url: t.video, icon: Video,          color: 'text-orange-500', badgeColor: 'bg-orange-100 text-orange-700' });
-    if (t.youtube_url && !t.video)   files.push({ label: 'YouTube / External', url: t.youtube_url, icon: Video,    color: 'text-red-500',    badgeColor: 'bg-red-100 text-red-600' });
-    if (t.exercise_pdf)              files.push({ label: 'Exercise PDF',       url: t.exercise_pdf, icon: FlaskConical, color: 'text-emerald-500', badgeColor: 'bg-emerald-100 text-emerald-700' });
-    if (t.exercise_solution_pdf)     files.push({ label: 'Exercise Solution',  url: t.exercise_solution_pdf, icon: FlaskConical, color: 'text-teal-500', badgeColor: 'bg-teal-100 text-teal-700' });
-    if (t.assignment_pdf)            files.push({ label: 'Assignment PDF',     url: t.assignment_pdf, icon: ClipboardList, color: 'text-blue-500', badgeColor: 'bg-blue-100 text-blue-700' });
-    if (t.article_pdf)               files.push({ label: 'Article PDF',        url: t.article_pdf, icon: FileText,  color: 'text-indigo-500', badgeColor: 'bg-indigo-100 text-indigo-700' });
-    if (t.project_pdf)               files.push({ label: 'Project PDF',        url: t.project_pdf, icon: BookOpen,  color: 'text-purple-500', badgeColor: 'bg-purple-100 text-purple-700' });
-    if (t.project_solution_file_url) files.push({ label: 'Project Solution',   url: t.project_solution_file_url, icon: Package, color: 'text-fuchsia-500', badgeColor: 'bg-fuchsia-100 text-fuchsia-700' });
-    return files;
+  /** Build ALL 7 file slots for a topic — uploaded items have a url, remaining don't */
+  function getFileSlots(t: any) {
+    const hasVideo = t.video || t.youtube_url;
+    return [
+      { label: t.video ? 'Bunny Stream Video' : t.youtube_url ? 'YouTube / External' : 'Video',
+        url: t.video || t.youtube_url || null, icon: Video, color: 'text-orange-500', uploaded: !!hasVideo },
+      { label: 'Exercise PDF',       url: t.exercise_pdf || null,              icon: FlaskConical,  color: 'text-emerald-500', uploaded: !!t.exercise_pdf },
+      { label: 'Exercise Solution',  url: t.exercise_solution_pdf || null,     icon: FlaskConical,  color: 'text-teal-500',    uploaded: !!t.exercise_solution_pdf },
+      { label: 'Assignment PDF',     url: t.assignment_pdf || null,            icon: ClipboardList, color: 'text-blue-500',    uploaded: !!t.assignment_pdf },
+      { label: 'Article PDF',        url: t.article_pdf || null,              icon: FileText,      color: 'text-indigo-500',  uploaded: !!t.article_pdf },
+      { label: 'Project PDF',        url: t.project_pdf || null,              icon: BookOpen,      color: 'text-purple-500',  uploaded: !!t.project_pdf },
+      { label: 'Project Solution',   url: t.project_solution_file_url || null, icon: Package,       color: 'text-fuchsia-500', uploaded: !!t.project_solution_file_url },
+    ];
   }
 
   const TopicRow = ({ t }: { t: any }) => {
-    const Icon = TOPIC_ICON[t.topic_type] || FileText;
-    const files = getFileEntries(t);
+    const slots = getFileSlots(t);
+    const uploaded = slots.filter(s => s.uploaded).length;
+    const remaining = slots.length - uploaded;
+    const hasVideo = !!(t.video || t.youtube_url);
     return (
       <div className="pl-10 pr-3 py-1.5 hover:bg-slate-50 rounded">
         {/* ── topic header row ── */}
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-sm text-slate-600">
-            <Icon className="w-4 h-4 text-violet-400" /> {t.title}
-            <span className="text-xs text-slate-400">· {t.topic_type || 'topic'}</span>
+            <FileText className="w-4 h-4 text-violet-400" /> {t.title}
+            {hasVideo && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">video</span>}
             {t.is_free_preview && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">free</span>}
-            {files.length > 0 && <span className="text-[10px] text-slate-400">{files.length} file{files.length > 1 ? 's' : ''}</span>}
+            <span className="text-[10px] text-slate-400">{uploaded}/{slots.length} files</span>
+            {remaining > 0 && <span className="text-[10px] text-amber-600">{remaining} remaining</span>}
           </span>
           <span className="flex gap-1 flex-shrink-0">
             <button onClick={() => openEdit(t)} className="text-slate-400 hover:text-blue-600"><Pencil className="w-3.5 h-3.5" /></button>
             <button onClick={() => del(t)} className="text-slate-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
           </span>
         </div>
-        {/* ── file tree under the topic ── */}
-        {files.length > 0 && (
-          <div className="ml-6 mt-1 space-y-0.5">
-            {files.map((f, i) => {
-              const FIcon = f.icon;
-              const isLast = i === files.length - 1;
-              return (
-                <div key={f.label} className="flex items-center gap-1.5 text-xs">
-                  <span className="text-slate-300 select-none w-4 text-center">{isLast ? '└' : '├'}</span>
-                  <FIcon className={cn('w-3 h-3 flex-shrink-0', f.color)} />
-                  {f.url ? (
-                    <a href={f.url} target="_blank" rel="noopener noreferrer"
-                      className={cn('hover:underline flex items-center gap-1', f.color)}>
-                      {f.label} <ExternalLink className="w-2.5 h-2.5 opacity-60" />
-                    </a>
-                  ) : (
-                    <span className="text-slate-400">{f.label}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {files.length === 0 && <div className="ml-6 mt-0.5 text-[10px] text-slate-300 italic flex items-center gap-1"><span className="select-none">└</span> no files uploaded</div>}
+        {/* ── file tree under the topic — all slots shown ── */}
+        <div className="ml-6 mt-1 space-y-0.5">
+          {slots.map((f, i) => {
+            const FIcon = f.icon;
+            const isLast = i === slots.length - 1;
+            return (
+              <div key={f.label} className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-300 select-none w-4 text-center">{isLast ? '└' : '├'}</span>
+                <FIcon className={cn('w-3 h-3 flex-shrink-0', f.uploaded ? f.color : 'text-slate-300')} />
+                {f.uploaded && f.url ? (
+                  <a href={f.url} target="_blank" rel="noopener noreferrer"
+                    className={cn('hover:underline flex items-center gap-1', f.color)}>
+                    {f.label} <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                  </a>
+                ) : (
+                  <span className="text-slate-300 italic">{f.label} — not uploaded</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -1742,11 +1740,6 @@ JavaScript Essentials
               </div>
             )}
           </div>
-          {u.unit_type === 'topic' && (
-            <Field label="Topic type">
-              <Select value={u.topic_type || 'video'} onChange={e => setU({ ...u, topic_type: e.target.value })} options={TOPIC_TYPES} />
-            </Field>
-          )}
           {u.unit_type === 'topic' && <>
             {!editing && (
               <p className="text-xs text-amber-600">Save the topic first, then re-open it to upload media &amp; files.</p>
@@ -1761,7 +1754,12 @@ JavaScript Essentials
                   onOpen={u.video ? async () => { const r = await api.authoringUnitVideoPlayback(editing.id); if (r.success && r.data?.url) window.open(r.data.url, '_blank'); } : undefined}
                   hint="Upload to Bunny Stream, or paste a YouTube/external URL" />
               ) : (
-                <Field label="YouTube URL (optional)"><Input value={u.youtube_url || ''} onChange={e => setU({ ...u, youtube_url: e.target.value })} placeholder="https://youtube.com/…" /></Field>
+                <div>
+                  <Field label="YouTube URL (optional)"><Input value={u.youtube_url || ''} onChange={e => setU({ ...u, youtube_url: e.target.value })} placeholder="https://youtube.com/watch?v=…" /></Field>
+                  {u.youtube_url && !isValidYouTubeUrl(u.youtube_url) && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Invalid YouTube URL — must be youtube.com/watch, youtu.be/, or youtube.com/embed/</p>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1931,9 +1929,9 @@ JavaScript Essentials
                           </div>
                           {ch.topics.map((t: any, ti: number) => (
                             <div key={ti} className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                              <FileText className="w-3 h-3 text-violet-400" />
                               <span>{t.title}</span>
-                              <span className={cn('text-[10px] font-medium', TOPIC_TYPE_COLORS[t.topic_type] || 'text-slate-400')}>{t.topic_type}</span>
+                              {t.youtube_url && <span className="text-[10px] font-medium text-sky-600 bg-sky-50 px-1 rounded">video</span>}
                               {t.is_free_preview && <span className="text-[10px] text-green-600 bg-green-50 px-1 rounded">free</span>}
                               {t.points && <span className="text-[10px] text-violet-600">{t.points}pts</span>}
                             </div>
@@ -2084,7 +2082,7 @@ JavaScript Essentials
               <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> 1 tab = Chapter</div>
               <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-violet-500" /> 2 tabs = Topic</div>
             </div>
-            <p className="mt-2 text-xs">Topic types: <span className="text-sky-600 font-medium">video</span>, <span className="text-emerald-600 font-medium">article</span>, <span className="text-amber-600 font-medium">quiz</span>, <span className="text-violet-600 font-medium">exercise</span>, <span className="text-rose-600 font-medium">project</span></p>
+            <p className="mt-2 text-xs">The <code className="bg-violet-100 px-1 rounded">| type</code> after topic name is optional (for backward compatibility). Files are uploaded separately via the UI.</p>
             <p className="text-xs">Properties: <code className="bg-violet-100 px-1 rounded">summary</code>, <code className="bg-violet-100 px-1 rounded">is_free_preview</code>, <code className="bg-violet-100 px-1 rounded">points</code>, <code className="bg-violet-100 px-1 rounded">youtube_url</code>, <code className="bg-violet-100 px-1 rounded">id</code> (for updates)</p>
           </div>
 
