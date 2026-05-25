@@ -730,6 +730,77 @@ JavaScript Essentials
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
               ) : (
                 <>
+                  {/* Highlights */}
+                  {viewChildren.highlights.length > 0 && (() => {
+                    const kindColors: Record<string, { bg: string; text: string; border: string }> = {
+                      audience:     { bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200' },
+                      outcome:      { bg: 'bg-green-50',  text: 'text-green-700',  border: 'border-green-200' },
+                      prerequisite: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+                      requirement:  { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+                      skill:        { bg: 'bg-teal-50',   text: 'text-teal-700',   border: 'border-teal-200' },
+                    };
+                    const fallback = { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-100' };
+                    return (
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-violet-500" /> Highlights ({viewChildren.highlights.length})</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {viewChildren.highlights.map((h: any) => {
+                            const c = kindColors[h.kind] || fallback;
+                            return (
+                              <span key={h.id} className={cn('inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border', c.bg, c.text, c.border)}>
+                                <span className="font-semibold capitalize">{h.kind}:</span> {h.text}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* FAQs */}
+                  {viewChildren.faqs.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FileText className="w-4 h-4 text-violet-500" /> FAQs ({viewChildren.faqs.length})</h4>
+                      <div className="space-y-2">
+                        {viewChildren.faqs.map((faq: any) => (
+                          <div key={faq.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                            <div className="text-sm font-medium text-slate-800">Q: {faq.question}</div>
+                            <div className="text-xs text-slate-500 mt-1">A: {faq.answer}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Capstones & Mini Projects side by side */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {viewChildren.capstones.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><Package className="w-4 h-4 text-violet-500" /> Capstones ({viewChildren.capstones.length})</h4>
+                        <div className="space-y-1">
+                          {viewChildren.capstones.map((cp: any) => (
+                            <div key={cp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
+                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {cp.title}
+                              {cp.solution_github_url && <a href={cp.solution_github_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">git</a>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {viewChildren.miniProjects.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FlaskConical className="w-4 h-4 text-violet-500" /> Mini Projects ({viewChildren.miniProjects.length})</h4>
+                        <div className="space-y-1">
+                          {viewChildren.miniProjects.map((mp: any) => (
+                            <div key={mp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
+                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {mp.title}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Curriculum tree */}
                   {viewChildren.units.length > 0 && (() => {
                     const vu = viewChildren.units;
@@ -762,7 +833,7 @@ JavaScript Essentials
                             {t.is_free_preview && <span className="font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">free</span>}
                             {files.length > 0 && <span className="text-slate-400">{files.length} file{files.length > 1 ? 's' : ''}</span>}
                           </div>
-                          {files.length > 0 ? (
+                          {files.length > 0 && (
                             <div className="ml-4 mt-0.5 space-y-px">
                               {files.map((f, i) => (
                                 <div key={f.label} className="flex items-center gap-1.5 text-[11px]">
@@ -777,8 +848,6 @@ JavaScript Essentials
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <div className="ml-4 mt-0.5 text-[10px] text-slate-300 italic">└ no files</div>
                           )}
                         </div>
                       );
@@ -826,64 +895,6 @@ JavaScript Essentials
                       </div>
                     );
                   })()}
-
-                  {/* Highlights */}
-                  {viewChildren.highlights.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-violet-500" /> Highlights ({viewChildren.highlights.length})</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {viewChildren.highlights.map((h: any) => (
-                          <span key={h.id} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
-                            <span className="font-semibold capitalize">{h.kind}:</span> {h.text}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* FAQs */}
-                  {viewChildren.faqs.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FileText className="w-4 h-4 text-violet-500" /> FAQs ({viewChildren.faqs.length})</h4>
-                      <div className="space-y-2">
-                        {viewChildren.faqs.map((faq: any) => (
-                          <div key={faq.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
-                            <div className="text-sm font-medium text-slate-800">Q: {faq.question}</div>
-                            <div className="text-xs text-slate-500 mt-1">A: {faq.answer}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Capstones & Mini Projects side by side */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {viewChildren.capstones.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><Package className="w-4 h-4 text-violet-500" /> Capstones ({viewChildren.capstones.length})</h4>
-                        <div className="space-y-1">
-                          {viewChildren.capstones.map((cp: any) => (
-                            <div key={cp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
-                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {cp.title}
-                              {cp.solution_github_url && <a href={cp.solution_github_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">git</a>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {viewChildren.miniProjects.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FlaskConical className="w-4 h-4 text-violet-500" /> Mini Projects ({viewChildren.miniProjects.length})</h4>
-                        <div className="space-y-1">
-                          {viewChildren.miniProjects.map((mp: any) => (
-                            <div key={mp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
-                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {mp.title}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </>
               )}
 
@@ -942,9 +953,12 @@ JavaScript Essentials
             )}
 
             {/* Preview */}
-            {listImportPreview && !listImportResult && (listImportPreview.hasCourse || listImportPreview.hasHighlights || listImportPreview.hasFaq || listImportPreview.hasCurriculum) && (
-              <div className="border border-slate-200 rounded-lg p-3 max-h-56 overflow-auto bg-slate-50 space-y-2">
-                <div className="flex items-center gap-2">
+            {listImportPreview && !listImportResult && (listImportPreview.hasCourse || listImportPreview.hasHighlights || listImportPreview.hasFaq || listImportPreview.hasCurriculum) && (() => {
+              const lpTopicColors: Record<string, string> = { video: 'text-sky-600', article: 'text-emerald-600', quiz: 'text-amber-600', exercise: 'text-violet-600', project: 'text-rose-600' };
+              const lpHighlightColors: Record<string, string> = { prerequisite: 'text-amber-600', outcome: 'text-emerald-600', skill: 'text-sky-600', audience: 'text-violet-600', requirement: 'text-rose-600' };
+              return (
+              <div className="border border-slate-200 rounded-lg p-4 max-h-80 overflow-auto bg-slate-50 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
                   <FolderTree className="w-4 h-4 text-slate-500" />
                   <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Preview</span>
                   <div className="flex gap-1.5 ml-auto">
@@ -954,23 +968,81 @@ JavaScript Essentials
                     {listImportPreview.hasCurriculum && <span className="text-[10px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-medium">{listImportPreview.modules.length} MODULES</span>}
                   </div>
                 </div>
+                {/* Course details */}
                 {listImportPreview.hasCourse && Object.keys(listImportPreview.courseFields).length > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-2">
-                    <p className="text-xs font-semibold text-blue-700 mb-1">Course Details</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <p className="text-xs font-semibold text-blue-700 mb-1.5">Course Details</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                       {Object.entries(listImportPreview.courseFields).map(([k, v]: [string, any]) => (
-                        <div key={k} className="flex gap-1.5 text-xs"><span className="text-blue-600 font-medium">{k}:</span><span className="text-slate-600 truncate">{String(v)}</span></div>
+                        <div key={k} className="flex gap-1.5 text-xs"><span className="text-blue-600 font-medium min-w-[90px]">{k}:</span><span className="text-slate-600 truncate">{String(v)}</span></div>
                       ))}
                     </div>
                   </div>
                 )}
+                {/* Highlights detail */}
+                {listImportPreview.hasHighlights && listImportPreview.highlights.length > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                    <p className="text-xs font-semibold text-green-700 mb-1.5">Highlights ({listImportPreview.highlights.length})</p>
+                    <div className="space-y-0.5">
+                      {listImportPreview.highlights.map((h: any, i: number) => (
+                        <div key={i} className="flex gap-1.5 text-xs">
+                          <span className={cn('font-medium min-w-[80px]', lpHighlightColors[h.kind] || 'text-slate-500')}>{h.kind}:</span>
+                          <span className="text-slate-600">{h.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* FAQ detail */}
+                {listImportPreview.hasFaq && listImportPreview.faqs.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                    <p className="text-xs font-semibold text-amber-700 mb-1.5">FAQs ({listImportPreview.faqs.length})</p>
+                    <div className="space-y-1.5">
+                      {listImportPreview.faqs.map((f: any, i: number) => (
+                        <div key={i} className="text-xs">
+                          <div className="font-medium text-slate-700">Q: {f.question}</div>
+                          <div className="text-slate-500 pl-3 truncate">A: {f.answer}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Curriculum tree */}
                 {listImportPreview.hasCurriculum && listImportPreview.modules.length > 0 && (
-                  <div className="bg-violet-50 border border-violet-200 rounded-md p-2">
-                    <p className="text-xs font-semibold text-violet-700 mb-1">Curriculum: {listImportPreview.modules.length} modules, {listImportPreview.modules.reduce((a: number, m: any) => a + m.chapters.length, 0)} chapters, {listImportPreview.modules.reduce((a: number, m: any) => a + m.chapters.reduce((b: number, c: any) => b + c.topics.length, 0), 0)} topics</p>
+                  <div className="bg-violet-50 border border-violet-200 rounded-md p-3">
+                    <p className="text-xs font-semibold text-violet-700 mb-1.5">
+                      Curriculum ({listImportPreview.modules.length} module{listImportPreview.modules.length !== 1 ? 's' : ''}, {listImportPreview.modules.reduce((a: number, m: any) => a + m.chapters.length, 0)} chapters, {listImportPreview.modules.reduce((a: number, m: any) => a + m.chapters.reduce((b: number, c: any) => b + c.topics.length, 0), 0)} topics)
+                    </p>
+                    {listImportPreview.modules.map((mod: any, mi: number) => (
+                      <div key={mi} className="mb-2">
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-700">
+                          <Package className="w-3.5 h-3.5" /> {mod.title}
+                          {mod.summary && <span className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">— {mod.summary}</span>}
+                        </div>
+                        {mod.chapters.map((ch: any, ci: number) => (
+                          <div key={ci} className="ml-5 mt-1">
+                            <div className="flex items-center gap-1.5 text-sm text-blue-600">
+                              <ChevronRight className="w-3 h-3" /> {ch.title}
+                              {ch.summary && <span className="text-[10px] text-slate-400 truncate max-w-[180px]">— {ch.summary}</span>}
+                            </div>
+                            {ch.topics.map((t: any, ti: number) => (
+                              <div key={ti} className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                                <span>{t.title}</span>
+                                <span className={cn('text-[10px] font-medium', lpTopicColors[t.topic_type] || 'text-slate-400')}>{t.topic_type}</span>
+                                {t.is_free_preview && <span className="text-[10px] text-green-600 bg-green-50 px-1 rounded">free</span>}
+                                {t.points && <span className="text-[10px] text-violet-600">{t.points}pts</span>}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            )}
+              );
+            })()}
 
             {/* Result */}
             {listImportResult && !listImportResult.error && (
