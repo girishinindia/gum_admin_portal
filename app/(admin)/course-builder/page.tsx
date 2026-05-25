@@ -15,7 +15,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import {
   Plus, Pencil, Trash2, ArrowLeft, CheckCircle, XCircle, Send, ShieldCheck,
   Package, FolderTree, FileText, Video, BookOpen, ClipboardList, FlaskConical, Loader2,
-  BarChart3, Clock, RotateCcw, AlertCircle, Eye, ExternalLink, X,
+  BarChart3, Clock, RotateCcw, AlertCircle, Eye, ExternalLink, X, Upload, Download, HelpCircle, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -939,6 +939,151 @@ function CurriculumTab({ courseId, units, reload }: any) {
   const [vidProg, setVidProg] = useState<number | null>(null);
   const PDF_FIELD: Record<string, string> = { article: 'article_pdf', exercise: 'exercise_pdf', exercise_solution: 'exercise_solution_pdf', project: 'project_pdf', assignment: 'assignment_pdf', project_solution: 'project_solution_file_url' };
 
+  // ── Import from text file state ──
+  const [importOpen, setImportOpen] = useState(false);
+  const [importHelpOpen, setImportHelpOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[] | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<any | null>(null);
+
+  const VALID_TOPIC_TYPES = ['video', 'article', 'quiz', 'exercise', 'project'];
+  const TOPIC_TYPE_COLORS: Record<string, string> = { video: 'text-sky-600', article: 'text-emerald-600', quiz: 'text-amber-600', exercise: 'text-violet-600', project: 'text-rose-600' };
+
+  function parseImportPreview(content: string) {
+    const lines = content.split(/\r?\n/);
+    const mods: any[] = [];
+    let curMod: any = null, curCh: any = null, curTopic: any = null, lastEntity: string | null = null;
+    for (const raw of lines) {
+      if (raw.trim() === '' || raw.trim().startsWith('#')) continue;
+      let tabs = 0, j = 0;
+      while (j < raw.length && raw[j] === '\t') { tabs++; j++; }
+      if (tabs === 0 && raw[0] === ' ') { let sp = 0, k = 0; while (k < raw.length && raw[k] === ' ') { sp++; k++; } if (sp >= 8) tabs = 2; else if (sp >= 4) tabs = 1; j = k; }
+      const text = raw.slice(j).trim();
+      if (!text) continue;
+      const propMatch = text.match(/^(summary|is_free_preview|points|youtube_url|id)\s*:\s*(.*)$/i);
+      if (propMatch) {
+        const key = propMatch[1].toLowerCase();
+        const val = propMatch[2].trim();
+        const target = lastEntity === 'module' ? curMod : lastEntity === 'chapter' ? curCh : lastEntity === 'topic' ? curTopic : null;
+        if (target) { if (key === 'summary') target.summary = val; else if (key === 'id') target.id = parseInt(val); else if (key === 'is_free_preview') target.is_free_preview = val === 'true'; else if (key === 'points') target.points = parseInt(val); else if (key === 'youtube_url') target.youtube_url = val; }
+        continue;
+      }
+      if (tabs === 0) { curMod = { title: text, chapters: [] }; curCh = null; curTopic = null; lastEntity = 'module'; mods.push(curMod); }
+      else if (tabs === 1 && curMod) { curCh = { title: text, topics: [] }; curTopic = null; lastEntity = 'chapter'; curMod.chapters.push(curCh); }
+      else if (tabs === 2 && curCh) {
+        const pi = text.lastIndexOf('|'); let title = text, tt = 'video';
+        if (pi > 0) { const mt = text.slice(pi + 1).trim().toLowerCase(); if (VALID_TOPIC_TYPES.includes(mt)) { title = text.slice(0, pi).trim(); tt = mt; } }
+        curTopic = { title, topic_type: tt }; lastEntity = 'topic'; curCh.topics.push(curTopic);
+      }
+    }
+    return mods;
+  }
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    setImportFile(file); setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => { setImportPreview(parseImportPreview(ev.target?.result as string)); };
+    reader.readAsText(file);
+  }
+
+  async function handleImport() {
+    if (!importFile) return;
+    setImportLoading(true); setImportResult(null);
+    try {
+      const res = await api.importCourseStructure(courseId, importFile);
+      if (res.success) { setImportResult(res.data); toast.success(res.message || 'Import completed!'); reload(); }
+      else { toast.error(res.message || 'Import failed'); setImportResult({ error: res.message }); }
+    } catch (e: any) { toast.error(e.message || 'Import failed'); setImportResult({ error: e.message }); }
+    setImportLoading(false);
+  }
+
+  function downloadSampleFile(type: 'new' | 'update') {
+    const samples: Record<string, string> = {
+      new: `# Sample: Create New Course Structure
+# Lines starting with # are comments (ignored)
+# Use TAB characters for indentation
+# 0 tabs = Module, 1 tab = Chapter, 2 tabs = Topic | type
+# Supported topic types: video, article, quiz, exercise, project
+# Optional properties: summary, is_free_preview, points, youtube_url
+
+Introduction to Web Development
+\tsummary: Learn the fundamentals of building websites
+\tHTML Fundamentals
+\t\tsummary: Core HTML concepts and document structure
+\t\tWhat is HTML | video
+\t\t\tsummary: Overview of HTML markup language
+\t\t\tis_free_preview: true
+\t\tHTML Document Structure | article
+\t\t\tsummary: DOCTYPE, head, body elements explained
+\t\tHTML Tags Practice | exercise
+\t\t\tsummary: Build your first HTML page from scratch
+\t\t\tpoints: 10
+\tCSS Styling
+\t\tsummary: Style your web pages with CSS
+\t\tCSS Selectors and Properties | video
+\t\t\tsummary: Learn how to target and style elements
+\t\t\tis_free_preview: true
+\t\tBox Model Deep Dive | article
+\t\t\tsummary: Understanding margins, padding, borders
+\t\tCSS Layout Quiz | quiz
+\t\t\tsummary: Test your CSS knowledge
+\t\t\tpoints: 15
+JavaScript Essentials
+\tsummary: Master the programming language of the web
+\tVariables and Data Types
+\t\tsummary: Foundation of JavaScript programming
+\t\tUnderstanding Variables | video
+\t\t\tsummary: var, let, const differences
+\t\t\tis_free_preview: true
+\t\tData Types Explained | article
+\t\t\tsummary: Strings, numbers, booleans, arrays, objects
+\t\tData Type Quiz | quiz
+\t\t\tsummary: Identify correct data types
+\t\t\tpoints: 10
+\tFunctions and Scope
+\t\tsummary: Functions, closures, and scope chains
+\t\tArrow Functions | video
+\t\t\tsummary: Modern function syntax in ES6+
+\t\tClosure Exercise | exercise
+\t\t\tsummary: Build a counter using closures
+\t\t\tpoints: 20
+\t\tMini Project | project
+\t\t\tsummary: Build a calculator app
+\t\t\tpoints: 50`,
+      update: `# Sample: Update Existing Course Structure
+# Add "id: N" below a heading to UPDATE that existing unit
+# Lines WITHOUT id: will CREATE new units
+# You can mix updates and new items freely
+
+Introduction to Web Development
+\tid: 42
+\tsummary: Updated summary - comprehensive web dev course
+\tHTML Fundamentals
+\t\tid: 101
+\t\tWhat is HTML | video
+\t\t\tid: 201
+\t\t\tsummary: Revised HTML overview with examples
+\t\t\tis_free_preview: false
+\t\tHTML5 Semantic Tags | article
+\t\t\tsummary: New topic - header, nav, main, footer tags
+\tNEW: Responsive Design
+\t\tsummary: This is a brand new chapter added to the course
+\t\tMedia Queries | video
+\t\t\tsummary: Breakpoints and responsive layouts
+\t\tFlexbox Layout | article
+\t\t\tsummary: Flexible box model explained
+\t\tGrid Systems | video
+\t\t\tsummary: CSS Grid for 2D layouts`
+    };
+    const blob = new Blob([samples[type]], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = type === 'new' ? 'sample_new_course_structure.txt' : 'sample_update_course_structure.txt'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function uploadTopicVideo(file: File | null) {
     if (!file) {
       // remove: delete the Bunny asset + clear both columns (server-side)
@@ -1090,7 +1235,10 @@ function CurriculumTab({ courseId, units, reload }: any) {
 
   return (
     <div className="space-y-3">
-      <Button size="sm" onClick={() => openAdd('module', null)}><Plus className="w-4 h-4" /> Add module</Button>
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={() => openAdd('module', null)}><Plus className="w-4 h-4" /> Add module</Button>
+        <Button size="sm" variant="outline" onClick={() => { setImportOpen(true); setImportFile(null); setImportPreview(null); setImportResult(null); }}><Upload className="w-4 h-4" /> Import from Text</Button>
+      </div>
       {modules.length === 0 && <p className="text-sm text-slate-400">No modules yet.</p>}
       {modules.map((m: any) => (
         <div key={m.id} className="border border-slate-200 rounded-lg">
@@ -1255,6 +1403,200 @@ function CurriculumTab({ courseId, units, reload }: any) {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={save}>{editing ? 'Update' : 'Add'}</Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ─── Import Course Structure Dialog ─── */}
+      <Dialog open={importOpen} onClose={() => !importLoading && setImportOpen(false)} title="Import Course Structure" size="lg">
+        <div className="space-y-5 p-2">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-slate-500">Upload a tab-indented <code className="bg-slate-100 px-1 rounded text-xs">.txt</code> file to bulk-create modules, chapters, and topics.</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={() => downloadSampleFile('new')} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap border border-emerald-200 rounded-md px-2.5 py-1.5 hover:bg-emerald-50">
+                <Download className="w-3.5 h-3.5" /> New sample
+              </button>
+              <button onClick={() => downloadSampleFile('update')} className="flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-800 transition-colors whitespace-nowrap border border-amber-200 rounded-md px-2.5 py-1.5 hover:bg-amber-50">
+                <Download className="w-3.5 h-3.5" /> Update sample
+              </button>
+              <button onClick={() => setImportHelpOpen(true)} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap border border-blue-200 rounded-md px-2.5 py-1.5 hover:bg-blue-50">
+                <HelpCircle className="w-3.5 h-3.5" /> How to use
+              </button>
+            </div>
+          </div>
+
+          {/* File upload */}
+          <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center hover:border-blue-300 transition-colors">
+            <input type="file" accept=".txt" onChange={handleImportFile} className="hidden" id="import-structure-input" disabled={importLoading} />
+            <label htmlFor="import-structure-input" className="cursor-pointer">
+              {importFile ? (
+                <div className="flex items-center justify-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-700">{importFile.name}</span>
+                  <span className="text-xs text-slate-400">({(importFile.size / 1024).toFixed(1)} KB)</span>
+                </div>
+              ) : (
+                <div>
+                  <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">Click to upload .txt file</p>
+                  <p className="text-xs text-slate-400 mt-1">Tab-indented course structure format</p>
+                </div>
+              )}
+            </label>
+          </div>
+
+          {/* Tree Preview */}
+          {importPreview && importPreview.length > 0 && !importResult && (
+            <div className="border border-slate-200 rounded-lg p-4 max-h-64 overflow-auto bg-slate-50">
+              <div className="flex items-center gap-2 mb-3">
+                <FolderTree className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Preview</span>
+                <span className="text-xs text-slate-400">
+                  ({importPreview.length} module{importPreview.length !== 1 ? 's' : ''}, {importPreview.reduce((a: number, m: any) => a + m.chapters.length, 0)} chapters, {importPreview.reduce((a: number, m: any) => a + m.chapters.reduce((b: number, c: any) => b + c.topics.length, 0), 0)} topics)
+                </span>
+              </div>
+              {importPreview.map((mod: any, mi: number) => (
+                <div key={mi} className="mb-2">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-700">
+                    <Package className="w-3.5 h-3.5" /> {mod.title}
+                    {mod.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{mod.id} — update</span>}
+                    {mod.summary && <span className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">— {mod.summary}</span>}
+                  </div>
+                  {mod.chapters.map((ch: any, ci: number) => (
+                    <div key={ci} className="ml-5 mt-1">
+                      <div className="flex items-center gap-1.5 text-sm text-blue-600">
+                        <ChevronRight className="w-3 h-3" /> {ch.title}
+                        {ch.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{ch.id}</span>}
+                        {ch.summary && <span className="text-[10px] text-slate-400 truncate max-w-[180px]">— {ch.summary}</span>}
+                      </div>
+                      {ch.topics.map((t: any, ti: number) => (
+                        <div key={ti} className="ml-5 mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          <span>{t.title}</span>
+                          <span className={cn('text-[10px] font-medium', TOPIC_TYPE_COLORS[t.topic_type] || 'text-slate-400')}>{t.topic_type}</span>
+                          {t.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{t.id}</span>}
+                          {t.is_free_preview && <span className="text-[10px] text-green-600 bg-green-50 px-1 rounded">free</span>}
+                          {t.points && <span className="text-[10px] text-violet-600">{t.points}pts</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Result */}
+          {importResult && !importResult.error && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <p className="font-semibold text-emerald-800 mb-2">Import Successful!</p>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                  <div className="text-lg font-bold text-amber-700">{importResult.report?.created?.modules || 0}</div>
+                  <div className="text-xs text-slate-500">Modules</div>
+                  {(importResult.report?.updated?.modules || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.modules} updated</div>}
+                </div>
+                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                  <div className="text-lg font-bold text-blue-700">{importResult.report?.created?.chapters || 0}</div>
+                  <div className="text-xs text-slate-500">Chapters</div>
+                  {(importResult.report?.updated?.chapters || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.chapters} updated</div>}
+                </div>
+                <div className="bg-white rounded-lg p-2 border border-emerald-100">
+                  <div className="text-lg font-bold text-violet-700">{importResult.report?.created?.topics || 0}</div>
+                  <div className="text-xs text-slate-500">Topics</div>
+                  {(importResult.report?.updated?.topics || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.topics} updated</div>}
+                </div>
+              </div>
+              {importResult.report?.errors?.length > 0 && (
+                <div className="mt-3 text-xs text-red-600 bg-red-50 rounded p-2">
+                  <p className="font-medium mb-1">{importResult.report.errors.length} error(s):</p>
+                  {importResult.report.errors.map((e: string, i: number) => <p key={i}>• {e}</p>)}
+                </div>
+              )}
+            </div>
+          )}
+          {importResult?.error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{importResult.error}</div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importLoading}>
+              {importResult ? 'Close' : 'Cancel'}
+            </Button>
+            {!importResult && importPreview && importPreview.length > 0 && (
+              <Button onClick={handleImport} disabled={importLoading}>
+                {importLoading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Importing...</>) : (<><Upload className="w-4 h-4" /> Start Import</>)}
+              </Button>
+            )}
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ─── Import Help Dialog ─── */}
+      <Dialog open={importHelpOpen} onClose={() => setImportHelpOpen(false)} title="How to Import Course Structure" size="lg">
+        <div className="space-y-5 p-2 text-sm text-slate-700">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <p className="font-semibold text-blue-800 mb-2">File Format</p>
+            <p>Create a <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">.txt</code> file using <strong>tab indentation</strong> to define the hierarchy:</p>
+            <div className="mt-2 bg-white rounded border border-blue-200 p-3 font-mono text-xs leading-relaxed">
+              <div className="text-amber-700 font-bold">Introduction to Web Dev</div>
+              <div className="text-slate-400 pl-6">summary: Full-stack web development</div>
+              <div className="text-blue-600 pl-6">HTML Fundamentals</div>
+              <div className="text-violet-600 pl-12">What is HTML | video</div>
+              <div className="text-slate-400 pl-16">summary: Overview of HTML markup</div>
+              <div className="text-slate-400 pl-16">is_free_preview: true</div>
+              <div className="text-violet-600 pl-12">HTML Practice | exercise</div>
+              <div className="text-slate-400 pl-16">points: 10</div>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> No tab = Module</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> 1 tab = Chapter</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-violet-500" /> 2 tabs = Topic | type</div>
+            </div>
+          </div>
+
+          <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
+            <p className="font-semibold text-emerald-800 mb-2">Topic Types</p>
+            <p>Add the type after a pipe <code className="bg-emerald-100 px-1 rounded text-xs">|</code> character:</p>
+            <div className="mt-2 grid grid-cols-5 gap-2 text-xs">
+              <span className="text-sky-600 font-medium">video</span>
+              <span className="text-emerald-600 font-medium">article</span>
+              <span className="text-amber-600 font-medium">quiz</span>
+              <span className="text-violet-600 font-medium">exercise</span>
+              <span className="text-rose-600 font-medium">project</span>
+            </div>
+            <p className="mt-1 text-xs text-emerald-700">Default is <strong>video</strong> if no type specified.</p>
+          </div>
+
+          <div className="bg-violet-50 border border-violet-100 rounded-lg p-4">
+            <p className="font-semibold text-violet-800 mb-2">Optional Properties</p>
+            <p>Add property lines below any heading (module, chapter, or topic):</p>
+            <div className="mt-2 font-mono text-xs space-y-1 bg-white rounded border border-violet-200 p-3">
+              <div><span className="text-violet-600 font-bold">summary:</span> Description text for this item</div>
+              <div><span className="text-violet-600 font-bold">is_free_preview:</span> true <span className="text-slate-400">— mark topic as free preview</span></div>
+              <div><span className="text-violet-600 font-bold">points:</span> 10 <span className="text-slate-400">— score points for exercises/quizzes</span></div>
+              <div><span className="text-violet-600 font-bold">youtube_url:</span> https://... <span className="text-slate-400">— external video link</span></div>
+              <div><span className="text-violet-600 font-bold">id:</span> 42 <span className="text-slate-400">— UPDATE existing unit (instead of create new)</span></div>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+            <p className="font-semibold text-amber-800 mb-1">Important Notes</p>
+            <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
+              <li>Use real TAB characters (not spaces) for indentation, or 4+ spaces per level</li>
+              <li>Lines starting with # are treated as comments and ignored</li>
+              <li>Blank lines are ignored</li>
+              <li>Files (PDFs, videos) must be uploaded separately after import via the UI</li>
+              <li>display_order is auto-assigned (1, 2, 3...) based on position in the file</li>
+              <li>To update existing units, include <code className="bg-amber-100 px-1 rounded">id: N</code> below the heading</li>
+              <li>Units without <code className="bg-amber-100 px-1 rounded">id:</code> are always created as new</li>
+              <li>Download sample files to see the exact format in action</li>
+            </ul>
+          </div>
+
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setImportHelpOpen(false)}>Got it</Button>
           </div>
         </div>
       </Dialog>

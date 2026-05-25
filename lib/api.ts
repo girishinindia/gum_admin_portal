@@ -1532,6 +1532,7 @@ export const api = {
   createAuthoringUnit: (data: any) => request('/authoring/units', { method: 'POST', body: JSON.stringify(data) }),
   updateAuthoringUnit: (id: number, data: any) => request(`/authoring/units/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteAuthoringUnit: (id: number) => request(`/authoring/units/${id}`, { method: 'DELETE' }),
+  importCourseStructure: (courseId: number, file: File) => { const fd = new FormData(); fd.append('file', file); return request(`/authoring/courses/${courseId}/import-structure`, { method: 'POST', body: fd as any, isFormData: true }); },
 
   listAuthoringFaqs: (courseId: number) => request(`/authoring/faqs?authoring_course_id=${courseId}`),
   createAuthoringFaq: (data: any) => request('/authoring/faqs', { method: 'POST', body: JSON.stringify(data) }),
