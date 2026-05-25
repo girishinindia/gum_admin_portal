@@ -728,78 +728,7 @@ JavaScript Essentials
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
               ) : (
                 <>
-                  {/* Highlights */}
-                  {viewChildren.highlights.length > 0 && (() => {
-                    const kindColors: Record<string, { bg: string; text: string; border: string }> = {
-                      audience:     { bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200' },
-                      outcome:      { bg: 'bg-green-50',  text: 'text-green-700',  border: 'border-green-200' },
-                      prerequisite: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
-                      requirement:  { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
-                      skill:        { bg: 'bg-teal-50',   text: 'text-teal-700',   border: 'border-teal-200' },
-                    };
-                    const fallback = { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-100' };
-                    return (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-violet-500" /> Highlights ({viewChildren.highlights.length})</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {viewChildren.highlights.map((h: any) => {
-                            const c = kindColors[h.kind] || fallback;
-                            return (
-                              <span key={h.id} className={cn('inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border', c.bg, c.text, c.border)}>
-                                <span className="font-semibold capitalize">{h.kind}:</span> {h.text}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* FAQs */}
-                  {viewChildren.faqs.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FileText className="w-4 h-4 text-violet-500" /> FAQs ({viewChildren.faqs.length})</h4>
-                      <div className="space-y-2">
-                        {viewChildren.faqs.map((faq: any) => (
-                          <div key={faq.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
-                            <div className="text-sm font-medium text-slate-800">Q: {faq.question}</div>
-                            <div className="text-xs text-slate-500 mt-1">A: {faq.answer}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Capstones & Mini Projects side by side */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {viewChildren.capstones.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><Package className="w-4 h-4 text-violet-500" /> Capstones ({viewChildren.capstones.length})</h4>
-                        <div className="space-y-1">
-                          {viewChildren.capstones.map((cp: any) => (
-                            <div key={cp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
-                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {cp.title}
-                              {cp.solution_github_url && <a href={cp.solution_github_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">git</a>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {viewChildren.miniProjects.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FlaskConical className="w-4 h-4 text-violet-500" /> Mini Projects ({viewChildren.miniProjects.length})</h4>
-                        <div className="space-y-1">
-                          {viewChildren.miniProjects.map((mp: any) => (
-                            <div key={mp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
-                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {mp.title}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Curriculum tree */}
+                  {/* Curriculum tree — shown first */}
                   {viewChildren.units.length > 0 && (() => {
                     const vu = viewChildren.units;
                     const mods = vu.filter((x: any) => x.unit_type === 'module');
@@ -893,6 +822,77 @@ JavaScript Essentials
                       </div>
                     );
                   })()}
+
+                  {/* Highlights */}
+                  {viewChildren.highlights.length > 0 && (() => {
+                    const kindColors: Record<string, { bg: string; text: string; border: string }> = {
+                      audience:     { bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200' },
+                      outcome:      { bg: 'bg-green-50',  text: 'text-green-700',  border: 'border-green-200' },
+                      prerequisite: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+                      requirement:  { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+                      skill:        { bg: 'bg-teal-50',   text: 'text-teal-700',   border: 'border-teal-200' },
+                    };
+                    const fallback = { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-100' };
+                    return (
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-violet-500" /> Highlights ({viewChildren.highlights.length})</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {viewChildren.highlights.map((h: any) => {
+                            const c = kindColors[h.kind] || fallback;
+                            return (
+                              <span key={h.id} className={cn('inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border', c.bg, c.text, c.border)}>
+                                <span className="font-semibold capitalize">{h.kind}:</span> {h.text}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* FAQs */}
+                  {viewChildren.faqs.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FileText className="w-4 h-4 text-violet-500" /> FAQs ({viewChildren.faqs.length})</h4>
+                      <div className="space-y-2">
+                        {viewChildren.faqs.map((faq: any) => (
+                          <div key={faq.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                            <div className="text-sm font-medium text-slate-800">Q: {faq.question}</div>
+                            <div className="text-xs text-slate-500 mt-1">A: {faq.answer}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Capstones & Mini Projects side by side */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {viewChildren.capstones.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><Package className="w-4 h-4 text-violet-500" /> Capstones ({viewChildren.capstones.length})</h4>
+                        <div className="space-y-1">
+                          {viewChildren.capstones.map((cp: any) => (
+                            <div key={cp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
+                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {cp.title}
+                              {cp.solution_github_url && <a href={cp.solution_github_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">git</a>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {viewChildren.miniProjects.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><FlaskConical className="w-4 h-4 text-violet-500" /> Mini Projects ({viewChildren.miniProjects.length})</h4>
+                        <div className="space-y-1">
+                          {viewChildren.miniProjects.map((mp: any) => (
+                            <div key={mp.id} className="text-xs text-slate-600 flex items-center gap-1.5">
+                              <span className="w-1 h-1 bg-slate-400 rounded-full" /> {mp.title}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
