@@ -264,8 +264,14 @@ JavaScript Essentials
     const courseTitle = preview?.courseFields?.title || listImportFile.name.replace('.txt', '');
     setListImportLoading(true); setListImportResult(null);
     try {
-      // Step 1: Create a blank course with the instructor
-      const createRes = await api.createAuthoringCourse({ instructor_id: Number(listImportInstructorId), title: courseTitle, level: 'beginner', is_free: false, requires_verification: true });
+      // Step 1: Create a course with basic fields from preview
+      const pf = preview?.courseFields || {};
+      const isFree = pf.is_free === 'true' || pf.is_free === '1' || pf.is_free === 'yes';
+      const createPayload: any = { instructor_id: Number(listImportInstructorId), title: courseTitle, level: pf.level || 'beginner', is_free: isFree, requires_verification: true };
+      if (!isFree && pf.price) createPayload.price = Number(pf.price);
+      if (pf.original_price) createPayload.original_price = Number(pf.original_price);
+      if (pf.subtitle) createPayload.subtitle = pf.subtitle;
+      const createRes = await api.createAuthoringCourse(createPayload);
       if (!createRes.success) { toast.error(createRes.error || 'Failed to create course'); setListImportLoading(false); return; }
       const newCourseId = createRes.data.id;
       // Step 2: Import the file into the new course
@@ -909,7 +915,7 @@ JavaScript Essentials
             {!listImportResult && (
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Instructor <span className="text-red-500">*</span></label>
-                <Select value={listImportInstructorId} onChange={e => setListImportInstructorId(e.target.value)} disabled={listImportLoading} options={[{ value: '', label: 'Select instructor...' }, ...instructors.map((i: any) => ({ value: String(i.id), label: i.name || i.email }))]} />
+                <Select value={listImportInstructorId} onChange={e => setListImportInstructorId(e.target.value)} disabled={listImportLoading} options={[{ value: '', label: 'Select instructor...' }, ...instructors.map((i: any) => ({ value: String(i.id), label: i.full_name || i.email }))]} />
               </div>
             )}
 
