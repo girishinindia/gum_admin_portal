@@ -56,6 +56,77 @@ const TOPIC_ICON: Record<string, any> = { video: Video, article: FileText, quiz:
 
 type Tab = 'basics' | 'highlights' | 'curriculum' | 'faqs' | 'capstones' | 'mini-projects';
 
+/* ─── Shared import preview parsing (used by both listing-page and CurriculumTab) ─── */
+const IMPORT_VALID_TOPIC_TYPES = ['video', 'article', 'quiz', 'exercise', 'project'];
+const IMPORT_VALID_HIGHLIGHT_KINDS = ['prerequisite', 'outcome', 'skill', 'audience', 'requirement'];
+
+function splitImportSectionsShared(content: string): Record<string, string> {
+  const markerRe = /^\[([A-Z_]+)\]\s*$/;
+  const lines = content.split(/\r?\n/);
+  const sections: Record<string, string> = {};
+  let cur: string | null = null;
+  let curLines: string[] = [];
+  let hasMarkers = false;
+  for (const line of lines) {
+    const m = line.trim().match(markerRe);
+    if (m) { hasMarkers = true; if (cur) sections[cur] = curLines.join('\n'); cur = m[1]; curLines = []; }
+    else curLines.push(line);
+  }
+  if (cur) sections[cur] = curLines.join('\n');
+  if (!hasMarkers) sections['CURRICULUM'] = content;
+  return sections;
+}
+
+function parseCurriculumPreviewShared(block: string) {
+  const lines = block.split(/\r?\n/);
+  const mods: any[] = [];
+  let curMod: any = null, curCh: any = null, curTopic: any = null, lastEntity: string | null = null;
+  for (const raw of lines) {
+    if (raw.trim() === '' || raw.trim().startsWith('#')) continue;
+    let tabs = 0, j = 0;
+    while (j < raw.length && raw[j] === '\t') { tabs++; j++; }
+    if (tabs === 0 && raw[0] === ' ') { let sp = 0, k = 0; while (k < raw.length && raw[k] === ' ') { sp++; k++; } if (sp >= 8) tabs = 2; else if (sp >= 4) tabs = 1; j = k; }
+    const text = raw.slice(j).trim();
+    if (!text) continue;
+    const propMatch = text.match(/^(summary|is_free_preview|points|youtube_url)\s*:\s*(.*)$/i);
+    if (propMatch) {
+      const key = propMatch[1].toLowerCase();
+      const val = propMatch[2].trim();
+      const target = lastEntity === 'module' ? curMod : lastEntity === 'chapter' ? curCh : lastEntity === 'topic' ? curTopic : null;
+      if (target) { if (key === 'summary') target.summary = val; else if (key === 'is_free_preview') target.is_free_preview = val === 'true'; else if (key === 'points') target.points = parseInt(val); else if (key === 'youtube_url') target.youtube_url = val; }
+      continue;
+    }
+    if (tabs === 0) { curMod = { title: text, chapters: [] }; curCh = null; curTopic = null; lastEntity = 'module'; mods.push(curMod); }
+    else if (tabs === 1 && curMod) { curCh = { title: text, topics: [] }; curTopic = null; lastEntity = 'chapter'; curMod.chapters.push(curCh); }
+    else if (tabs === 2 && curCh) {
+      const pi = text.lastIndexOf('|'); let title = text, tt = 'video';
+      if (pi > 0) { const mt = text.slice(pi + 1).trim().toLowerCase(); if (IMPORT_VALID_TOPIC_TYPES.includes(mt)) { title = text.slice(0, pi).trim(); tt = mt; } }
+      curTopic = { title, topic_type: tt }; lastEntity = 'topic'; curCh.topics.push(curTopic);
+    }
+  }
+  return mods;
+}
+
+function parseImportPreviewShared(content: string) {
+  const sections = splitImportSectionsShared(content);
+  const preview: any = { hasCourse: false, hasHighlights: false, hasFaq: false, hasCurriculum: false, courseFields: {} as Record<string, string>, highlights: [] as any[], faqs: [] as any[], modules: [] as any[] };
+  if (sections['COURSE']) {
+    preview.hasCourse = true;
+    for (const raw of sections['COURSE'].split(/\r?\n/)) { const t = raw.trim(); if (!t || t.startsWith('#')) continue; const ci = t.indexOf(':'); if (ci > 0) preview.courseFields[t.slice(0, ci).trim().toLowerCase()] = t.slice(ci + 1).trim(); }
+  }
+  if (sections['HIGHLIGHTS']) {
+    preview.hasHighlights = true;
+    for (const raw of sections['HIGHLIGHTS'].split(/\r?\n/)) { const t = raw.trim(); if (!t || t.startsWith('#')) continue; const ci = t.indexOf(':'); if (ci > 0) { const kind = t.slice(0, ci).trim().toLowerCase(); const text = t.slice(ci + 1).trim(); if (IMPORT_VALID_HIGHLIGHT_KINDS.includes(kind) && text) preview.highlights.push({ kind, text }); } }
+  }
+  if (sections['FAQ']) {
+    preview.hasFaq = true;
+    let curQ: string | null = null;
+    for (const raw of sections['FAQ'].split(/\r?\n/)) { const t = raw.trim(); if (!t || t.startsWith('#')) continue; if (/^Q\s*:\s*/i.test(t)) { curQ = t.replace(/^Q\s*:\s*/i, '').trim(); } else if (/^A\s*:\s*/i.test(t) && curQ) { preview.faqs.push({ question: curQ, answer: t.replace(/^A\s*:\s*/i, '').trim() }); curQ = null; } }
+  }
+  if (sections['CURRICULUM']) { preview.hasCurriculum = true; preview.modules = parseCurriculumPreviewShared(sections['CURRICULUM']); }
+  return preview;
+}
+
 function StatusBadge({ status }: { status: string }) {
   return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[status] || 'bg-slate-100 text-slate-600'}`}>{status?.replace('_', ' ')}</span>;
 }
@@ -99,6 +170,128 @@ function CourseBuilderInner() {
   const [capstones, setCapstones] = useState<any[]>([]);
   const [miniProjects, setMiniProjects] = useState<any[]>([]);
   const [readiness, setReadiness] = useState<{ ready: boolean; problems: string[] } | null>(null);
+
+  // ── Listing-page import state ──
+  const [listImportOpen, setListImportOpen] = useState(false);
+  const [listImportFile, setListImportFile] = useState<File | null>(null);
+  const [listImportPreview, setListImportPreview] = useState<any | null>(null);
+  const [listImportLoading, setListImportLoading] = useState(false);
+  const [listImportResult, setListImportResult] = useState<any | null>(null);
+  const [listImportInstructorId, setListImportInstructorId] = useState<string>('');
+  const [listImportHelpOpen, setListImportHelpOpen] = useState(false);
+
+  function downloadListImportSample() {
+    const sample = `# Sample: Full Course Import
+# This file creates a new course with details, highlights, FAQs, and curriculum
+# All sections are optional — include only what you need
+# Lines starting with # are comments (ignored)
+
+[COURSE]
+title: Introduction to Web Development
+subtitle: Build modern websites from scratch
+short_intro: Learn HTML, CSS, and JavaScript step by step
+long_intro: This comprehensive course covers the core technologies of the web.
+level: beginner
+price: 499
+original_price: 999
+is_free: false
+has_certificate: true
+
+[HIGHLIGHTS]
+# Format: kind: text
+# Kinds: prerequisite, outcome, skill, audience, requirement
+prerequisite: Basic computer literacy
+outcome: Build responsive websites from scratch
+outcome: Write clean, semantic HTML
+skill: HTML5
+skill: CSS3
+skill: JavaScript ES6+
+audience: Aspiring web developers
+requirement: A code editor (VS Code recommended)
+
+[FAQ]
+Q: Do I need programming experience?
+A: No! This course starts from the very basics.
+Q: What tools do I need?
+A: Just a code editor (VS Code is free) and a modern web browser.
+
+[CURRICULUM]
+# 0 tabs = Module, 1 tab = Chapter, 2 tabs = Topic | type
+# Topic types: video, article, quiz, exercise, project
+# Properties: summary, is_free_preview, points, youtube_url
+
+Introduction to Web Development
+\tsummary: Learn the fundamentals of building websites
+\tHTML Fundamentals
+\t\tsummary: Core HTML concepts
+\t\tWhat is HTML | video
+\t\t\tis_free_preview: true
+\t\tHTML Document Structure | article
+\t\tHTML Tags Practice | exercise
+\t\t\tpoints: 10
+\tCSS Styling
+\t\tCSS Selectors | video
+\t\t\tis_free_preview: true
+\t\tBox Model | article
+\t\tCSS Quiz | quiz
+\t\t\tpoints: 15
+JavaScript Essentials
+\tsummary: Master the programming language of the web
+\tVariables and Data Types
+\t\tUnderstanding Variables | video
+\t\tData Types | article
+\t\tData Type Quiz | quiz
+\t\t\tpoints: 10`;
+    const blob = new Blob([sample], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'sample_course_import.txt'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleListImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    setListImportFile(file); setListImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => { setListImportPreview(parseImportPreviewShared(ev.target?.result as string)); };
+    reader.readAsText(file);
+  }
+
+  async function handleListImport() {
+    if (!listImportFile) return;
+    if (!listImportInstructorId) { toast.error('Select an instructor first'); return; }
+    const preview = listImportPreview;
+    const courseTitle = preview?.courseFields?.title || listImportFile.name.replace('.txt', '');
+    setListImportLoading(true); setListImportResult(null);
+    try {
+      // Step 1: Create a blank course with the instructor
+      const createRes = await api.createAuthoringCourse({ instructor_id: Number(listImportInstructorId), title: courseTitle, level: 'beginner', is_free: false, requires_verification: true });
+      if (!createRes.success) { toast.error(createRes.error || 'Failed to create course'); setListImportLoading(false); return; }
+      const newCourseId = createRes.data.id;
+      // Step 2: Import the file into the new course
+      const importRes = await api.importCourseStructure(newCourseId, listImportFile);
+      if (importRes.success) {
+        setListImportResult({ ...importRes.data, courseId: newCourseId, courseTitle });
+        toast.success(importRes.message || 'Course imported!');
+        fetchCourses(); refreshStats();
+      } else {
+        toast.error(importRes.message || 'Import failed');
+        setListImportResult({ error: importRes.message });
+      }
+    } catch (e: any) { toast.error(e.message || 'Import failed'); setListImportResult({ error: e.message }); }
+    setListImportLoading(false);
+  }
+
+  function openImportedCourse() {
+    if (!listImportResult?.courseId) return;
+    setListImportOpen(false);
+    (async () => {
+      try {
+        const r = await api.getAuthoringCourse(listImportResult.courseId);
+        if (r.success && r.data) { openEdit(r.data); }
+      } catch { toast.error('Failed to open course'); }
+    })();
+  }
 
   async function refreshReadiness(courseId: number) {
     // Defensive: a failed readiness call (e.g. API not yet restarted) must never
@@ -378,7 +571,7 @@ function CourseBuilderInner() {
         <PageHeader
           title="Instructor Courses"
           description="Create instructor courses with curriculum, exercises & FAQs — verified before going live"
-          actions={!showTrash ? <Button onClick={openCreate}><Plus className="w-4 h-4" /> Add course</Button> : undefined}
+          actions={!showTrash ? <div className="flex gap-2"><Button variant="outline" onClick={() => { setListImportOpen(true); setListImportFile(null); setListImportPreview(null); setListImportResult(null); setListImportInstructorId(''); }}><Upload className="w-4 h-4" /> Import from File</Button><Button onClick={openCreate}><Plus className="w-4 h-4" /> Add course</Button></div> : undefined}
         />
 
         {/* Summary stats */}
@@ -696,6 +889,156 @@ function CourseBuilderInner() {
             </div>
           )}
         </Dialog>
+
+        {/* ── Import Full Course Dialog (listing page) ── */}
+        <Dialog open={listImportOpen} onClose={() => !listImportLoading && setListImportOpen(false)} title="Import Full Course from Text File" size="lg">
+          <div className="space-y-4 p-2">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm text-slate-500">Upload a <code className="bg-slate-100 px-1 rounded text-xs">.txt</code> file to create a new course with details, highlights, FAQs, and curriculum — all at once.</p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={downloadListImportSample} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap border border-emerald-200 rounded-md px-2.5 py-1.5 hover:bg-emerald-50">
+                  <Download className="w-3.5 h-3.5" /> Sample file
+                </button>
+                <button onClick={() => setListImportHelpOpen(true)} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap border border-blue-200 rounded-md px-2.5 py-1.5 hover:bg-blue-50">
+                  <HelpCircle className="w-3.5 h-3.5" /> How to use
+                </button>
+              </div>
+            </div>
+
+            {/* Instructor selector */}
+            {!listImportResult && (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Instructor <span className="text-red-500">*</span></label>
+                <Select value={listImportInstructorId} onChange={e => setListImportInstructorId(e.target.value)} disabled={listImportLoading} options={[{ value: '', label: 'Select instructor...' }, ...instructors.map((i: any) => ({ value: String(i.id), label: i.name || i.email }))]} />
+              </div>
+            )}
+
+            {/* File upload */}
+            {!listImportResult && (
+              <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:border-blue-300 transition-colors">
+                <input type="file" accept=".txt" onChange={handleListImportFile} className="hidden" id="list-import-input" disabled={listImportLoading} />
+                <label htmlFor="list-import-input" className="cursor-pointer">
+                  {listImportFile ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm font-medium text-slate-700">{listImportFile.name}</span>
+                      <span className="text-xs text-slate-400">({(listImportFile.size / 1024).toFixed(1)} KB)</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm text-slate-500">Click to upload .txt file</p>
+                      <p className="text-xs text-slate-400 mt-1">Sections: [COURSE], [HIGHLIGHTS], [FAQ], [CURRICULUM]</p>
+                    </div>
+                  )}
+                </label>
+              </div>
+            )}
+
+            {/* Preview */}
+            {listImportPreview && !listImportResult && (listImportPreview.hasCourse || listImportPreview.hasHighlights || listImportPreview.hasFaq || listImportPreview.hasCurriculum) && (
+              <div className="border border-slate-200 rounded-lg p-3 max-h-56 overflow-auto bg-slate-50 space-y-2">
+                <div className="flex items-center gap-2">
+                  <FolderTree className="w-4 h-4 text-slate-500" />
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Preview</span>
+                  <div className="flex gap-1.5 ml-auto">
+                    {listImportPreview.hasCourse && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">COURSE</span>}
+                    {listImportPreview.hasHighlights && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">{listImportPreview.highlights.length} HIGHLIGHTS</span>}
+                    {listImportPreview.hasFaq && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">{listImportPreview.faqs.length} FAQs</span>}
+                    {listImportPreview.hasCurriculum && <span className="text-[10px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-medium">{listImportPreview.modules.length} MODULES</span>}
+                  </div>
+                </div>
+                {listImportPreview.hasCourse && Object.keys(listImportPreview.courseFields).length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-2">
+                    <p className="text-xs font-semibold text-blue-700 mb-1">Course Details</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                      {Object.entries(listImportPreview.courseFields).map(([k, v]: [string, any]) => (
+                        <div key={k} className="flex gap-1.5 text-xs"><span className="text-blue-600 font-medium">{k}:</span><span className="text-slate-600 truncate">{String(v)}</span></div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {listImportPreview.hasCurriculum && listImportPreview.modules.length > 0 && (
+                  <div className="bg-violet-50 border border-violet-200 rounded-md p-2">
+                    <p className="text-xs font-semibold text-violet-700 mb-1">Curriculum: {listImportPreview.modules.length} modules, {listImportPreview.modules.reduce((a: number, m: any) => a + m.chapters.length, 0)} chapters, {listImportPreview.modules.reduce((a: number, m: any) => a + m.chapters.reduce((b: number, c: any) => b + c.topics.length, 0), 0)} topics</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Result */}
+            {listImportResult && !listImportResult.error && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                <p className="font-semibold text-emerald-800 mb-2">Course Created &amp; Imported!</p>
+                <p className="text-sm text-emerald-700 mb-3">Course <strong>&quot;{listImportResult.courseTitle}&quot;</strong> has been created successfully.</p>
+                <div className="space-y-2 text-xs text-slate-600">
+                  {listImportResult.report?.course && <p>Course details updated</p>}
+                  {(listImportResult.report?.highlights?.added > 0) && <p>{listImportResult.report.highlights.added} highlights added</p>}
+                  {(listImportResult.report?.faqs?.added > 0) && <p>{listImportResult.report.faqs.added} FAQs added</p>}
+                  {(listImportResult.report?.created?.modules > 0 || listImportResult.report?.created?.chapters > 0) && (
+                    <p>Curriculum: {listImportResult.report.created.modules} modules, {listImportResult.report.created.chapters} chapters, {listImportResult.report.created.topics} topics</p>
+                  )}
+                </div>
+                {listImportResult.report?.errors?.length > 0 && (
+                  <div className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">
+                    {listImportResult.report.errors.map((e: string, i: number) => <p key={i}>• {e}</p>)}
+                  </div>
+                )}
+              </div>
+            )}
+            {listImportResult?.error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{listImportResult.error}</div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setListImportOpen(false)} disabled={listImportLoading}>
+                {listImportResult ? 'Close' : 'Cancel'}
+              </Button>
+              {listImportResult && !listImportResult.error && (
+                <Button onClick={openImportedCourse}><Pencil className="w-4 h-4" /> Open Course Editor</Button>
+              )}
+              {!listImportResult && listImportPreview && (listImportPreview.hasCourse || listImportPreview.hasCurriculum) && (
+                <Button onClick={handleListImport} disabled={listImportLoading || !listImportInstructorId}>
+                  {listImportLoading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Creating &amp; Importing...</>) : (<><Upload className="w-4 h-4" /> Create Course &amp; Import</>)}
+                </Button>
+              )}
+            </div>
+          </div>
+        </Dialog>
+
+        {/* ── Listing Import Help Dialog ── */}
+        <Dialog open={listImportHelpOpen} onClose={() => setListImportHelpOpen(false)} title="How to Import Course from Text File" size="lg">
+          <div className="space-y-4 p-2 text-sm text-slate-700">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <p className="font-semibold text-slate-800 mb-2">File Structure — 4 Sections</p>
+              <p>Use <code className="bg-slate-200 px-1.5 py-0.5 rounded text-xs">[SECTION]</code> markers to separate different parts. All sections are optional.</p>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-blue-500" /> <code>[COURSE]</code> — Title, price, level, etc.</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-green-500" /> <code>[HIGHLIGHTS]</code> — Prerequisites, outcomes, skills</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-amber-500" /> <code>[FAQ]</code> — Q&amp;A pairs</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-violet-500" /> <code>[CURRICULUM]</code> — Modules, chapters, topics</div>
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+              <p className="font-semibold text-blue-800 mb-1">[COURSE] — key: value</p>
+              <p className="text-xs text-slate-600">Keys: title, subtitle, short_intro, long_intro, level, price, original_price, is_free, has_certificate, category_id, language_id</p>
+            </div>
+            <div className="bg-green-50 border border-green-100 rounded-lg p-4">
+              <p className="font-semibold text-green-800 mb-1">[HIGHLIGHTS] — kind: text</p>
+              <p className="text-xs text-slate-600">Kinds: prerequisite, outcome, skill, audience, requirement</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+              <p className="font-semibold text-amber-800 mb-1">[FAQ] — Q: / A: pairs</p>
+              <p className="text-xs text-slate-600">Each question on a <code>Q:</code> line, answer on the next <code>A:</code> line</p>
+            </div>
+            <div className="bg-violet-50 border border-violet-100 rounded-lg p-4">
+              <p className="font-semibold text-violet-800 mb-1">[CURRICULUM] — tab-indented tree</p>
+              <p className="text-xs text-slate-600">0 tabs = Module, 1 tab = Chapter, 2 tabs = Topic | type. Types: video, article, quiz, exercise, project. Properties: summary, is_free_preview, points, youtube_url</p>
+            </div>
+            <div className="flex justify-end"><Button variant="outline" onClick={() => setListImportHelpOpen(false)}>Close</Button></div>
+          </div>
+        </Dialog>
       </div>
     );
   }
@@ -947,107 +1290,11 @@ function CurriculumTab({ courseId, units, reload }: any) {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<any | null>(null);
 
-  const VALID_TOPIC_TYPES = ['video', 'article', 'quiz', 'exercise', 'project'];
-  const VALID_HIGHLIGHT_KINDS = ['prerequisite', 'outcome', 'skill', 'audience', 'requirement'];
   const TOPIC_TYPE_COLORS: Record<string, string> = { video: 'text-sky-600', article: 'text-emerald-600', quiz: 'text-amber-600', exercise: 'text-violet-600', project: 'text-rose-600' };
   const HIGHLIGHT_KIND_COLORS: Record<string, string> = { prerequisite: 'text-amber-600', outcome: 'text-emerald-600', skill: 'text-sky-600', audience: 'text-violet-600', requirement: 'text-rose-600' };
 
-  /** Split content by [SECTION] markers */
-  function splitImportSections(content: string): Record<string, string> {
-    const markerRe = /^\[([A-Z_]+)\]\s*$/;
-    const lines = content.split(/\r?\n/);
-    const sections: Record<string, string> = {};
-    let cur: string | null = null;
-    let curLines: string[] = [];
-    let hasMarkers = false;
-    for (const line of lines) {
-      const m = line.trim().match(markerRe);
-      if (m) { hasMarkers = true; if (cur) sections[cur] = curLines.join('\n'); cur = m[1]; curLines = []; }
-      else curLines.push(line);
-    }
-    if (cur) sections[cur] = curLines.join('\n');
-    if (!hasMarkers) sections['CURRICULUM'] = content;
-    return sections;
-  }
-
-  /** Parse curriculum block into module tree (for preview) */
-  function parseCurriculumPreview(block: string) {
-    const lines = block.split(/\r?\n/);
-    const mods: any[] = [];
-    let curMod: any = null, curCh: any = null, curTopic: any = null, lastEntity: string | null = null;
-    for (const raw of lines) {
-      if (raw.trim() === '' || raw.trim().startsWith('#')) continue;
-      let tabs = 0, j = 0;
-      while (j < raw.length && raw[j] === '\t') { tabs++; j++; }
-      if (tabs === 0 && raw[0] === ' ') { let sp = 0, k = 0; while (k < raw.length && raw[k] === ' ') { sp++; k++; } if (sp >= 8) tabs = 2; else if (sp >= 4) tabs = 1; j = k; }
-      const text = raw.slice(j).trim();
-      if (!text) continue;
-      const propMatch = text.match(/^(summary|is_free_preview|points|youtube_url|id)\s*:\s*(.*)$/i);
-      if (propMatch) {
-        const key = propMatch[1].toLowerCase();
-        const val = propMatch[2].trim();
-        const target = lastEntity === 'module' ? curMod : lastEntity === 'chapter' ? curCh : lastEntity === 'topic' ? curTopic : null;
-        if (target) { if (key === 'summary') target.summary = val; else if (key === 'id') target.id = parseInt(val); else if (key === 'is_free_preview') target.is_free_preview = val === 'true'; else if (key === 'points') target.points = parseInt(val); else if (key === 'youtube_url') target.youtube_url = val; }
-        continue;
-      }
-      if (tabs === 0) { curMod = { title: text, chapters: [] }; curCh = null; curTopic = null; lastEntity = 'module'; mods.push(curMod); }
-      else if (tabs === 1 && curMod) { curCh = { title: text, topics: [] }; curTopic = null; lastEntity = 'chapter'; curMod.chapters.push(curCh); }
-      else if (tabs === 2 && curCh) {
-        const pi = text.lastIndexOf('|'); let title = text, tt = 'video';
-        if (pi > 0) { const mt = text.slice(pi + 1).trim().toLowerCase(); if (VALID_TOPIC_TYPES.includes(mt)) { title = text.slice(0, pi).trim(); tt = mt; } }
-        curTopic = { title, topic_type: tt }; lastEntity = 'topic'; curCh.topics.push(curTopic);
-      }
-    }
-    return mods;
-  }
-
-  /** Parse full import file into structured preview */
-  function parseImportPreview(content: string) {
-    const sections = splitImportSections(content);
-    const preview: any = { hasCourse: false, hasHighlights: false, hasFaq: false, hasCurriculum: false, courseFields: {} as Record<string, string>, highlights: [] as any[], faqs: [] as any[], modules: [] as any[] };
-
-    // [COURSE]
-    if (sections['COURSE']) {
-      preview.hasCourse = true;
-      for (const raw of sections['COURSE'].split(/\r?\n/)) {
-        const t = raw.trim();
-        if (!t || t.startsWith('#')) continue;
-        const ci = t.indexOf(':');
-        if (ci > 0) { preview.courseFields[t.slice(0, ci).trim().toLowerCase()] = t.slice(ci + 1).trim(); }
-      }
-    }
-    // [HIGHLIGHTS]
-    if (sections['HIGHLIGHTS']) {
-      preview.hasHighlights = true;
-      for (const raw of sections['HIGHLIGHTS'].split(/\r?\n/)) {
-        const t = raw.trim();
-        if (!t || t.startsWith('#')) continue;
-        const ci = t.indexOf(':');
-        if (ci > 0) {
-          const kind = t.slice(0, ci).trim().toLowerCase();
-          const text = t.slice(ci + 1).trim();
-          if (VALID_HIGHLIGHT_KINDS.includes(kind) && text) preview.highlights.push({ kind, text });
-        }
-      }
-    }
-    // [FAQ]
-    if (sections['FAQ']) {
-      preview.hasFaq = true;
-      let curQ: string | null = null;
-      for (const raw of sections['FAQ'].split(/\r?\n/)) {
-        const t = raw.trim();
-        if (!t || t.startsWith('#')) continue;
-        if (/^Q\s*:\s*/i.test(t)) { curQ = t.replace(/^Q\s*:\s*/i, '').trim(); }
-        else if (/^A\s*:\s*/i.test(t) && curQ) { preview.faqs.push({ question: curQ, answer: t.replace(/^A\s*:\s*/i, '').trim() }); curQ = null; }
-      }
-    }
-    // [CURRICULUM]
-    if (sections['CURRICULUM']) {
-      preview.hasCurriculum = true;
-      preview.modules = parseCurriculumPreview(sections['CURRICULUM']);
-    }
-    return preview;
-  }
+  // Use the shared top-level parser
+  const parseImportPreview = parseImportPreviewShared;
 
   function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return;
@@ -1068,9 +1315,8 @@ function CurriculumTab({ courseId, units, reload }: any) {
     setImportLoading(false);
   }
 
-  function downloadSampleFile(type: 'new' | 'update') {
-    const samples: Record<string, string> = {
-      new: `# Sample: Full Course Import — Create New
+  function downloadSampleFile() {
+    const sample = `# Sample: Full Course Import
 # This file imports course details, highlights, FAQs, AND curriculum
 # All sections are optional — include only what you need
 # Lines starting with # are comments (ignored)
@@ -1162,75 +1408,11 @@ JavaScript Essentials
 \t\t\tpoints: 20
 \t\tMini Project | project
 \t\t\tsummary: Build a calculator app
-\t\t\tpoints: 50`,
-      update: `# Sample: Full Course Import — Update Existing
-# Update course details + add/modify highlights, FAQs, curriculum
-# Sections included will REPLACE existing data (highlights & FAQs)
-# Curriculum uses id: to update specific units
-
-[COURSE]
-# Only include fields you want to change
-title: Introduction to Web Development (Updated)
-subtitle: Build modern, responsive websites from scratch
-price: 399
-original_price: 799
-
-[HIGHLIGHTS]
-# WARNING: Including this section REPLACES all existing highlights
-prerequisite: Basic computer literacy
-prerequisite: A laptop or desktop computer
-outcome: Build responsive websites from scratch
-outcome: Write clean, semantic HTML
-outcome: Master CSS Flexbox and Grid layouts
-outcome: Add interactivity with JavaScript
-outcome: Deploy your website to the internet
-skill: HTML5
-skill: CSS3
-skill: JavaScript ES6+
-skill: Responsive Design
-skill: Git & GitHub
-audience: Aspiring web developers
-audience: Designers who want to code
-audience: Career changers entering tech
-requirement: A code editor (VS Code recommended)
-
-[FAQ]
-# WARNING: Including this section REPLACES all existing FAQs
-Q: Do I need programming experience?
-A: No! This course starts from the very basics.
-Q: What tools do I need?
-A: Just a code editor (VS Code is free) and a modern web browser.
-Q: Is the certificate recognized?
-A: Our certificates are widely accepted by employers in the tech industry.
-
-[CURRICULUM]
-# Add "id: N" below a heading to UPDATE that existing unit
-# Lines WITHOUT id: will CREATE new units
-
-Introduction to Web Development
-\tid: 42
-\tsummary: Updated summary - comprehensive web dev course
-\tHTML Fundamentals
-\t\tid: 101
-\t\tWhat is HTML | video
-\t\t\tid: 201
-\t\t\tsummary: Revised HTML overview with examples
-\t\t\tis_free_preview: false
-\t\tHTML5 Semantic Tags | article
-\t\t\tsummary: New topic - header, nav, main, footer tags
-\tNEW: Responsive Design
-\t\tsummary: This is a brand new chapter added to the course
-\t\tMedia Queries | video
-\t\t\tsummary: Breakpoints and responsive layouts
-\t\tFlexbox Layout | article
-\t\t\tsummary: Flexible box model explained
-\t\tGrid Systems | video
-\t\t\tsummary: CSS Grid for 2D layouts`
-    };
-    const blob = new Blob([samples[type]], { type: 'text/plain' });
+\t\t\tpoints: 50`;
+    const blob = new Blob([sample], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = type === 'new' ? 'sample_full_course_import.txt' : 'sample_full_course_update.txt'; a.click();
+    a.href = url; a.download = 'sample_course_import.txt'; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -1563,11 +1745,8 @@ Introduction to Web Development
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm text-slate-500">Upload a <code className="bg-slate-100 px-1 rounded text-xs">.txt</code> file to import course details, highlights, FAQs, and/or curriculum structure.</p>
             <div className="flex items-center gap-2 shrink-0">
-              <button onClick={() => downloadSampleFile('new')} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap border border-emerald-200 rounded-md px-2.5 py-1.5 hover:bg-emerald-50">
-                <Download className="w-3.5 h-3.5" /> New sample
-              </button>
-              <button onClick={() => downloadSampleFile('update')} className="flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-800 transition-colors whitespace-nowrap border border-amber-200 rounded-md px-2.5 py-1.5 hover:bg-amber-50">
-                <Download className="w-3.5 h-3.5" /> Update sample
+              <button onClick={() => downloadSampleFile()} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap border border-emerald-200 rounded-md px-2.5 py-1.5 hover:bg-emerald-50">
+                <Download className="w-3.5 h-3.5" /> Sample file
               </button>
               <button onClick={() => setImportHelpOpen(true)} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap border border-blue-200 rounded-md px-2.5 py-1.5 hover:bg-blue-50">
                 <HelpCircle className="w-3.5 h-3.5" /> How to use
@@ -1664,14 +1843,12 @@ Introduction to Web Development
                     <div key={mi} className="mb-2">
                       <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-700">
                         <Package className="w-3.5 h-3.5" /> {mod.title}
-                        {mod.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{mod.id} — update</span>}
                         {mod.summary && <span className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">— {mod.summary}</span>}
                       </div>
                       {mod.chapters.map((ch: any, ci: number) => (
                         <div key={ci} className="ml-5 mt-1">
                           <div className="flex items-center gap-1.5 text-sm text-blue-600">
                             <ChevronRight className="w-3 h-3" /> {ch.title}
-                            {ch.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{ch.id}</span>}
                             {ch.summary && <span className="text-[10px] text-slate-400 truncate max-w-[180px]">— {ch.summary}</span>}
                           </div>
                           {ch.topics.map((t: any, ti: number) => (
@@ -1679,7 +1856,6 @@ Introduction to Web Development
                               <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
                               <span>{t.title}</span>
                               <span className={cn('text-[10px] font-medium', TOPIC_TYPE_COLORS[t.topic_type] || 'text-slate-400')}>{t.topic_type}</span>
-                              {t.id && <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 rounded">id:{t.id}</span>}
                               {t.is_free_preview && <span className="text-[10px] text-green-600 bg-green-50 px-1 rounded">free</span>}
                               {t.points && <span className="text-[10px] text-violet-600">{t.points}pts</span>}
                             </div>
@@ -1719,22 +1895,19 @@ Introduction to Web Development
                   </div>
                 )}
                 {/* Curriculum */}
-                {(importResult.report?.created?.modules > 0 || importResult.report?.updated?.modules > 0 || importResult.report?.created?.chapters > 0 || importResult.report?.created?.topics > 0) && (
+                {(importResult.report?.created?.modules > 0 || importResult.report?.created?.chapters > 0 || importResult.report?.created?.topics > 0) && (
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="bg-white rounded-lg p-2 border border-emerald-100">
                       <div className="text-lg font-bold text-amber-700">{importResult.report?.created?.modules || 0}</div>
                       <div className="text-xs text-slate-500">Modules</div>
-                      {(importResult.report?.updated?.modules || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.modules} updated</div>}
                     </div>
                     <div className="bg-white rounded-lg p-2 border border-emerald-100">
                       <div className="text-lg font-bold text-blue-700">{importResult.report?.created?.chapters || 0}</div>
                       <div className="text-xs text-slate-500">Chapters</div>
-                      {(importResult.report?.updated?.chapters || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.chapters} updated</div>}
                     </div>
                     <div className="bg-white rounded-lg p-2 border border-emerald-100">
                       <div className="text-lg font-bold text-violet-700">{importResult.report?.created?.topics || 0}</div>
                       <div className="text-xs text-slate-500">Topics</div>
-                      {(importResult.report?.updated?.topics || 0) > 0 && <div className="text-[10px] text-blue-600">{importResult.report.updated.topics} updated</div>}
                     </div>
                   </div>
                 )}
