@@ -2487,4 +2487,10 @@ export const api = {
   getCronJobs: () => request('/cron/jobs'),
   triggerCronJob: (name: string) => request(`/cron/${name}/trigger`, { method: 'POST' }),
 
+  // ══════════════════════════════════════════════
+  // SITE SETTINGS — Section Visibility
+  // ══════════════════════════════════════════════
+  listSiteSettings: () => request('/site-settings'),
+  updateSiteSettings: (id: number, is_visible: boolean) => request(`/site-settings/${id}`, { method: 'PATCH', body: JSON.stringify({ is_visible }) }),
+
 };
