@@ -1581,9 +1581,9 @@ export const api = {
   clearCart: (userId: number) => request(`/cart-items/clear/${userId}`, { method: 'DELETE' }),
 
   // ── Wishlists ──
-  listWishlists: (qs = '') => request(`/wishlists${qs}`, { auth: false }),
-  getWishlist: (id: number) => request(`/wishlists/${id}`, { auth: false }),
-  getWishlistByUser: (userId: number) => request(`/wishlists/user/${userId}`, { auth: false }),
+  listWishlists: (qs = '') => request(`/wishlists${qs}`),
+  getWishlist: (id: number) => request(`/wishlists/${id}`),
+  getWishlistByUser: (userId: number) => request(`/wishlists/user/${userId}`),
   createWishlist: (data: any) => request('/wishlists', { method: 'POST', body: JSON.stringify(data) }),
   updateWishlist: (id: number, data: any) => request(`/wishlists/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeleteWishlist: (id: number) => request(`/wishlists/${id}`, { method: 'DELETE' }),

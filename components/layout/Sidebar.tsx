@@ -443,6 +443,7 @@ const navGroups: NavGroup[] = [
       { href: '/orders', label: 'Orders', icon: ShoppingCart, iconColor: 'text-indigo-500' },
       { href: '/payment-management', label: 'Payments & Transactions', icon: CreditCard, iconColor: 'text-emerald-500' },
       { href: '/enrollments', label: 'Enrollments', icon: GraduationCap, iconColor: 'text-blue-500' },
+      { href: '/wishlists', label: 'Wishlists', icon: Star, iconColor: 'text-rose-500' },
       { href: '/invoice-management', label: 'Invoices & Refunds', icon: Receipt, iconColor: 'text-amber-500' },
       { href: '/revenue-dashboard', label: 'Revenue Dashboard', icon: TrendingUp, iconColor: 'text-rose-500' },
       { href: '/student-progress', label: 'Student Progress', icon: BarChart3, iconColor: 'text-violet-500' },
