@@ -385,7 +385,7 @@ function CouponsTab() {
                         {capitalize(item.applicable_to)}
                       </span>
                     </TD>
-                    <TD><span className="text-sm text-slate-700">{item.used_count}{item.max_uses ? `/${item.max_uses}` : ''}</span></TD>
+                    <TD><span className="text-sm text-slate-700">{item.used_count}{item.usage_limit ? `/${item.usage_limit}` : ''}</span></TD>
                     <TD><span className="text-sm text-slate-600">{formatDate(item.valid_until)}</span></TD>
                     <TD>
                       {item.is_active ? (
@@ -534,9 +534,9 @@ function CouponsTab() {
               <DetailRow label="Discount Type" value={capitalize(viewItem.discount_type)} />
               <DetailRow label="Discount Value" value={viewItem.discount_type === 'percentage' ? `${viewItem.discount_value}%` : `₹${viewItem.discount_value}`} />
               <DetailRow label="Applicable To" value={capitalize(viewItem.applicable_to)} />
-              <DetailRow label="Max Uses" value={viewItem.max_uses?.toString() || 'Unlimited'} />
+              <DetailRow label="Max Uses" value={viewItem.usage_limit?.toString() || 'Unlimited'} />
               <DetailRow label="Used Count" value={viewItem.used_count?.toString()} />
-              <DetailRow label="Min Order Value" value={viewItem.min_order_value ? `₹${viewItem.min_order_value}` : '--'} />
+              <DetailRow label="Min Order Value" value={viewItem.min_purchase_amount ? `₹${viewItem.min_purchase_amount}` : '--'} />
               <DetailRow label="Valid From" value={formatDate(viewItem.valid_from)} />
               <DetailRow label="Valid Until" value={formatDate(viewItem.valid_until)} />
               <DetailRow label="Created" value={viewItem.created_at ? fromNow(viewItem.created_at) : '--'} />

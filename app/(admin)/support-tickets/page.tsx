@@ -1896,27 +1896,44 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
           </div>
         )}
 
-        {/* Add Message Form */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50">
-          <div className="space-y-3">
-            <textarea
-              value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-              placeholder="Type your message..."
-            />
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={newMessageInternal} onChange={e => setNewMessageInternal(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-                <span className="text-sm text-slate-600">Internal note</span>
-              </label>
-              <Button onClick={handleSendMessage} disabled={sendingMessage || !newMessage.trim()}>
-                {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send Message
-              </Button>
+        {/* Add Message Form — disabled on closed tickets (must reopen first) */}
+        {ticket?.ticket_status === 'closed' ? (
+          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between gap-3">
+            <span className="text-sm text-slate-500">This ticket is closed. Reopen it to continue the conversation.</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const res = await api.changeSupportTicketStatus(ticketId, 'open', 'Reopened by admin');
+                if (res.success) { toast.success('Ticket reopened'); loadTicket(); }
+                else toast.error(res.error || 'Failed to reopen');
+              }}
+            >
+              Reopen ticket
+            </Button>
+          </div>
+        ) : (
+          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50">
+            <div className="space-y-3">
+              <textarea
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                placeholder="Type your message..."
+              />
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={newMessageInternal} onChange={e => setNewMessageInternal(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                  <span className="text-sm text-slate-600">Internal note</span>
+                </label>
+                <Button onClick={handleSendMessage} disabled={sendingMessage || !newMessage.trim()}>
+                  {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send Message
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Attachments Section */}
