@@ -1775,6 +1775,8 @@ export const api = {
   restoreReview: (id: number) => request(`/reviews/${id}/restore`, { method: 'PATCH' }),
   deleteReview: (id: number) => request(`/reviews/${id}`, { method: 'DELETE' }),
   recalculateReviewRatings: (item_type: string, item_id: number) => request('/reviews/recalculate', { method: 'POST', body: JSON.stringify({ item_type, item_id }) }),
+  reviewUserOptions: (search = '') => request(`/reviews/user-options?search=${encodeURIComponent(search)}&limit=20`),
+  reviewItemOptions: (item_type: string, search = '') => request(`/reviews/item-options?item_type=${encodeURIComponent(item_type)}&search=${encodeURIComponent(search)}&limit=20`),
   getReviewStats: (params: Record<string, any> = {}) => {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== null && v !== '') q.set(k, String(v)); }
@@ -2182,6 +2184,8 @@ export const api = {
   getSupportTicket: (id: number) => request(`/support-tickets/${id}`),
   getSupportTicketStats: () => request('/support-tickets/stats'),
   createSupportTicket: (data: any) => request('/support-tickets', { method: 'POST', body: JSON.stringify(data) }),
+  supportTicketUserOptions: (search = '') => request(`/support-tickets/user-options?search=${encodeURIComponent(search)}&limit=20`),
+  supportTicketRelatedOptions: (related_type: string, search = '') => request(`/support-tickets/related-options?related_type=${encodeURIComponent(related_type)}&search=${encodeURIComponent(search)}&limit=20`),
   updateSupportTicket: (id: number, data: any) => request(`/support-tickets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   changeSupportTicketStatus: (id: number, status: string, notes?: string) => request(`/support-tickets/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, notes }) }),
   assignSupportTicket: (id: number, assigned_to: number | null) => request(`/support-tickets/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ assigned_to }) }),

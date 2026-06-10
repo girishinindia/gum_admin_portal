@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
+import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -23,7 +24,11 @@ import { usePageSize } from '@/hooks/usePageSize';
 
 type SortField = 'id' | 'rating' | 'created_at' | 'helpful_count';
 
-const ITEM_TYPES = ['course', 'batch', 'webinar', 'bundle', 'instructor'] as const;
+const ITEM_TYPES = ['course', 'batch', 'webinar', 'bundle', 'instructor', 'blog', 'live_session', 'podcast'] as const;
+const TYPE_LABELS: Record<string, string> = {
+  course: 'Course', batch: 'Batch', webinar: 'Webinar', bundle: 'Bundle',
+  instructor: 'Instructor', blog: 'Blog', live_session: 'Live Session', podcast: 'Podcast',
+};
 const STATUSES = ['pending', 'published', 'flagged', 'hidden'] as const;
 
 const STATUS_COLORS: Record<string, string> = {
@@ -278,7 +283,7 @@ export default function ReviewsPage() {
           onChange={e => { setFilterType(e.target.value); setPage(1); }}
         >
           <option value="">All Types</option>
-          {ITEM_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+          {ITEM_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
         </select>
         <select
           className="text-sm border rounded-md px-2 py-1.5 bg-white"
@@ -466,25 +471,35 @@ export default function ReviewsPage() {
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} title="Create Review" size="md">
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">User ID *</label>
-              <Input value={formUserId} onChange={e => setFormUserId(e.target.value)} placeholder="e.g. 1" />
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">User *</label>
+              <SearchSelect
+                key={`user-${createDialogOpen}`}
+                placeholder="Search user by name or email…"
+                loadOptions={(s) => api.reviewUserOptions(s).then((r: any) => r.data || [])}
+                onChange={(id) => setFormUserId(id === '' ? '' : String(id))}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Item Type *</label>
-              <select className="w-full text-sm border rounded-md px-3 py-2" value={formItemType} onChange={e => setFormItemType(e.target.value)}>
-                {ITEM_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+              <select className="w-full text-sm border rounded-md px-3 py-2" value={formItemType} onChange={e => { setFormItemType(e.target.value); setFormItemId(''); }}>
+                {ITEM_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Item ID *</label>
-              <Input value={formItemId} onChange={e => setFormItemId(e.target.value)} placeholder="e.g. 1" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Rating *</label>
               <select className="w-full text-sm border rounded-md px-3 py-2" value={formRating} onChange={e => setFormRating(e.target.value)}>
                 {[5, 4, 3, 2, 1].map(r => <option key={r} value={r}>{r} Star{r > 1 ? 's' : ''}</option>)}
               </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Item *</label>
+              <SearchSelect
+                key={`item-${createDialogOpen}-${formItemType}`}
+                placeholder={`Search ${TYPE_LABELS[formItemType]} by name…`}
+                loadOptions={(s) => api.reviewItemOptions(formItemType, s).then((r: any) => r.data || [])}
+                onChange={(id) => setFormItemId(id === '' ? '' : String(id))}
+              />
             </div>
           </div>
           <div>

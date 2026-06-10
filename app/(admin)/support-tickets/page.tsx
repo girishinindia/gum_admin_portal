@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
+import { SearchSelect } from '@/components/ui/SearchSelect';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
@@ -1545,20 +1546,36 @@ function TicketsTab({ onViewDetail }: { onViewDetail: (id: number) => void }) {
           </div>
           <div className="grid grid-cols-2 gap-5">
             <div>
-              <label className="block mb-1.5 text-sm font-medium text-slate-700">User ID</label>
-              <Input {...register('user_id')} type="number" placeholder="User ID" />
+              <label className="block mb-1.5 text-sm font-medium text-slate-700">User</label>
+              <SearchSelect
+                key={`tuser-${dialogKey}`}
+                placeholder="Search user by name or email…"
+                loadOptions={(s) => api.supportTicketUserOptions(s).then((r: any) => r.data || [])}
+                onChange={(id) => setValue('user_id', id === '' ? '' : String(id))}
+              />
+              <input type="hidden" {...register('user_id')} />
             </div>
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Related Type</label>
-              <select {...register('related_type')} className={selectClass + ' w-full'}>
+              <select {...register('related_type', { onChange: () => setValue('related_id', '') })} className={selectClass + ' w-full'}>
                 {RELATED_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-5">
             <div>
-              <label className="block mb-1.5 text-sm font-medium text-slate-700">Related ID</label>
-              <Input {...register('related_id')} type="number" placeholder="Optional related ID" />
+              <label className="block mb-1.5 text-sm font-medium text-slate-700">Related Item</label>
+              {watch('related_type') && watch('related_type') !== 'general' ? (
+                <SearchSelect
+                  key={`trel-${dialogKey}-${watch('related_type')}`}
+                  placeholder={`Search ${watch('related_type')} by name…`}
+                  loadOptions={(s) => api.supportTicketRelatedOptions(watch('related_type'), s).then((r: any) => r.data || [])}
+                  onChange={(id) => setValue('related_id', id === '' ? '' : String(id))}
+                />
+              ) : (
+                <div className="h-10 px-3 flex items-center text-sm text-slate-400 rounded-lg border border-slate-200 bg-slate-50">Not applicable for General</div>
+              )}
+              <input type="hidden" {...register('related_id')} />
             </div>
             <div className="flex items-center pt-6">
               <label className="flex items-center gap-2 cursor-pointer">
