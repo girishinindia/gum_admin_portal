@@ -197,8 +197,8 @@ function CouponsTab() {
         discount_type: item.discount_type || 'percentage',
         discount_value: item.discount_value || 0,
         applicable_to: item.applicable_to || 'all',
-        max_uses: item.max_uses || '',
-        min_order_value: item.min_order_value || '',
+        max_uses: item.usage_limit ?? '',
+        min_order_value: item.min_purchase_amount ?? '',
         valid_from: item.valid_from ? item.valid_from.slice(0, 16) : '',
         valid_until: item.valid_until ? item.valid_until.slice(0, 16) : '',
         is_active: item.is_active ?? true,
@@ -223,8 +223,11 @@ function CouponsTab() {
       else body.valid_from = null;
       if (body.valid_until) body.valid_until = new Date(body.valid_until).toISOString();
       else body.valid_until = null;
-      if (!body.max_uses) body.max_uses = null;
-      if (!body.min_order_value) body.min_order_value = null;
+      // Map UI field names → real DB columns (usage_limit / min_purchase_amount)
+      body.usage_limit = body.max_uses ? Number(body.max_uses) : null;
+      body.min_purchase_amount = body.min_order_value ? Number(body.min_order_value) : null;
+      delete body.max_uses;
+      delete body.min_order_value;
 
       if (editing) {
         await api.updateCoupon(editing.id, body);
