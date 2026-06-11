@@ -20,7 +20,7 @@ import {
 import { fromNow } from '@/lib/utils';
 import { usePageSize } from '@/hooks/usePageSize';
 
-type SortField = 'id' | 'awarded_at' | 'created_at';
+type SortField = 'id' | 'earned_at' | 'created_at';
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -42,7 +42,7 @@ export default function UserBadgesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = usePageSize(10);
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState<SortField>('awarded_at');
+  const [sortField, setSortField] = useState<SortField>('earned_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [loading, setLoading] = useState(true);
 
@@ -167,8 +167,8 @@ export default function UserBadgesPage() {
               <TH>BADGE</TH>
               <TH>USER</TH>
               <TH>REASON</TH>
-              <TH className="cursor-pointer" onClick={() => toggleSort('awarded_at')}>
-                <span className="inline-flex items-center gap-1">AWARDED AT <SortIcon field="awarded_at" /></span>
+              <TH className="cursor-pointer" onClick={() => toggleSort('earned_at')}>
+                <span className="inline-flex items-center gap-1">AWARDED AT <SortIcon field="earned_at" /></span>
               </TH>
               <TH className="w-20 text-right">ACTIONS</TH>
             </TR>
@@ -212,8 +212,8 @@ export default function UserBadgesPage() {
                 </TD>
                 <TD className="text-sm text-slate-600 max-w-[200px] truncate">{row.awarded_reason || '--'}</TD>
                 <TD>
-                  <div className="text-sm text-slate-700">{formatDate(row.awarded_at)}</div>
-                  {row.awarded_at && <div className="text-xs text-slate-400">{fromNow(row.awarded_at)}</div>}
+                  <div className="text-sm text-slate-700">{formatDate(row.earned_at)}</div>
+                  {row.earned_at && <div className="text-xs text-slate-400">{fromNow(row.earned_at)}</div>}
                 </TD>
                 <TD className="text-right">
                   <Dropdown trigger={<button className="p-1 rounded hover:bg-slate-100"><MoreVertical className="w-4 h-4 text-slate-400" /></button>}>
@@ -299,7 +299,7 @@ export default function UserBadgesPage() {
               <DetailRow label="User ID" value={String(selected.user_id)} />
               <DetailRow label="User Name" value={selected.user?.full_name || selected.user?.email} />
               <DetailRow label="XP Earned" value={selected.badge?.xp_reward ? String(selected.badge.xp_reward) : null} />
-              <DetailRow label="Awarded At" value={formatDate(selected.awarded_at)} />
+              <DetailRow label="Awarded At" value={formatDate(selected.earned_at)} />
               <DetailRow label="Awarded By" value={selected.awarded_by ? String(selected.awarded_by) : 'System'} />
               <DetailRow label="Created" value={formatDate(selected.created_at)} />
             </div>

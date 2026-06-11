@@ -121,12 +121,12 @@ export default function CertificateTemplatesPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    api.listCertificateTemplates({ limit: 200 }).catch(() => ({}));
-    // Fetch courses for dropdown
-    api.listCertificateTemplates({ limit: 1 }).then(() => {
-      // We need a courses endpoint - use a simple fetch
-      fetch('/api/v1/courses?limit=200').catch(() => {});
-    });
+    // Courses for the template's course dropdown. (Was a relative
+    // fetch('/api/v1/courses') → 404 against :3000 and never populated the
+    // list; route through the API wrapper at the real backend host.)
+    api.listCourses('?limit=200&sort=name&order=asc')
+      .then((res: any) => setCourses(res?.data || []))
+      .catch(() => setCourses([]));
   }, []);
 
   // ─── Sorting ───
