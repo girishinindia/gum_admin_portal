@@ -113,6 +113,8 @@ export default function EmailTemplatesPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const { register, handleSubmit, reset, setValue, watch } = useForm();
+  // BUG-06 fix: track whether the admin manually edited the key (stops auto-fill)
+  const [keyTouched, setKeyTouched] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
 
   const [viewOpen, setViewOpen] = useState(false);
@@ -181,6 +183,7 @@ export default function EmailTemplatesPage() {
   function openCreate() {
     setEditing(null); setDialogKey(k => k + 1); setActiveTab('Basic');
     reset(defaultFormValues);
+    setKeyTouched(false);
     setDialogOpen(true);
   }
 
@@ -203,6 +206,9 @@ export default function EmailTemplatesPage() {
   async function onSubmit(data: any) {
     setFormLoading(true);
     const payload: any = { ...data };
+    // BUG-06 fix: normalise the key (trim, lowercase, underscores) before saving
+    payload.template_key = String(payload.template_key || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!payload.template_key) { setFormLoading(false); toast.error('Template Key is required'); return; }
     // Parse variables as JSON
     if (typeof payload.variables === 'string') {
       try { payload.variables = JSON.parse(payload.variables); } catch { payload.variables = []; }
@@ -543,7 +549,8 @@ export default function EmailTemplatesPage() {
 
       {/* ─── Edit / Create Dialog ─── */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Email Template' : 'Add Email Template'} size="lg">
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+        {/* BUG-06 fix: invalid submits used to do NOTHING visible — now they toast */}
+        <form onSubmit={handleSubmit(onSubmit, () => toast.error('Template Name and Template Key are required (see the Basic tab).'))} className="p-6 space-y-4">
           {/* Active toggle when editing */}
           {editing && (
             <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3 -mt-1">
@@ -587,8 +594,19 @@ export default function EmailTemplatesPage() {
           {activeTab === 'Basic' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <Input label="Template Key *" placeholder="e.g. enrollment_confirmed" {...register('template_key', { required: true })} />
-                <Input label="Template Name *" placeholder="e.g. Enrollment Confirmation" {...register('template_name', { required: true })} />
+                {/* BUG-06 fix: auto-fill the key from the name on create */}
+                <Input label="Template Name *" placeholder="e.g. Enrollment Confirmation" {...register('template_name', {
+                  required: true,
+                  onChange: (e) => {
+                    if (!editing && !keyTouched) {
+                      setValue('template_key', String(e.target.value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''));
+                    }
+                  },
+                })} />
+                <Input label="Template Key *" placeholder="e.g. enrollment_confirmed" {...register('template_key', {
+                  required: true,
+                  onChange: () => setKeyTouched(true),
+                })} />
               </div>
               <Input label="Subject" placeholder="Email subject with {{variables}}" {...register('subject')} />
               <div className="grid grid-cols-2 gap-3">
