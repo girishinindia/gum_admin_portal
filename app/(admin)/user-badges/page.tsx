@@ -10,12 +10,12 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
-import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
-import { api } from '@/lib/api';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { api, apiRequest } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
   Plus, Trash2, Eye, ArrowUpDown, ArrowUp, ArrowDown,
-  Loader2, MoreVertical, Medal, Send, Users,
+  Loader2, Medal, Send, Users, Edit2,
 } from 'lucide-react';
 import { fromNow } from '@/lib/utils';
 import { usePageSize } from '@/hooks/usePageSize';
@@ -65,6 +65,28 @@ export default function UserBadgesPage() {
   const [bulkUserIds, setBulkUserIds] = useState('');
   const [bulkReason, setBulkReason] = useState('');
 
+  // Edit form (doc 24 fix — there was no way to edit an award)
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editRow, setEditRow] = useState<any>(null);
+  const [editBadgeId, setEditBadgeId] = useState('');
+  const [editUserId, setEditUserId] = useState('');
+  const [editReason, setEditReason] = useState('');
+
+  // Dropdown data (doc 24 fix — raw ID inputs → real pickers)
+  const [badges, setBadges] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.listBadges({ limit: 200, sort: 'name', order: 'asc' }).then((r: any) => setBadges(r?.data || [])).catch(() => setBadges([]));
+    api.listUsers('?limit=500&sort=first_name&order=asc').then((r: any) => setUsers(r?.data || [])).catch(() => setUsers([]));
+  }, []);
+
+  const badgeOptions = badges.map((b: any) => ({ value: String(b.id), label: `${b.name}${b.category ? ` (${b.category})` : ''}` }));
+  const userOptions = users.map((u: any) => ({
+    value: String(u.id),
+    label: `${[u.first_name, u.last_name].filter(Boolean).join(' ') || 'User'} — ${u.email || u.mobile || `#${u.id}`}`,
+  }));
+
   const toolbarRef = useRef<DataToolbarHandle>(null);
 
   const fetchData = useCallback(async () => {
@@ -92,13 +114,14 @@ export default function UserBadgesPage() {
   };
 
   const handleAward = async () => {
-    if (!awardBadgeId || !awardUserId) { toast.error('Badge ID and User ID are required'); return; }
+    if (!awardBadgeId || !awardUserId) { toast.error('Pick a badge and a user'); return; }
     setSaving(true);
     try {
       const res = await api.awardBadge({
         badge_id: Number(awardBadgeId),
         user_id: Number(awardUserId),
-        awarded_reason: awardReason || undefined,
+        // API stores extras in metadata (awarded_reason was silently dropped before)
+        metadata: awardReason ? { reason: awardReason } : undefined,
       });
       if (res.success) { toast.success('Badge awarded'); setAwardDialogOpen(false); setAwardBadgeId(''); setAwardUserId(''); setAwardReason(''); fetchData(); }
       else toast.error(res.error || 'Failed to award badge');
@@ -115,7 +138,7 @@ export default function UserBadgesPage() {
       const res = await api.bulkAwardBadge({
         badge_id: Number(bulkBadgeId),
         user_ids: userIds,
-        awarded_reason: bulkReason || undefined,
+        metadata: bulkReason ? { reason: bulkReason } : undefined,
       });
       if (res.success) {
         const d = res.data;
@@ -123,6 +146,32 @@ export default function UserBadgesPage() {
         setBulkDialogOpen(false); setBulkBadgeId(''); setBulkUserIds(''); setBulkReason(''); fetchData();
       } else toast.error(res.error || 'Failed');
     } catch { toast.error('Bulk award failed'); }
+    setSaving(false);
+  };
+
+  const openEdit = (row: any) => {
+    setEditRow(row);
+    setEditBadgeId(String(row.badge_id));
+    setEditUserId(String(row.user_id));
+    setEditReason(row.metadata?.reason || '');
+    setEditDialogOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!editRow) return;
+    setSaving(true);
+    try {
+      const res = await apiRequest<any>(`/user-badges/${editRow.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          badge_id: Number(editBadgeId),
+          user_id: Number(editUserId),
+          metadata: { ...(editRow.metadata || {}), reason: editReason || undefined },
+        }),
+      });
+      if (res?.success !== false) { toast.success('Award updated'); setEditDialogOpen(false); fetchData(); }
+      else toast.error(res?.error || 'Update failed');
+    } catch { toast.error('Update failed'); }
     setSaving(false);
   };
 
@@ -187,40 +236,40 @@ export default function UserBadgesPage() {
             ) : rows.map(row => (
               <TR key={row.id}>
                 <TD className="text-slate-400 text-xs">{row.id}</TD>
+                {/* doc 24 fix: API returns FLAT badge_name/user_name fields — the old
+                    row.badge?.name / row.user?.full_name never existed, so the list
+                    showed "Badge #1 / User #28" instead of names. */}
                 <TD>
                   <div className="flex items-center gap-2">
-                    {row.badge?.icon_url ? (
-                      <img src={row.badge.icon_url} alt={row.badge?.name} className="w-7 h-7 rounded-full object-cover" />
+                    {row.badge_icon_url ? (
+                      <img src={row.badge_icon_url} alt={row.badge_name || ''} className="w-7 h-7 rounded-full object-cover" />
                     ) : (
                       <div className="w-7 h-7 rounded-full bg-amber-50 flex items-center justify-center">
                         <Medal className="w-3.5 h-3.5 text-amber-500" />
                       </div>
                     )}
                     <div>
-                      <div className="font-medium text-slate-800 text-sm">{row.badge?.name || `Badge #${row.badge_id}`}</div>
-                      {row.badge?.category && (
-                        <Badge className="bg-slate-100 text-slate-500 text-[10px]">{row.badge.category}</Badge>
+                      <div className="font-medium text-slate-800 text-sm">{row.badge_name || `Badge #${row.badge_id}`}</div>
+                      {row.badge_category && (
+                        <Badge className="bg-slate-100 text-slate-500 text-[10px]">{row.badge_category}</Badge>
                       )}
                     </div>
                   </div>
                 </TD>
                 <TD>
-                  <div className="text-sm text-slate-800">{row.user?.full_name || row.user?.email || `User #${row.user_id}`}</div>
-                  {row.user?.email && row.user?.full_name && (
-                    <div className="text-xs text-slate-400">{row.user.email}</div>
-                  )}
+                  <div className="text-sm text-slate-800">{row.user_name || `User #${row.user_id}`}</div>
+                  <div className="text-xs text-slate-400">ID {row.user_id}</div>
                 </TD>
-                <TD className="text-sm text-slate-600 max-w-[200px] truncate">{row.awarded_reason || '--'}</TD>
+                <TD className="text-sm text-slate-600 max-w-[200px] truncate">{row.metadata?.reason || '--'}</TD>
                 <TD>
                   <div className="text-sm text-slate-700">{formatDate(row.earned_at)}</div>
                   {row.earned_at && <div className="text-xs text-slate-400">{fromNow(row.earned_at)}</div>}
                 </TD>
-                <TD className="text-right">
-                  <Dropdown trigger={<button className="p-1 rounded hover:bg-slate-100"><MoreVertical className="w-4 h-4 text-slate-400" /></button>}>
-                    <DropdownItem icon={Eye} onClick={() => { setSelected(row); setViewDialogOpen(true); }}>View</DropdownItem>
-                    <DropdownDivider />
-                    <DropdownItem icon={Trash2} danger onClick={() => setDeleteId(row.id)}>Remove</DropdownItem>
-                  </Dropdown>
+                {/* doc 24 fix: direct icon actions + Edit */}
+                <TD className="text-right whitespace-nowrap">
+                  <button title="View" className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" onClick={() => { setSelected(row); setViewDialogOpen(true); }}><Eye className="w-4 h-4" /></button>
+                  <button title="Edit" className="p-1.5 rounded-lg hover:bg-brand-50 text-brand-600" onClick={() => openEdit(row)}><Edit2 className="w-4 h-4" /></button>
+                  <button title="Remove" className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500" onClick={() => setDeleteId(row.id)}><Trash2 className="w-4 h-4" /></button>
                 </TD>
               </TR>
             ))}
@@ -235,8 +284,15 @@ export default function UserBadgesPage() {
       {/* Award Badge Dialog */}
       <Dialog open={awardDialogOpen} onClose={() => setAwardDialogOpen(false)} title="Award Badge" size="md">
         <div className="p-6 space-y-5">
-          <Input label="Badge ID *" type="number" value={awardBadgeId} onChange={e => setAwardBadgeId(e.target.value)} placeholder="e.g. 1" />
-          <Input label="User ID *" type="number" value={awardUserId} onChange={e => setAwardUserId(e.target.value)} placeholder="e.g. 42" />
+          {/* doc 24 fix: searchable pickers instead of raw IDs */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Badge *</label>
+            <SearchableSelect options={badgeOptions} value={awardBadgeId} onChange={v => setAwardBadgeId(String(v))} placeholder="Search badges…" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">User *</label>
+            <SearchableSelect options={userOptions} value={awardUserId} onChange={v => setAwardUserId(String(v))} placeholder="Search by name or email…" />
+          </div>
           <Input label="Reason (optional)" value={awardReason} onChange={e => setAwardReason(e.target.value)} placeholder="e.g. Completed 7-day streak" />
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setAwardDialogOpen(false)}>Cancel</Button>
@@ -251,7 +307,10 @@ export default function UserBadgesPage() {
       {/* Bulk Award Dialog */}
       <Dialog open={bulkDialogOpen} onClose={() => setBulkDialogOpen(false)} title="Bulk Award Badge" size="md">
         <div className="p-6 space-y-5">
-          <Input label="Badge ID *" type="number" value={bulkBadgeId} onChange={e => setBulkBadgeId(e.target.value)} placeholder="e.g. 1" />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Badge *</label>
+            <SearchableSelect options={badgeOptions} value={bulkBadgeId} onChange={v => setBulkBadgeId(String(v))} placeholder="Search badges…" />
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">User IDs * (comma-separated)</label>
             <textarea
@@ -272,39 +331,58 @@ export default function UserBadgesPage() {
         </div>
       </Dialog>
 
+      {/* Edit Dialog (doc 24 fix) */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} title="Edit Badge Award" size="md">
+        <div className="p-6 space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Badge *</label>
+            <SearchableSelect options={badgeOptions} value={editBadgeId} onChange={v => setEditBadgeId(String(v))} placeholder="Search badges…" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">User *</label>
+            <SearchableSelect options={userOptions} value={editUserId} onChange={v => setEditUserId(String(v))} placeholder="Search by name or email…" />
+          </div>
+          <Input label="Reason" value={editReason} onChange={e => setEditReason(e.target.value)} placeholder="Why was this badge awarded?" />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEdit} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />} Save changes
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
       {/* View Dialog */}
       <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} title="Badge Award Details" size="lg">
         {selected && (
           <div className="p-6 space-y-4">
             {/* Badge info */}
             <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg">
-              {selected.badge?.icon_url ? (
-                <img src={selected.badge.icon_url} alt={selected.badge?.name} className="w-12 h-12 rounded-full border border-amber-200" />
+              {selected.badge_icon_url ? (
+                <img src={selected.badge_icon_url} alt={selected.badge_name || ''} className="w-12 h-12 rounded-full border border-amber-200" />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
                   <Medal className="w-6 h-6 text-amber-600" />
                 </div>
               )}
               <div>
-                <div className="font-semibold text-slate-800">{selected.badge?.name || `Badge #${selected.badge_id}`}</div>
-                {selected.badge?.category && (
-                  <Badge className="bg-amber-100 text-amber-700 text-xs">{selected.badge.category}</Badge>
+                <div className="font-semibold text-slate-800">{selected.badge_name || `Badge #${selected.badge_id}`}</div>
+                {selected.badge_category && (
+                  <Badge className="bg-amber-100 text-amber-700 text-xs">{selected.badge_category}</Badge>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <DetailRow label="Award ID" value={String(selected.id)} />
-              <DetailRow label="Badge ID" value={String(selected.badge_id)} />
+              <DetailRow label="Badge" value={selected.badge_name || `#${selected.badge_id}`} />
+              <DetailRow label="User" value={selected.user_name || `#${selected.user_id}`} />
               <DetailRow label="User ID" value={String(selected.user_id)} />
-              <DetailRow label="User Name" value={selected.user?.full_name || selected.user?.email} />
-              <DetailRow label="XP Earned" value={selected.badge?.xp_reward ? String(selected.badge.xp_reward) : null} />
               <DetailRow label="Awarded At" value={formatDate(selected.earned_at)} />
-              <DetailRow label="Awarded By" value={selected.awarded_by ? String(selected.awarded_by) : 'System'} />
               <DetailRow label="Created" value={formatDate(selected.created_at)} />
             </div>
-            {selected.awarded_reason && (
-              <DetailRow label="Reason" value={selected.awarded_reason} />
+            {selected.metadata?.reason && (
+              <DetailRow label="Reason" value={selected.metadata.reason} />
             )}
           </div>
         )}

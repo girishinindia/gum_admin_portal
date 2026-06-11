@@ -95,6 +95,8 @@ export default function CertificateTemplatesPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [sigFile, setSigFile] = useState<File | null>(null);
   const [htmlFile, setHtmlFile] = useState<File | null>(null);
+  // doc 24 fix: allow REMOVING already-uploaded assets (API nulls a *_url sent as '')
+  const [removeAssets, setRemoveAssets] = useState<Record<string, boolean>>({});
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
 
@@ -148,6 +150,7 @@ export default function CertificateTemplatesPage() {
     setFormMinScore(''); setFormMinProgress(''); setFormTemplateHtml('');
     setFormActive(true);
     setBgFile(null); setLogoFile(null); setSigFile(null); setHtmlFile(null);
+    setRemoveAssets({});
     setDialogOpen(true);
   };
 
@@ -162,6 +165,7 @@ export default function CertificateTemplatesPage() {
     setFormTemplateHtml(row.template_html || '');
     setFormActive(row.is_active !== false);
     setBgFile(null); setLogoFile(null); setSigFile(null); setHtmlFile(null);
+    setRemoveAssets({});
     setDialogOpen(true);
   };
 
@@ -183,6 +187,10 @@ export default function CertificateTemplatesPage() {
       if (logoFile) fd.append('logo', logoFile);
       if (sigFile) fd.append('signature', sigFile);
       if (htmlFile) fd.append('template_html_file', htmlFile);
+      // Removals (edit mode): API converts '' → null and clears the column
+      if (removeAssets.bg && !bgFile) fd.append('background_image_url', '');
+      if (removeAssets.logo && !logoFile) fd.append('logo_url', '');
+      if (removeAssets.sig && !sigFile) fd.append('signature_url', '');
 
       const res = dialogMode === 'create'
         ? await api.createCertificateTemplate(fd)
@@ -295,22 +303,20 @@ export default function CertificateTemplatesPage() {
                   )}
                 </TD>
                 <TD className="text-xs text-slate-400">{fromNow(row.created_at)}</TD>
-                <TD className="text-right">
-                  <Dropdown trigger={<button className="p-1 rounded hover:bg-slate-100"><MoreVertical className="w-4 h-4 text-slate-400" /></button>}>
-                    <DropdownItem icon={Eye} onClick={() => { setSelected(row); setViewDialogOpen(true); }}>View</DropdownItem>
-                    {!row.deleted_at && (
-                      <DropdownItem icon={Edit2} onClick={() => openEdit(row)}>Edit</DropdownItem>
-                    )}
-                    <DropdownDivider />
-                    {row.deleted_at ? (
-                      <>
-                        <DropdownItem icon={RotateCcw} onClick={() => handleRestore(row.id)}>Restore</DropdownItem>
-                        <DropdownItem icon={Trash2} danger onClick={() => setDeleteId(row.id)}>Delete Forever</DropdownItem>
-                      </>
-                    ) : (
-                      <DropdownItem icon={Trash2} danger onClick={() => setDeleteId(row.id)}>Move to Trash</DropdownItem>
-                    )}
-                  </Dropdown>
+                {/* doc 24 fix: direct icon actions instead of the ⋮ menu */}
+                <TD className="text-right whitespace-nowrap">
+                  <button title="View" className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" onClick={() => { setSelected(row); setViewDialogOpen(true); }}><Eye className="w-4 h-4" /></button>
+                  {!row.deleted_at && (
+                    <button title="Edit" className="p-1.5 rounded-lg hover:bg-brand-50 text-brand-600" onClick={() => openEdit(row)}><Edit2 className="w-4 h-4" /></button>
+                  )}
+                  {row.deleted_at ? (
+                    <>
+                      <button title="Restore" className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600" onClick={() => handleRestore(row.id)}><RotateCcw className="w-4 h-4" /></button>
+                      <button title="Delete Forever" className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500" onClick={() => setDeleteId(row.id)}><Trash2 className="w-4 h-4" /></button>
+                    </>
+                  ) : (
+                    <button title="Move to Trash" className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500" onClick={() => setDeleteId(row.id)}><Trash2 className="w-4 h-4" /></button>
+                  )}
                 </TD>
               </TR>
             ))}
@@ -343,24 +349,49 @@ export default function CertificateTemplatesPage() {
             </div>
           </div>
 
+          {/* doc 24 fix: the Course dropdown existed in state but was never rendered */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Course <span className="text-slate-400 font-normal">(optional — leave blank for a generic template)</span></label>
+            <select className={`${selectClass} w-full`} value={formCourseId} onChange={e => setFormCourseId(e.target.value)}>
+              <option value="">— No specific course —</option>
+              {courses.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Input label="Min Score (%)" type="number" value={formMinScore} onChange={e => setFormMinScore(e.target.value)} placeholder="e.g. 70" />
             <Input label="Min Progress (%)" type="number" value={formMinProgress} onChange={e => setFormMinProgress(e.target.value)} placeholder="e.g. 100" />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Background Image</label>
-              <input type="file" accept="image/*" className="text-sm" onChange={e => setBgFile(e.target.files?.[0] || null)} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Logo</label>
-              <input type="file" accept="image/*" className="text-sm" onChange={e => setLogoFile(e.target.files?.[0] || null)} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Signature</label>
-              <input type="file" accept="image/*" className="text-sm" onChange={e => setSigFile(e.target.files?.[0] || null)} />
-            </div>
+            {([
+              ['Background Image', 'bg', selected?.background_image_url, bgFile, setBgFile],
+              ['Logo', 'logo', selected?.logo_url, logoFile, setLogoFile],
+              ['Signature', 'sig', selected?.signature_url, sigFile, setSigFile],
+            ] as [string, string, string | undefined, File | null, (f: File | null) => void][]).map(([lbl, key, currentUrl, file, setFile]) => {
+              const removed = removeAssets[key];
+              const hasCurrent = dialogMode === 'edit' && !!currentUrl && !removed;
+              return (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{lbl}</label>
+                  {hasCurrent && !file ? (
+                    <div className="flex items-center gap-2">
+                      <a href={currentUrl} target="_blank" rel="noreferrer" className="text-xs text-brand-600 underline truncate max-w-[90px]">current ↗</a>
+                      <button type="button" onClick={() => setRemoveAssets(s => ({ ...s, [key]: true }))}
+                        className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-rose-500 border border-rose-200 rounded px-1.5 py-0.5 hover:bg-rose-50">
+                        <XCircle className="w-3 h-3" /> Remove
+                      </button>
+                    </div>
+                  ) : removed && !file ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-rose-500 font-semibold">will be removed</span>
+                      <button type="button" onClick={() => setRemoveAssets(s => ({ ...s, [key]: false }))} className="text-[11px] text-slate-500 underline">undo</button>
+                    </div>
+                  ) : null}
+                  <input type="file" accept="image/*" className="text-sm mt-1 w-full" onChange={e => setFile(e.target.files?.[0] || null)} />
+                </div>
+              );
+            })}
           </div>
 
           <div>

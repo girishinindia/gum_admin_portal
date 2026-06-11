@@ -11,6 +11,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
@@ -73,6 +74,42 @@ export default function IssuedCertificatesPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // doc 24 fix: real pickers instead of raw IDs. Templates + users load once;
+  // enrollments load for the SELECTED user so admins never guess enrollment ids.
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [userEnrollments, setUserEnrollments] = useState<any[]>([]);
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
+
+  useEffect(() => {
+    api.listCertificateTemplates({ limit: 200, sort: 'name', order: 'asc' }).then((r: any) => setTemplates(r?.data || [])).catch(() => setTemplates([]));
+    api.listUsers('?limit=500&sort=first_name&order=asc').then((r: any) => setUsers(r?.data || [])).catch(() => setUsers([]));
+  }, []);
+
+  const templateOptions = templates.filter((t: any) => !t.deleted_at).map((t: any) => ({
+    value: String(t.id), label: `${t.name}${t.course_name ? ` — ${t.course_name}` : ''} (${t.template_type})`,
+  }));
+  const userOptions = users.map((u: any) => ({
+    value: String(u.id),
+    label: `${[u.first_name, u.last_name].filter(Boolean).join(' ') || 'User'} — ${u.email || u.mobile || `#${u.id}`}`,
+  }));
+  const enrollmentOptions = userEnrollments.map((e: any) => ({
+    value: String(e.id),
+    label: `#${e.id} · ${String(e.item_type || '').replace(/_/g, ' ')} ${e.item_id} · ${e.enrollment_status}${e.progress_pct != null ? ` · ${e.progress_pct}%` : ''}`,
+  }));
+
+  const onPickUser = (uid: string) => {
+    setIssueUserId(uid);
+    setIssueEnrollmentId('');
+    setUserEnrollments([]);
+    if (!uid) return;
+    setEnrollmentsLoading(true);
+    api.listEnrollments(`?user_id=${uid}&limit=100&sort=created_at&order=desc`)
+      .then((r: any) => setUserEnrollments(r?.data || []))
+      .catch(() => setUserEnrollments([]))
+      .finally(() => setEnrollmentsLoading(false));
+  };
 
   // Issue form
   const [issueTemplateId, setIssueTemplateId] = useState('');
@@ -296,12 +333,29 @@ export default function IssuedCertificatesPage() {
         )}
       </Dialog>
 
-      {/* Issue Dialog */}
+      {/* Issue Dialog — doc 24 fix: template → user → that user's enrollments */}
       <Dialog open={issueDialogOpen} onClose={() => setIssueDialogOpen(false)} title="Issue Certificate" size="md">
         <div className="p-6 space-y-5">
-          <Input label="Template ID *" type="number" value={issueTemplateId} onChange={e => setIssueTemplateId(e.target.value)} placeholder="Certificate template ID" />
-          <Input label="User ID *" type="number" value={issueUserId} onChange={e => setIssueUserId(e.target.value)} placeholder="Student user ID" />
-          <Input label="Enrollment ID *" type="number" value={issueEnrollmentId} onChange={e => setIssueEnrollmentId(e.target.value)} placeholder="Enrollment ID" />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Template *</label>
+            <SearchableSelect options={templateOptions} value={issueTemplateId} onChange={v => setIssueTemplateId(String(v))} placeholder="Search templates…" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Student *</label>
+            <SearchableSelect options={userOptions} value={issueUserId} onChange={v => onPickUser(String(v))} placeholder="Search by name or email…" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Enrollment *</label>
+            {!issueUserId ? (
+              <p className="text-xs text-slate-400 border border-dashed border-slate-200 rounded-lg px-3 py-2.5">Pick a student first — their enrollments load here.</p>
+            ) : enrollmentsLoading ? (
+              <p className="text-xs text-slate-400 border border-slate-200 rounded-lg px-3 py-2.5"><Loader2 className="w-3 h-3 inline animate-spin mr-1" /> Loading enrollments…</p>
+            ) : enrollmentOptions.length === 0 ? (
+              <p className="text-xs text-amber-600 border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5">This student has no enrollments — create one on the Enrollments page first.</p>
+            ) : (
+              <SearchableSelect options={enrollmentOptions} value={issueEnrollmentId} onChange={v => setIssueEnrollmentId(String(v))} placeholder="Pick the enrollment…" />
+            )}
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setIssueDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleIssue} disabled={saving}>{saving && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />} Issue</Button>
@@ -312,7 +366,10 @@ export default function IssuedCertificatesPage() {
       {/* Bulk Issue Dialog */}
       <Dialog open={bulkDialogOpen} onClose={() => setBulkDialogOpen(false)} title="Bulk Issue Certificates" size="md">
         <div className="p-6 space-y-5">
-          <Input label="Template ID *" type="number" value={bulkTemplateId} onChange={e => setBulkTemplateId(e.target.value)} placeholder="Certificate template ID" />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Template *</label>
+            <SearchableSelect options={templateOptions} value={bulkTemplateId} onChange={v => setBulkTemplateId(String(v))} placeholder="Search templates…" />
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Enrollment IDs * (comma-separated)</label>
             <textarea className="w-full p-2 text-sm border rounded-lg h-24 resize-y" value={bulkEnrollmentIds} onChange={e => setBulkEnrollmentIds(e.target.value)} placeholder="1, 2, 3, 4, 5" />

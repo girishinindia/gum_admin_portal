@@ -12,6 +12,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
@@ -113,6 +114,37 @@ export default function EnrollmentsPage() {
   const [createSaving, setCreateSaving] = useState(false);
   const createForm = useForm();
 
+  // doc 24 fix: searchable pickers (no more raw user/item IDs). The item list
+  // loads for whichever Item Type is selected.
+  const [createUserId, setCreateUserId] = useState('');
+  const [createItemType, setCreateItemType] = useState('course');
+  const [createItemId, setCreateItemId] = useState('');
+  const [pickUsers, setPickUsers] = useState<any[]>([]);
+  const [pickItems, setPickItems] = useState<any[]>([]);
+  const [pickItemsLoading, setPickItemsLoading] = useState(false);
+
+  useEffect(() => {
+    api.listUsers('?limit=500&sort=first_name&order=asc').then((r: any) => setPickUsers(r?.data || [])).catch(() => setPickUsers([]));
+  }, []);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    setPickItemsLoading(true);
+    setCreateItemId('');
+    const load =
+      createItemType === 'course_bundle' ? api.listBundles('?limit=200&sort=name&order=asc')
+      : createItemType === 'course_batch' ? api.listCourseBatches('?limit=200&sort=title&order=asc')
+      : createItemType === 'webinar' ? api.listWebinars('?limit=200&sort=title&order=asc')
+      : api.listCourses('?limit=200&sort=name&order=asc');
+    load.then((r: any) => setPickItems(r?.data || [])).catch(() => setPickItems([])).finally(() => setPickItemsLoading(false));
+  }, [createItemType, createOpen]);
+
+  const pickUserOptions = pickUsers.map((u: any) => ({
+    value: String(u.id),
+    label: `${[u.first_name, u.last_name].filter(Boolean).join(' ') || 'User'} — ${u.email || u.mobile || `#${u.id}`}`,
+  }));
+  const pickItemOptions = pickItems.map((it: any) => ({ value: String(it.id), label: it.name || it.title || `#${it.id}` }));
+
   // ── Edit form state ──
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
@@ -169,18 +201,22 @@ export default function EnrollmentsPage() {
 
   // ── Open create form ──
   function openCreate() {
-    createForm.reset({ user_id: '', item_type: 'course', item_id: '', notes: '' });
+    createForm.reset({ notes: '' });
+    setCreateUserId(''); setCreateItemType('course'); setCreateItemId('');
     setCreateOpen(true);
   }
 
   // ── Save create ──
   async function onCreateSave(formData: any) {
+    // doc 24 fix: user + item come from the searchable pickers
+    if (!createUserId) { toast.error('Pick a user'); return; }
+    if (!createItemId) { toast.error('Pick the item to enroll into'); return; }
     setCreateSaving(true);
     try {
       const body = {
-        user_id: Number(formData.user_id),
-        item_type: formData.item_type,
-        item_id: Number(formData.item_id),
+        user_id: Number(createUserId),
+        item_type: createItemType,
+        item_id: Number(createItemId),
         notes: formData.notes || null,
       };
       await api.createEnrollment(body);
@@ -437,30 +473,31 @@ export default function EnrollmentsPage() {
       {/* ═══ CREATE DIALOG ═══ */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="New Enrollment" size="md">
         <form onSubmit={createForm.handleSubmit(onCreateSave)} className="p-6 space-y-5">
+          {/* doc 24 fix: real pickers; item list follows the chosen type.
+              (Also fixes the old wrong values bundle/batch → course_bundle/course_batch.) */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">User *</label>
+            <SearchableSelect options={pickUserOptions} value={createUserId} onChange={v => setCreateUserId(String(v))} placeholder="Search by name or email…" />
+          </div>
           <div className="grid grid-cols-2 gap-5">
-            <Input
-              label="User ID"
-              type="number"
-              placeholder="Enter user ID"
-              {...createForm.register('user_id', { required: true })}
-            />
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Item Type</label>
-              <select className={cn(selectClass, 'w-full')} {...createForm.register('item_type', { required: true })}>
+              <select className={cn(selectClass, 'w-full')} value={createItemType} onChange={e => setCreateItemType(e.target.value)}>
                 <option value="course">Course</option>
-                <option value="bundle">Bundle</option>
-                <option value="batch">Batch</option>
+                <option value="course_bundle">Bundle</option>
+                <option value="course_batch">Batch</option>
                 <option value="webinar">Webinar</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Item *</label>
+              {pickItemsLoading ? (
+                <p className="text-xs text-slate-400 border border-slate-200 rounded-lg px-3 py-2.5">Loading…</p>
+              ) : (
+                <SearchableSelect options={pickItemOptions} value={createItemId} onChange={v => setCreateItemId(String(v))} placeholder={`Search ${createItemType.replace(/_/g, ' ')}s…`} />
+              )}
+            </div>
           </div>
-
-          <Input
-            label="Item ID"
-            type="number"
-            placeholder="Enter item ID"
-            {...createForm.register('item_id', { required: true })}
-          />
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
