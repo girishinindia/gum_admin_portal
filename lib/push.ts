@@ -13,8 +13,7 @@
  */
 
 import type { ApiResponse } from './types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+import { API_URL } from './api'; // single source of truth (Phase 7)
 
 // ── Feature detect ──────────────────────────────────────────────
 export function pushSupported(): boolean {

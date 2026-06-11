@@ -1,6 +1,20 @@
 import type { ApiResponse, AuthTokens } from './types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+// Phase 7 (June 2026) — exported so lib/push.ts and one-off pages import the
+// single constant instead of re-deriving it.
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+
+// Lightweight presence flag for middleware.ts (cookies are the only thing
+// Next.js middleware can read — localStorage is invisible to it). This is a
+// UX redirect aid only; real enforcement is the Bearer token on every API
+// call. The JWTs themselves stay OUT of cookies.
+const AUTH_COOKIE = 'gum_admin_auth';
+function setAuthCookie(on: boolean) {
+  if (typeof document === 'undefined') return;
+  document.cookie = on
+    ? `${AUTH_COOKIE}=1; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
+    : `${AUTH_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+}
 
 // Token management
 export const tokens = {
@@ -10,12 +24,14 @@ export const tokens = {
     if (typeof window === 'undefined') return;
     localStorage.setItem('access_token', access);
     localStorage.setItem('refresh_token', refresh);
+    setAuthCookie(true);
   },
   clear: () => {
     if (typeof window === 'undefined') return;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
+    setAuthCookie(false);
   },
 };
 
@@ -102,6 +118,18 @@ async function request<T = any>(
 // Phase 14 — expose `request` as `apiRequest` so hooks can hit any path
 // without having to add a one-liner to the bulky `api` object.
 export { request as apiRequest };
+
+// Phase 7 (June 2026) — FormData uploads used to call fetch() directly,
+// skipping BOTH the 401 auto-refresh and the Phase 44 error guard (failures
+// resolved with raw JSON, so pages toasted "success" on failed writes).
+// Routing them through request() restores both behaviours in one place.
+function formDataRequest<T = any>(
+  path: string,
+  method: 'POST' | 'PUT' | 'PATCH',
+  fd: FormData,
+): Promise<ApiResponse<T>> {
+  return request<T>(path, { method, body: fd, isFormData: true });
+}
 
 async function refreshTokens(): Promise<boolean> {
   try {
@@ -1188,14 +1216,14 @@ export const api = {
     Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
     if (file) fd.append('file', file, file.name);
     if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
-    return fetch(`${API_URL}/assessment-exercises/create-full`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    return formDataRequest(`/assessment-exercises/create-full`, 'POST', fd);
   },
   updateFullExercise: (id: number, data: any, file?: File, fileSolution?: File) => {
     const fd = new FormData();
     Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
     if (file) fd.append('file', file, file.name);
     if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
-    return fetch(`${API_URL}/assessment-exercises/${id}/update-full`, { method: 'PUT', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    return formDataRequest(`/assessment-exercises/${id}/update-full`, 'PUT', fd);
   },
 
   // ── Assessment Exercise Translations ──
@@ -1208,7 +1236,7 @@ export const api = {
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       if (file) fd.append('file', file, file.name);
       if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
-      return fetch(`${API_URL}/assessment-exercise-translations`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-exercise-translations`, 'POST', fd);
     }
     return request('/assessment-exercise-translations', { method: 'POST', body: JSON.stringify(data) });
   },
@@ -1218,7 +1246,7 @@ export const api = {
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       if (file) fd.append('file', file, file.name);
       if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
-      return fetch(`${API_URL}/assessment-exercise-translations/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-exercise-translations/${id}`, 'PATCH', fd);
     }
     return request(`/assessment-exercise-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
@@ -1240,14 +1268,14 @@ export const api = {
     Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
     if (file) fd.append('file', file, file.name);
     if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
-    return fetch(`${API_URL}/assessment-mini-projects/create-full`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    return formDataRequest(`/assessment-mini-projects/create-full`, 'POST', fd);
   },
   updateFullMiniProject: (id: number, data: any, file?: File, fileSolution?: File) => {
     const fd = new FormData();
     Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
     if (file) fd.append('file', file, file.name);
     if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
-    return fetch(`${API_URL}/assessment-mini-projects/${id}/update-full`, { method: 'PUT', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    return formDataRequest(`/assessment-mini-projects/${id}/update-full`, 'PUT', fd);
   },
 
   // ── Mini Project Translations ──
@@ -1259,7 +1287,7 @@ export const api = {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       fd.append('file', file, file.name);
-      return fetch(`${API_URL}/assessment-mini-project-translations`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-mini-project-translations`, 'POST', fd);
     }
     return request('/assessment-mini-project-translations', { method: 'POST', body: JSON.stringify(data) });
   },
@@ -1268,7 +1296,7 @@ export const api = {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       fd.append('file', file, file.name);
-      return fetch(`${API_URL}/assessment-mini-project-translations/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-mini-project-translations/${id}`, 'PATCH', fd);
     }
     return request(`/assessment-mini-project-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
@@ -1285,7 +1313,7 @@ export const api = {
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       if (videoFile) fd.append('video_file', videoFile, videoFile.name);
       if (thumbnailFile) fd.append('thumbnail_file', thumbnailFile, thumbnailFile.name);
-      return fetch(`${API_URL}/assessment-mini-project-solutions`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-mini-project-solutions`, 'POST', fd);
     }
     return request('/assessment-mini-project-solutions', { method: 'POST', body: JSON.stringify(data) });
   },
@@ -1295,7 +1323,7 @@ export const api = {
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       if (videoFile) fd.append('video_file', videoFile, videoFile.name);
       if (thumbnailFile) fd.append('thumbnail_file', thumbnailFile, thumbnailFile.name);
-      return fetch(`${API_URL}/assessment-mini-project-solutions/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-mini-project-solutions/${id}`, 'PATCH', fd);
     }
     return request(`/assessment-mini-project-solutions/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
@@ -1308,7 +1336,7 @@ export const api = {
     fd.append('titles', JSON.stringify(titles));
     if (videoShortIntro) fd.append('video_short_intro', videoShortIntro);
     files.forEach(f => fd.append('video_files', f, f.name));
-    return fetch(`${API_URL}/assessment-mini-project-solutions/bulk-upload`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    return formDataRequest(`/assessment-mini-project-solutions/bulk-upload`, 'POST', fd);
   },
 
   // ── Capstone Projects ──
@@ -1325,14 +1353,14 @@ export const api = {
     Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
     if (file) fd.append('file', file, file.name);
     if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
-    return fetch(`${API_URL}/assessment-capstone-projects/create-full`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    return formDataRequest(`/assessment-capstone-projects/create-full`, 'POST', fd);
   },
   updateFullCapstoneProject: (id: number, data: any, file?: File, fileSolution?: File) => {
     const fd = new FormData();
     Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
     if (file) fd.append('file', file, file.name);
     if (fileSolution) fd.append('file_solution', fileSolution, fileSolution.name);
-    return fetch(`${API_URL}/assessment-capstone-projects/${id}/update-full`, { method: 'PUT', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    return formDataRequest(`/assessment-capstone-projects/${id}/update-full`, 'PUT', fd);
   },
 
   // ── Capstone Project Translations ──
@@ -1344,7 +1372,7 @@ export const api = {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       fd.append('file', file, file.name);
-      return fetch(`${API_URL}/assessment-capstone-project-translations`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-capstone-project-translations`, 'POST', fd);
     }
     return request('/assessment-capstone-project-translations', { method: 'POST', body: JSON.stringify(data) });
   },
@@ -1353,7 +1381,7 @@ export const api = {
       const fd = new FormData();
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       fd.append('file', file, file.name);
-      return fetch(`${API_URL}/assessment-capstone-project-translations/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-capstone-project-translations/${id}`, 'PATCH', fd);
     }
     return request(`/assessment-capstone-project-translations/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
@@ -1370,7 +1398,7 @@ export const api = {
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       if (videoFile) fd.append('video_file', videoFile, videoFile.name);
       if (thumbnailFile) fd.append('thumbnail_file', thumbnailFile, thumbnailFile.name);
-      return fetch(`${API_URL}/assessment-capstone-project-solutions`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-capstone-project-solutions`, 'POST', fd);
     }
     return request('/assessment-capstone-project-solutions', { method: 'POST', body: JSON.stringify(data) });
   },
@@ -1380,7 +1408,7 @@ export const api = {
       Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, String(v)); });
       if (videoFile) fd.append('video_file', videoFile, videoFile.name);
       if (thumbnailFile) fd.append('thumbnail_file', thumbnailFile, thumbnailFile.name);
-      return fetch(`${API_URL}/assessment-capstone-project-solutions/${id}`, { method: 'PATCH', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+      return formDataRequest(`/assessment-capstone-project-solutions/${id}`, 'PATCH', fd);
     }
     return request(`/assessment-capstone-project-solutions/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
@@ -1393,7 +1421,7 @@ export const api = {
     fd.append('titles', JSON.stringify(titles));
     if (videoShortIntro) fd.append('video_short_intro', videoShortIntro);
     files.forEach(f => fd.append('video_files', f, f.name));
-    return fetch(`${API_URL}/assessment-capstone-project-solutions/bulk-upload`, { method: 'POST', headers: { ...(tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {}) }, body: fd }).then(r => r.json());
+    return formDataRequest(`/assessment-capstone-project-solutions/bulk-upload`, 'POST', fd);
   },
 
   // ── Webinars ──

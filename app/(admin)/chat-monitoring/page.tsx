@@ -14,7 +14,7 @@ import {
 import { cn, fromNow } from '@/lib/utils';
 
 /* ── Socket URL — strip /api/v1 to get the server root ── */
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+import { API_URL } from '@/lib/api'; // single source of truth (Phase 7)
 const SOCKET_URL = API_URL.replace(/\/api\/v\d+$/, '');
 
 /* ── Types ── */
