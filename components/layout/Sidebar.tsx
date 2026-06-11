@@ -468,6 +468,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/instructor-earnings', label: 'Instructor Earnings', icon: Wallet, iconColor: 'text-amber-500' },
       { href: '/instructor-payouts', label: 'Payout Management', icon: Banknote, iconColor: 'text-emerald-500' },
+      { href: '/revenue-share-tiers', label: 'Revenue Share Tiers', icon: Percent, iconColor: 'text-violet-500' },
     ],
   },
   {
