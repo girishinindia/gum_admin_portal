@@ -60,6 +60,17 @@ export default function SubTopicsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SubTopic | null>(null);
+  // BUG-12 fix: signed thumbnail for the edit modal (raw vz urls 403 under token auth)
+  const [signedThumb, setSignedThumb] = useState<string | null>(null);
+  useEffect(() => {
+    setSignedThumb(null);
+    const e = editing as any;
+    if (e?.id && e?.video_id && (e.video_source === 'bunny' || e.video_source === 'bunny_pending')) {
+      api.getSubTopicPlayback(e.id)
+        .then((r: any) => setSignedThumb(r?.data?.thumbnail_url || null))
+        .catch(() => setSignedThumb(null));
+    }
+  }, [editing]);
   const [viewing, setViewing] = useState<SubTopic | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
   const [page, setPage] = useState(1);
@@ -730,7 +741,21 @@ export default function SubTopicsPage() {
                           : (t as any).video_url;
                         return (
                           <div className="flex items-center gap-1.5">
-                            <a href={videoHref || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+                            {/* BUG-12 fix: Bunny links open via a freshly SIGNED url
+                                (raw embed urls 403 when Stream token auth is on) */}
+                            <a
+                              href={videoHref || '#'}
+                              onClick={async (e) => {
+                                if (isYoutube) return; // youtube links are public
+                                e.preventDefault();
+                                try {
+                                  const r = await api.getSubTopicPlayback(t.id);
+                                  const url = (r as any)?.data?.embed_url;
+                                  if (url) window.open(url, '_blank', 'noopener');
+                                  else toast.error('Playback URL unavailable — video may still be processing.');
+                                } catch { toast.error('Could not get a signed playback URL'); }
+                              }}
+                              target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
                               {isYoutube ? (
                                 <Youtube className="w-3.5 h-3.5 text-red-500" />
                               ) : (
@@ -929,8 +954,10 @@ export default function SubTopicsPage() {
             {/* Show current video if editing */}
             {editing && (editing as any).video_source && (
               <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                {(editing as any).video_source === 'bunny' && (editing as any).video_thumbnail_url && (
-                  <img src={(editing as any).video_thumbnail_url} alt="" className="w-20 h-12 rounded object-cover" />
+                {(editing as any).video_source === 'bunny' && (signedThumb || (editing as any).video_thumbnail_url) && (
+                  // BUG-12 fix: use the SIGNED thumbnail (raw url 403s under token auth)
+                  <img src={signedThumb || (editing as any).video_thumbnail_url} alt="" className="w-20 h-12 rounded object-cover"
+                    onError={(ev) => { (ev.target as HTMLImageElement).style.display = 'none'; }} />
                 )}
                 {(editing as any).video_source === 'youtube' && (
                   <div className="w-20 h-12 rounded bg-red-100 flex items-center justify-center">

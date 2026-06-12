@@ -440,6 +440,7 @@ export const api = {
   // Sub-Topics
   listSubTopics: (qs = '') => request(`/sub-topics${qs}`, { auth: false }),
   getSubTopic: (id: number) => request(`/sub-topics/${id}`, { auth: false }),
+  getSubTopicPlayback: (id: number) => request(`/sub-topics/${id}/video-playback`), // BUG-12: signed preview urls
   createSubTopic: (data: any) => request('/sub-topics', { method: 'POST', body: JSON.stringify(data) }),
   updateSubTopic: (id: number, data: any) => request(`/sub-topics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSubTopic: (id: number) => request(`/sub-topics/${id}`, { method: 'DELETE' }),

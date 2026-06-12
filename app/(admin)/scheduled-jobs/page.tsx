@@ -46,6 +46,10 @@ const jobIcons: Record<string, any> = {
   'stale-cart-cleanup':       Trash2,
   'coupon-deactivation':      Tag,
   'old-notification-cleanup': Bell,
+  // BUG-10 fix: these jobs existed in the API but were never listed here
+  'wallet-reconciliation':    CreditCard,
+  'revenue-daily-refresh':    BarChart3,
+  'video-status-poll':        RefreshCw,
 };
 
 const jobColors: Record<string, string> = {
@@ -62,6 +66,9 @@ const jobColors: Record<string, string> = {
   'stale-cart-cleanup':       'text-slate-500',
   'coupon-deactivation':      'text-pink-500',
   'old-notification-cleanup': 'text-amber-500',
+  'wallet-reconciliation':    'text-emerald-600',
+  'revenue-daily-refresh':    'text-violet-500',
+  'video-status-poll':        'text-rose-500',
 };
 
 function parseCron(expr: string): string {
@@ -146,12 +153,22 @@ export default function ScheduledJobsPage() {
   const totalErrors = jobs.reduce((s, j) => s + j.errorCount, 0);
 
   /* ── Categories ── */
-  const categories: { label: string; jobs: string[]; color: string }[] = [
+  // BUG-10 fix: jobs missing from these hardcoded lists were INVISIBLE
+  // (video-status-poll, wallet-reconciliation, revenue-daily-refresh).
+  // New "Media & Data" category + a computed catch-all so any future job
+  // always shows up even before it gets a category.
+  const baseCategories: { label: string; jobs: string[]; color: string }[] = [
     { label: 'Expiry & Lifecycle', jobs: ['enrollment-expiry', 'order-expiry', 'announcement-lifecycle'], color: 'border-blue-200' },
-    { label: 'Payments & Earnings', jobs: ['earning-confirmation', 'auto-payout', 'instructor-profile-sync'], color: 'border-green-200' },
+    { label: 'Payments & Earnings', jobs: ['earning-confirmation', 'auto-payout', 'instructor-profile-sync', 'wallet-reconciliation'], color: 'border-green-200' },
     { label: 'Notifications & Certs', jobs: ['notification-digest', 'certificate-auto-issue', 'failed-notification-retry', 'course-reminder'], color: 'border-purple-200' },
     { label: 'Cleanup & Maintenance', jobs: ['stale-cart-cleanup', 'coupon-deactivation', 'old-notification-cleanup'], color: 'border-slate-200' },
+    { label: 'Media & Data', jobs: ['video-status-poll', 'revenue-daily-refresh'], color: 'border-rose-200' },
   ];
+  const categorized = new Set(baseCategories.flatMap(c => c.jobs));
+  const uncategorized = jobs.map(j => j.name).filter(n => !categorized.has(n));
+  const categories = uncategorized.length
+    ? [...baseCategories, { label: 'Other', jobs: uncategorized, color: 'border-amber-200' }]
+    : baseCategories;
 
   return (
     <div className="space-y-6">
