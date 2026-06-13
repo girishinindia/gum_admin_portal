@@ -146,6 +146,10 @@ function CourseBuilderInner() {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  // Filter parity with the Courses page (applied client-side over the fetched list).
+  const [levelFilter, setLevelFilter] = useState('');
+  const [pricingFilter, setPricingFilter] = useState('');
+  const [verifiedFilter, setVerifiedFilter] = useState('');
   const [showTrash, setShowTrash] = useState(false);
   const [stats, setStats] = useState({ total: 0, published: 0, pending: 0, trash: 0 });
   const [viewing, setViewing] = useState<any | null>(null);
@@ -517,12 +521,20 @@ JavaScript Essentials
   }
 
   /* ── bulk-select helpers ── */
+  // Instructor Courses filters: Level / Pricing / Verified, layered on top of the
+  // server-side Status filter — same filter set the Courses page offers.
+  const filteredCourses = courses.filter((c: any) =>
+    (!levelFilter || c.level === levelFilter)
+    && (!pricingFilter || String(!!c.is_free) === pricingFilter)
+    && (!verifiedFilter || (verifiedFilter === 'true' ? !!c.verified_at : !c.verified_at))
+  );
+
   function toggleSelect(id: number) {
     setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }
   function toggleSelectAll() {
-    if (selectedIds.size === courses.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(courses.map(c => c.id)));
+    if (selectedIds.size === filteredCourses.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filteredCourses.map((c: any) => c.id)));
   }
   async function handleBulkSoftDelete() {
     if (!confirm(`Move ${selectedIds.size} course(s) to trash?`)) return;
@@ -613,10 +625,13 @@ JavaScript Essentials
           </button>
         </div>
 
-        {/* Status filter (normal view only) */}
+        {/* Filters (normal view only) — parity with the Courses page */}
         {!showTrash && (
-          <div className="mb-4">
+          <div className="mb-4 flex flex-wrap gap-2">
             <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} options={[{ value: '', label: 'All Statuses' }, { value: 'draft', label: 'Draft' }, { value: 'pending_approval', label: 'Pending Approval' }, { value: 'published', label: 'Published' }, { value: 'rejected', label: 'Rejected' }]} />
+            <Select value={levelFilter} onChange={e => setLevelFilter(e.target.value)} options={[{ value: '', label: 'All Levels' }, ...LEVELS]} />
+            <Select value={pricingFilter} onChange={e => setPricingFilter(e.target.value)} options={[{ value: '', label: 'All Pricing' }, { value: 'true', label: 'Free' }, { value: 'false', label: 'Paid' }]} />
+            <Select value={verifiedFilter} onChange={e => setVerifiedFilter(e.target.value)} options={[{ value: '', label: 'All Verified' }, { value: 'true', label: 'Verified' }, { value: 'false', label: 'Not Verified' }]} />
           </div>
         )}
 
@@ -642,7 +657,7 @@ JavaScript Essentials
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
-                <th className="w-10 px-4 py-3"><input type="checkbox" checked={courses.length > 0 && selectedIds.size === courses.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></th>
+                <th className="w-10 px-4 py-3"><input type="checkbox" checked={filteredCourses.length > 0 && selectedIds.size === filteredCourses.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></th>
                 <th className="text-left px-4 py-3">Title</th>
                 <th className="text-left px-4 py-3">Level</th>
                 <th className="text-left px-4 py-3">Price</th>
@@ -654,9 +669,9 @@ JavaScript Essentials
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
-              ) : courses.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">{showTrash ? 'Trash is empty' : 'No courses yet. Click "Add course".'}</td></tr>
-              ) : courses.map(c => (
+              ) : filteredCourses.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">{showTrash ? 'Trash is empty' : (statusFilter || levelFilter || pricingFilter || verifiedFilter ? 'No courses match your filters' : 'No courses yet. Click "Add course".')}</td></tr>
+              ) : filteredCourses.map((c: any) => (
                 <tr key={c.id} className={cn('hover:bg-slate-50', showTrash && 'bg-amber-50/30', selectedIds.has(c.id) && 'bg-brand-50/40')}>
                   <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></td>
                   <td className="px-4 py-3 font-medium text-slate-800">{c.title}</td>

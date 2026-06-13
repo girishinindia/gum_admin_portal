@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Percent, Plus, Pencil, Trash2, RotateCcw, X } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 
 interface Tier {
   id: number;
@@ -46,6 +47,19 @@ export default function RevenueShareTiersPage() {
   const [fPct, setFPct] = useState('');
   const [fNotes, setFNotes] = useState('');
   const [fActive, setFActive] = useState(true);
+
+  // Instructor picker options (blank = global default tier). Same dropdown
+  // pattern as the Create-Notification / Create-Wallet user pickers.
+  const [instructors, setInstructors] = useState<any[]>([]);
+  useEffect(() => {
+    apiRequest('/users?type=instructor&limit=500&sort=first_name&order=asc')
+      .then((r: any) => setInstructors(r?.data || []))
+      .catch(() => setInstructors([]));
+  }, []);
+  const instructorOptions = instructors.map((u: any) => ({
+    value: String(u.id),
+    label: `${[u.first_name, u.last_name].filter(Boolean).join(' ') || 'Instructor'} — ${u.email || u.mobile || `#${u.id}`}`,
+  }));
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -208,8 +222,8 @@ export default function RevenueShareTiersPage() {
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[12px] font-semibold text-slate-700 mb-1">Instructor ID <span className="text-slate-400 font-normal">(blank = all)</span></label>
-                <input value={fInstructor} onChange={e => setFInstructor(e.target.value)} placeholder="e.g. 15" className={inputClass} />
+                <label className="block text-[12px] font-semibold text-slate-700 mb-1">Instructor <span className="text-slate-400 font-normal">(blank = all)</span></label>
+                <SearchableSelect options={instructorOptions} value={fInstructor} onChange={(v) => setFInstructor(v)} placeholder="All instructors (global default)" searchPlaceholder="Search name or email…" />
               </div>
               <div>
                 <label className="block text-[12px] font-semibold text-slate-700 mb-1">Content type <span className="text-slate-400 font-normal">(blank = all)</span></label>

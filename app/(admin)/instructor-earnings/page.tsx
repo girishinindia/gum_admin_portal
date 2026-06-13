@@ -381,7 +381,7 @@ export default function InstructorEarningsPage() {
                           </Button>
                         </div>
                       ) : (
-                        <Dropdown trigger={<MoreVertical className="w-4 h-4 text-slate-500 hover:text-slate-700" />} align="right" width="w-48">
+                        <Dropdown trigger={<span className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition-colors" title="Actions" aria-label="Actions"><MoreVertical className="w-4 h-4" /></span>} align="right" width="w-48">
                           <DropdownItem icon={Eye} onClick={() => openView(item.id)}>View</DropdownItem>
                           <DropdownItem icon={Edit2} onClick={() => openEdit(item)}>Edit</DropdownItem>
                           <DropdownDivider />

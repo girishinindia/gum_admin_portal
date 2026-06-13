@@ -26,15 +26,23 @@ import { usePageSize } from '@/hooks/usePageSize';
 // ─── Types ────────────────────────────────────────────────────────
 type SortField = 'id' | 'notification_type' | 'channel' | 'is_read' | 'sent_at' | 'created_at';
 
+// BUG-60: these MUST be the canonical notification_type keys used by the server
+// notifiers AND the learner's notification-settings panel (enrollment_confirmed,
+// payment_received, …). With the old short keys ('enrollment', 'payment', …) an
+// admin-created notification could never match a user's opt-out, so the skip
+// check and the inbox filter silently did nothing and the disabled notification
+// was still delivered. Keys aligned with gum_web NotificationPreferencesPanel.
 const NOTIFICATION_TYPES = [
   { value: '', label: 'All Types' },
-  { value: 'enrollment', label: 'Enrollment' },
-  { value: 'payment', label: 'Payment' },
-  { value: 'content', label: 'Content' },
-  { value: 'reminder', label: 'Reminder' },
+  { value: 'enrollment_confirmed', label: 'Enrollment Confirmation' },
+  { value: 'payment_received', label: 'Payment Received' },
+  { value: 'refund_processed', label: 'Refund Processed' },
+  { value: 'course_reminder', label: 'Course Reminder' },
+  { value: 'instructor_earning', label: 'Instructor Earning' },
+  { value: 'payout_completed', label: 'Payout Completed' },
+  { value: 'support_ticket_reply', label: 'Support Ticket Reply' },
+  { value: 'announcement', label: 'Announcement' },
   { value: 'system', label: 'System' },
-  { value: 'promotion', label: 'Promotion' },
-  { value: 'achievement', label: 'Achievement' },
 ];
 
 const CHANNELS = [
@@ -566,14 +574,18 @@ export default function NotificationsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Notification Type</label>
+              {/* BUG-60: canonical keys so admin-created notifications match the
+                  user's opt-out (enrollment_confirmed, payment_received, …). */}
               <select className={cn(selectClass, 'w-full')} {...register('notification_type')}>
-                <option value="enrollment">Enrollment</option>
-                <option value="payment">Payment</option>
-                <option value="content">Content</option>
-                <option value="reminder">Reminder</option>
+                <option value="enrollment_confirmed">Enrollment Confirmation</option>
+                <option value="payment_received">Payment Received</option>
+                <option value="refund_processed">Refund Processed</option>
+                <option value="course_reminder">Course Reminder</option>
+                <option value="instructor_earning">Instructor Earning</option>
+                <option value="payout_completed">Payout Completed</option>
+                <option value="support_ticket_reply">Support Ticket Reply</option>
+                <option value="announcement">Announcement</option>
                 <option value="system">System</option>
-                <option value="promotion">Promotion</option>
-                <option value="achievement">Achievement</option>
               </select>
             </div>
             <div>
