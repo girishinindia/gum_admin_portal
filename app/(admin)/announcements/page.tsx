@@ -54,6 +54,17 @@ const PRIORITIES = [
   { value: 'critical', label: 'Critical' },
 ];
 
+// BUG-37/50/54: API column announcements.priority is integer NOT NULL.
+// Map the string label <-> integer at the API boundary.
+const PRIORITY_LABEL_TO_INT: Record<string, number> = { low: 1, medium: 2, high: 3, critical: 4 };
+const PRIORITY_INT_TO_LABEL: Record<number, string> = { 1: 'low', 2: 'medium', 3: 'high', 4: 'critical' };
+// Normalize whatever the API returns (int or already-a-label) back to a string label.
+function priorityToLabel(p: any): string {
+  if (typeof p === 'number') return PRIORITY_INT_TO_LABEL[p] || 'medium';
+  if (typeof p === 'string' && p in PRIORITY_LABEL_TO_INT) return p;
+  return 'medium';
+}
+
 const STATUSES = [
   { value: 'draft', label: 'Draft' },
   { value: 'published', label: 'Published' },
@@ -203,7 +214,8 @@ export default function AnnouncementsPage() {
     } else {
       if (filterType) params.announcement_type = filterType;
       if (filterStatus) params.status = filterStatus;
-      if (filterPriority) params.priority = filterPriority;
+      // BUG-37/50/54: priority is stored as an int — filter by the int, not the label
+      if (filterPriority) params.priority = PRIORITY_LABEL_TO_INT[filterPriority] ?? filterPriority;
       if (filterScope) params.target_scope = filterScope;
     }
     const res = await api.getAnnouncements(params);
@@ -252,7 +264,7 @@ export default function AnnouncementsPage() {
       target_scope: item.target_scope || 'all',
       target_id: item.target_id ?? '',
       target_name: item.target_name || '',
-      priority: item.priority || 'medium',
+      priority: priorityToLabel(item.priority), // BUG-37/50/54: int -> label for the select
       is_pinned: item.is_pinned ?? false,
       publish_at: item.publish_at ? item.publish_at.slice(0, 16) : '',
       expires_at: item.expires_at ? item.expires_at.slice(0, 16) : '',
@@ -295,6 +307,9 @@ export default function AnnouncementsPage() {
       delete payload.target_id;
       delete payload.target_name;
     }
+
+    // BUG-37/50/54: announcements.priority is integer NOT NULL — send the int, not the label.
+    payload.priority = PRIORITY_LABEL_TO_INT[payload.priority] ?? PRIORITY_LABEL_TO_INT.medium;
 
     const res = editing
       ? await api.updateAnnouncement(editing.id, payload)
@@ -554,8 +569,9 @@ export default function AnnouncementsPage() {
                     {item.target_name && <div className="text-xs text-slate-400 mt-0.5 truncate max-w-[120px]">{item.target_name}</div>}
                   </TD>
                   <TD className="py-2.5">
-                    <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', PRIORITY_COLORS[item.priority] || 'bg-slate-50 text-slate-600')}>
-                      {capitalize(item.priority || '')}
+                    {/* BUG-37/50/54: priority is an int from the API — normalize to label for badge */}
+                    <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', PRIORITY_COLORS[priorityToLabel(item.priority)] || 'bg-slate-50 text-slate-600')}>
+                      {capitalize(priorityToLabel(item.priority))}
                     </span>
                   </TD>
                   <TD className="py-2.5">
@@ -633,7 +649,7 @@ export default function AnnouncementsPage() {
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>
                   <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_COLORS[viewing.status] || 'bg-slate-50 text-slate-600')}>{capitalize(viewing.status || '')}</span>
-                  <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', PRIORITY_COLORS[viewing.priority] || 'bg-slate-50 text-slate-600')}>{capitalize(viewing.priority || '')}</span>
+                  <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', PRIORITY_COLORS[priorityToLabel(viewing.priority)] || 'bg-slate-50 text-slate-600')}>{capitalize(priorityToLabel(viewing.priority))}</span>
                   {viewing.is_pinned && <Pin className="w-3.5 h-3.5 text-amber-500" />}
                 </div>
               </div>
@@ -652,7 +668,7 @@ export default function AnnouncementsPage() {
               <DetailRow label="Target Scope" value={capitalize(viewing.target_scope || '')} />
               <DetailRow label="Target Name" value={viewing.target_name} />
               <DetailRow label="Target ID" value={viewing.target_id != null ? String(viewing.target_id) : undefined} />
-              <DetailRow label="Priority" value={capitalize(viewing.priority || '')} />
+              <DetailRow label="Priority" value={capitalize(priorityToLabel(viewing.priority))} />
               <DetailRow label="Pinned" value={viewing.is_pinned ? 'Yes' : 'No'} />
               <DetailRow label="Channels" value={(viewing.channels || []).map((c: string) => c.replace('_', ' ').toUpperCase()).join(', ') || '--'} />
               <DetailRow label="Sent Count" value={String(viewing.sent_count ?? 0)} />

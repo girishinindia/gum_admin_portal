@@ -187,12 +187,22 @@ export default function InstructorPromotionsPage() {
     const vErr = validatePromo(editItem, !editItem.id);
     if (vErr) { toast.error(vErr); return; }
     setSaving(true);
+    // BUG-47 fix: the datetime-local inputs hold a naive local (IST) wall-clock string.
+    // Posting it raw made Postgres store/compare it as UTC, so a promo set for 00:00 IST
+    // only became valid at 05:30 IST (~5h late). Convert local→UTC ISO before saving,
+    // mirroring the coupon form. (An untouched edit keeps the original full ISO, so
+    // new Date(...).toISOString() stays idempotent.)
+    const payload = {
+      ...editItem,
+      valid_from: editItem.valid_from ? new Date(editItem.valid_from).toISOString() : null,
+      valid_until: editItem.valid_until ? new Date(editItem.valid_until).toISOString() : null,
+    };
     try {
       if (editItem.id) {
-        await api.updateInstructorPromotion(editItem.id, editItem);
+        await api.updateInstructorPromotion(editItem.id, payload);
         toast.success('Promotion updated');
       } else {
-        await api.createInstructorPromotion(editItem);
+        await api.createInstructorPromotion(payload);
         toast.success('Promotion created');
       }
       setShowDialog(false);

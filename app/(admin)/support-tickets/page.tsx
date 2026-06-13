@@ -1891,6 +1891,19 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
                   <span className="text-xs text-slate-400">{msg.created_at ? fromNow(msg.created_at) : '--'}</span>
                 </div>
                 <p className="text-sm text-slate-700 whitespace-pre-wrap">{msg.message}</p>
+                {/* BUG-08 fix: render attachments threaded to this message inline, so the
+                    admin can actually see files a student attached to a specific reply
+                    (previously they were only listed in a separate flat panel / not visible). */}
+                {attachments.filter(a => a.message_id === msg.id).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {attachments.filter(a => a.message_id === msg.id).map(att => (
+                      <a key={att.id} href={att.file_url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-100 rounded-md px-2 py-1 transition-colors">
+                        <Paperclip className="w-3 h-3" /> {att.file_name || 'Attachment'}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

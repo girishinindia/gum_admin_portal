@@ -12,6 +12,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { FileUpload } from '@/components/ui/FileUpload';
 import { VideoUpload } from '@/components/ui/VideoUpload';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Plus, Pencil, Trash2, ArrowLeft, CheckCircle, XCircle, Send, ShieldCheck,
   Package, FolderTree, FileText, Video, BookOpen, ClipboardList, FlaskConical, Loader2,
@@ -136,6 +137,10 @@ export default function CourseBuilderPage() {
 function CourseBuilderInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  // BUG-15: admins/super-admins (level >= 80) pick an instructor; a plain instructor
+  // authors their own course and the API assigns instructor_id = req.user.id.
+  const { user } = useAuth();
+  const isAdmin = (user?.max_role_level ?? 0) >= 80;
 
   const [view, setView] = useState<'list' | 'edit'>('list');
   const [courses, setCourses] = useState<any[]>([]);
@@ -433,10 +438,13 @@ JavaScript Essentials
 
   /* ── basics save ── */
   async function saveBasics() {
-    if (!form.instructor_id) { toast.error('Select the instructor this course belongs to'); return; }
+    // BUG-15: only admins choose the instructor; instructors author their own course.
+    if (isAdmin && !form.instructor_id) { toast.error('Select the instructor this course belongs to'); return; }
     if (!form.title?.trim()) { toast.error('Title is required'); return; }
     setSaving(true);
     const payload: any = { ...form };
+    // BUG-15: omit instructor_id for non-admins so the API assigns the caller (req.user.id).
+    if (!isAdmin) delete payload.instructor_id;
     ['language_id', 'category_id'].forEach(k => { payload[k] = payload[k] === '' ? null : Number(payload[k]); });
     ['price', 'original_price'].forEach(k => { payload[k] = payload[k] === '' || payload[k] == null ? null : Number(payload[k]); });
     try {
@@ -1178,7 +1186,7 @@ JavaScript Essentials
       </div>
 
       <div className="ml-10 max-w-4xl">
-        {tab === 'basics' && <BasicsTab form={form} setForm={setForm} languages={languages} categories={categories} subCategories={subCategories} instructors={instructors} saving={saving} onSave={saveBasics} courseId={course?.id} onMedia={() => course?.id && refreshReadiness(course.id)} />}
+        {tab === 'basics' && <BasicsTab form={form} setForm={setForm} languages={languages} categories={categories} subCategories={subCategories} instructors={instructors} isAdmin={isAdmin} saving={saving} onSave={saveBasics} courseId={course?.id} onMedia={() => course?.id && refreshReadiness(course.id)} />}
         {tab === 'highlights' && course?.id && <HighlightsTab courseId={course.id} items={highlights} reload={() => loadChildren(course.id)} />}
         {tab === 'curriculum' && course?.id && <CurriculumTab courseId={course.id} units={units} reload={() => loadChildren(course.id)} />}
         {tab === 'capstones' && course?.id && <CapstonesTab courseId={course.id} items={capstones} reload={() => loadChildren(course.id)} />}
@@ -1190,7 +1198,7 @@ JavaScript Essentials
 }
 
 /* ════════════ Basics Tab ════════════ */
-function BasicsTab({ form, setForm, languages, categories, subCategories, instructors, saving, onSave, courseId, onMedia }: any) {
+function BasicsTab({ form, setForm, languages, categories, subCategories, instructors, isAdmin, saving, onSave, courseId, onMedia }: any) {
   const set = (k: string, v: any) => setForm({ ...form, [k]: v });
   const [thumbBusy, setThumbBusy] = useState(false);
   const [trailerProgress, setTrailerProgress] = useState<number | null>(null);
@@ -1238,14 +1246,18 @@ function BasicsTab({ form, setForm, languages, categories, subCategories, instru
   }
   return (
     <div className="space-y-4">
-      <Field label="Instructor *">
-        <Select
-          value={form.instructor_id || ''}
-          onChange={e => set('instructor_id', e.target.value ? Number(e.target.value) : null)}
-          options={[{ value: '', label: 'Select the instructor this course belongs to…' }, ...instructors.map((i: any) => ({ value: i.id, label: i.full_name || i.email || `User #${i.id}` }))]}
-        />
-        {instructors.length === 0 && <p className="text-xs text-amber-600 mt-1">No instructor-type users found. Add an instructor user first.</p>}
-      </Field>
+      {/* BUG-15: instructor picker is admin-only. A plain instructor authors their own
+          course, so we hide it and let the API default instructor_id to the caller. */}
+      {isAdmin && (
+        <Field label="Instructor *">
+          <Select
+            value={form.instructor_id || ''}
+            onChange={e => set('instructor_id', e.target.value ? Number(e.target.value) : null)}
+            options={[{ value: '', label: 'Select the instructor this course belongs to…' }, ...instructors.map((i: any) => ({ value: i.id, label: i.full_name || i.email || `User #${i.id}` }))]}
+          />
+          {instructors.length === 0 && <p className="text-xs text-amber-600 mt-1">No instructor-type users found. Add an instructor user first.</p>}
+        </Field>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Title *"><Input value={form.title || ''} onChange={e => set('title', e.target.value)} placeholder="Flutter Development Internship" /></Field>
         <Field label="Subtitle"><Input value={form.subtitle || ''} onChange={e => set('subtitle', e.target.value)} placeholder="Short tagline" /></Field>

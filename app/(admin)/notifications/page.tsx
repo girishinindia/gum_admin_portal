@@ -68,6 +68,14 @@ const CHANNEL_COLORS: Record<string, string> = {
   push: 'bg-violet-50 text-violet-700',
 };
 
+// BUG-44: priority badge styling for the list column
+const PRIORITY_COLORS: Record<string, string> = {
+  low: 'bg-slate-100 text-slate-600',
+  normal: 'bg-blue-50 text-blue-700',
+  high: 'bg-amber-50 text-amber-700',
+  urgent: 'bg-red-50 text-red-700',
+};
+
 const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -351,6 +359,8 @@ export default function NotificationsPage() {
                 <TH className="cursor-pointer" onClick={() => toggleSort('channel')}>
                   <div className="flex items-center gap-1">CHANNEL <SortIcon field="channel" /></div>
                 </TH>
+                {/* BUG-44: Priority column */}
+                <TH>PRIORITY</TH>
                 <TH className="cursor-pointer" onClick={() => toggleSort('is_read')}>
                   <div className="flex items-center gap-1">READ <SortIcon field="is_read" /></div>
                 </TH>
@@ -391,6 +401,15 @@ export default function NotificationsPage() {
                         CHANNEL_COLORS[item.channel] || 'bg-slate-100 text-slate-600'
                       )}>
                         {capitalize(item.channel)}
+                      </span>
+                    </TD>
+                    {/* BUG-44: Priority cell */}
+                    <TD>
+                      <span className={cn(
+                        'inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium',
+                        PRIORITY_COLORS[item.priority] || 'bg-slate-100 text-slate-600'
+                      )}>
+                        {capitalize(item.priority || 'normal')}
                       </span>
                     </TD>
                     <TD>

@@ -593,6 +593,8 @@ function WalletsTab() {
               <DetailRow label="Total Debited" value={formatCurrency(viewing.total_debited)} />
               <DetailRow label="Total Withdrawn" value={formatCurrency(viewing.total_withdrawn)} />
               <DetailRow label="Frozen" value={viewing.is_frozen ? 'Yes' : 'No'} />
+              {viewing.is_frozen && <DetailRow label="Frozen Reason" value={viewing.frozen_reason || '—'} />}
+              {viewing.is_frozen && viewing.frozen_at && <DetailRow label="Frozen At" value={new Date(viewing.frozen_at).toLocaleString()} />}
               <DetailRow label="Auto Payout" value={viewing.auto_payout_enabled ? 'Enabled' : 'Disabled'} />
               <DetailRow label="Payout Day" value={viewing.payout_day != null ? String(viewing.payout_day) : undefined} />
               <DetailRow label="Min Payout Amount" value={formatCurrency(viewing.min_payout_amount)} />

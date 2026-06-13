@@ -138,7 +138,7 @@ function ChatRoomsTab() {
                   <TD><Badge variant={item.room_type === 'public' ? 'info' : item.room_type === 'private' ? 'warning' : 'default'}>{item.room_type}</Badge></TD>
                   <TD><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{item.invite_code}</code></TD>
                   <TD className="text-sm text-slate-600">{item.users ? `${item.users.first_name} ${item.users.last_name}` : '—'}</TD>
-                  <TD className="text-sm text-slate-600">{item.course_batches?.name || '—'}</TD>
+                  <TD className="text-sm text-slate-600">{item.course_batches?.title || '—'}</TD>
                   <TD>{showTrash ? <Badge variant="warning">Deleted</Badge> : <Badge variant={item.is_active ? 'success' : 'danger'}>{item.is_active ? 'Active' : 'Inactive'}</Badge>}</TD>
                   <TD className="text-sm text-slate-500">{fromNow(item.created_at)}</TD>
                   <TD className="text-right">
@@ -173,7 +173,7 @@ function ChatRoomsTab() {
             <DetailRow label="Max Members" value={viewing.max_members || 'Unlimited'} />
             <DetailRow label="Invite Links" value={viewing.allow_invite_link ? 'Enabled' : 'Disabled'} />
             <DetailRow label="Status" value={viewing.is_active ? 'Active' : 'Inactive'} />
-            <DetailRow label="Batch" value={viewing.course_batches?.name} />
+            <DetailRow label="Batch" value={viewing.course_batches?.title} />
             <DetailRow label="Created By" value={viewing.users ? `${viewing.users.first_name} ${viewing.users.last_name}` : null} />
             <DetailRow label="Created" value={viewing.created_at ? new Date(viewing.created_at).toLocaleString() : null} />
           </div>

@@ -1654,10 +1654,13 @@ export const api = {
   deleteTransaction: (id: number) => request(`/transactions/${id}/permanent`, { method: 'DELETE' }),
 
   // ── Enrollments ──
-  listEnrollments: (qs = '') => request(`/enrollments${qs}`, { auth: false }),
-  getEnrollment: (id: number) => request(`/enrollments/${id}`, { auth: false }),
-  getEnrollmentsByUser: (userId: number) => request(`/enrollments/user/${userId}`, { auth: false }),
-  getEnrollmentProgress: (id: number) => request(`/enrollments/${id}/progress`, { auth: false }),
+  // BUG-25 fix: these are admin endpoints behind authMiddleware. With auth:false the
+  // Bearer token was not attached → 401 → the Enrollments page (and Certificates/Badges
+  // testing) showed "No enrollments". Default to auth:true so the token is sent.
+  listEnrollments: (qs = '') => request(`/enrollments${qs}`),
+  getEnrollment: (id: number) => request(`/enrollments/${id}`),
+  getEnrollmentsByUser: (userId: number) => request(`/enrollments/user/${userId}`),
+  getEnrollmentProgress: (id: number) => request(`/enrollments/${id}/progress`),
   createEnrollment: (data: any) => request('/enrollments', { method: 'POST', body: JSON.stringify(data) }),
   updateEnrollment: (id: number, data: any) => request(`/enrollments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeleteEnrollment: (id: number) => request(`/enrollments/${id}`, { method: 'DELETE' }),
