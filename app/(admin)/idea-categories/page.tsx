@@ -61,7 +61,15 @@ export default function IdeaCategoriesPage() {
   };
 
   const trash = async (c: Cat) => {
-    if (!confirm(`Move "${c.name}" to trash?`)) return;
+    // BUG-81: warn if ideas still reference this category — trashing it leaves
+    // them without a category. Usage count comes from GET /idea-categories/:id/usage.
+    let warning = '';
+    try {
+      const usage = await apiRequest<any>(`/idea-categories/${c.id}/usage`);
+      const n = Number(usage?.data?.ideas_using ?? 0);
+      if (n > 0) warning = `\n\n${n} idea(s) use this category — they'll lose their category. Continue?`;
+    } catch { /* usage lookup is best-effort; fall back to the plain prompt */ }
+    if (!confirm(`Move "${c.name}" to trash?${warning}`)) return;
     const res = await apiRequest<any>(`/idea-categories/${c.id}`, { method: 'DELETE' });
     if (res?.success === false) toast.error(res?.error || 'Failed'); else { toast.success('Moved to trash'); load(); }
   };

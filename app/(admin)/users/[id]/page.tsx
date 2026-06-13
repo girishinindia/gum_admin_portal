@@ -46,10 +46,23 @@ export default function UserDetailPage() {
   // Nobody can change their own role
   const cannotModifyRoles = isSelf;
 
-  async function updateStatus(status: string) {
-    const res = await api.updateUser(+id!, { status });
+  // BUG-73: suspending/deactivating now records a reason (sent as `reason`),
+  // mirroring how wallet-management collects the freeze reason via window.prompt.
+  async function updateStatus(status: string, reason?: string) {
+    const body: { status: string; reason?: string } = { status };
+    if (reason && reason.trim()) body.reason = reason.trim();
+    const res = await api.updateUser(+id!, body);
     if (res.success) { toast.success(`User status updated to ${status}`); load(); }
     else toast.error(res.error || 'Failed');
+  }
+
+  // BUG-73: prompt for a reason before a destructive status change.
+  function promptStatusReason(status: 'inactive' | 'suspended') {
+    const verb = status === 'suspended' ? 'suspending' : 'deactivating';
+    const reason = window.prompt(`Reason for ${verb} this user (required):`, '');
+    if (reason === null) return;            // cancelled
+    if (!reason.trim()) { toast.error('A reason is required'); return; }
+    updateStatus(status, reason);
   }
 
   async function assignRole(role_id: number) {
@@ -87,17 +100,17 @@ export default function UserDetailPage() {
   if (isSuperAdmin && !cannotModifyStatus) {
     if (user.status === 'active') {
       statusActions.push(
-        <Button key="deact" variant="outline" onClick={() => confirm('Deactivate this user?') && updateStatus('inactive')}>
+        <Button key="deact" variant="outline" onClick={() => promptStatusReason('inactive')}>
           Deactivate
         </Button>,
-        <Button key="susp" variant="danger" onClick={() => confirm('Suspend this user? They will not be able to log in.') && updateStatus('suspended')}>
+        <Button key="susp" variant="danger" onClick={() => promptStatusReason('suspended')}>
           Suspend
         </Button>
       );
     } else if (user.status === 'inactive') {
       statusActions.push(
         <Button key="act" variant="primary" onClick={() => updateStatus('active')}>Activate</Button>,
-        <Button key="susp" variant="danger" onClick={() => confirm('Suspend this user?') && updateStatus('suspended')}>Suspend</Button>
+        <Button key="susp" variant="danger" onClick={() => promptStatusReason('suspended')}>Suspend</Button>
       );
     } else if (user.status === 'suspended') {
       statusActions.push(

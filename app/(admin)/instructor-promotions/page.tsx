@@ -86,6 +86,19 @@ function localNowForInput(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// BUG-67 — convert a stored UTC ISO timestamp to a LOCAL wall-clock string for
+// a datetime-local input. The old `value.slice(0, 16)` echoed the UTC wall-clock
+// verbatim, so editing an existing promo showed the wrong time and re-saving
+// (local→UTC again) shifted it by the local offset (~5.5h in IST). Using the
+// Date's local getters round-trips correctly with the save-side toISOString().
+function toLocalInput(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // Phase 47 — client-side mirror of the API guard (instant feedback before save).
 function validatePromo(p: Partial<Promotion>, enforceFutureFrom: boolean): string | null {
   const isFixed = p.discount_type === 'fixed_amount' || p.discount_type === 'fixed';
@@ -476,11 +489,13 @@ export default function InstructorPromotionsPage() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Valid From</label>
-                  <Input type="datetime-local" min={localNowForInput()} max="2100-12-31T23:59" value={editItem.valid_from ? editItem.valid_from.slice(0, 16) : ''} onChange={e => setEditItem({ ...editItem, valid_from: e.target.value || null })} />
+                  {/* BUG-67: show stored UTC as local wall-clock (was .slice(0,16)) */}
+                  <Input type="datetime-local" min={localNowForInput()} max="2100-12-31T23:59" value={toLocalInput(editItem.valid_from)} onChange={e => setEditItem({ ...editItem, valid_from: e.target.value || null })} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Valid Until</label>
-                  <Input type="datetime-local" min={editItem.valid_from ? editItem.valid_from.slice(0, 16) : localNowForInput()} max="2100-12-31T23:59" value={editItem.valid_until ? editItem.valid_until.slice(0, 16) : ''} onChange={e => setEditItem({ ...editItem, valid_until: e.target.value || null })} />
+                  {/* BUG-67: show stored UTC as local wall-clock (was .slice(0,16)) */}
+                  <Input type="datetime-local" min={editItem.valid_from ? toLocalInput(editItem.valid_from) : localNowForInput()} max="2100-12-31T23:59" value={toLocalInput(editItem.valid_until)} onChange={e => setEditItem({ ...editItem, valid_until: e.target.value || null })} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Usage Limit (total)</label>

@@ -27,6 +27,18 @@ const Badge = ({ s }: { s: string }) => (
   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_TONE[s] || 'bg-slate-100 text-slate-600'}`}>{s.replace(/_/g, ' ')}</span>
 );
 
+// BUG-77/78: hoisted to module scope. Previously declared inside DetailModal's
+// render body, so it got a fresh identity on every keystroke → React remounted
+// the whole subtree and the review inputs (Remark/Feedback/Reward/Partnership)
+// lost focus after one character / one digit. It only uses props, so this is a
+// pure cut/paste with no behaviour change.
+const Section = ({ title, icon: Icon, children }: any) => (
+  <div className="rounded-xl border border-slate-200 p-4">
+    <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 mb-3"><Icon className="w-4 h-4 text-slate-400" /> {title}</h4>
+    {children}
+  </div>
+);
+
 const input = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400';
 
 export default function IdeasAdminPage() {
@@ -177,13 +189,6 @@ function DetailModal({ idea, onClose, onChanged }: { idea: any; onClose: () => v
     setBusy('');
   };
 
-  const Section = ({ title, icon: Icon, children }: any) => (
-    <div className="rounded-xl border border-slate-200 p-4">
-      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 mb-3"><Icon className="w-4 h-4 text-slate-400" /> {title}</h4>
-      {children}
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 p-4 overflow-y-auto" onClick={onClose}>
       <div className="my-8 w-full max-w-4xl rounded-2xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
@@ -203,7 +208,9 @@ function DetailModal({ idea, onClose, onChanged }: { idea: any; onClose: () => v
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="grid gap-4 p-5 lg:grid-cols-2">
+        {/* BUG-76: items-start stops the two columns from stretching to equal
+            height, which made the modal jump as section content changed. */}
+        <div className="grid gap-4 p-5 lg:grid-cols-2 items-start">
           {/* Left: content */}
           <div className="space-y-3 text-sm">
             {[

@@ -66,6 +66,19 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// BUG-67 — convert a stored UTC ISO timestamp to a LOCAL wall-clock string for
+// a datetime-local input. The old `item.valid_from.slice(0, 16)` echoed the UTC
+// wall-clock verbatim, so editing an existing coupon showed the wrong time and
+// re-saving (local→UTC again via toISOString()) shifted it by the local offset
+// (~5.5h in IST). Local getters round-trip correctly with the save side.
+function toLocalInput(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function capitalize(s: string) {
   return s ? s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '--';
 }
@@ -199,8 +212,9 @@ function CouponsTab() {
         applicable_to: item.applicable_to || 'all',
         max_uses: item.usage_limit ?? '',
         min_order_value: item.min_purchase_amount ?? '',
-        valid_from: item.valid_from ? item.valid_from.slice(0, 16) : '',
-        valid_until: item.valid_until ? item.valid_until.slice(0, 16) : '',
+        // BUG-67: show stored UTC as local wall-clock (was .slice(0,16))
+        valid_from: toLocalInput(item.valid_from),
+        valid_until: toLocalInput(item.valid_until),
         is_active: item.is_active ?? true,
       });
     } else {
