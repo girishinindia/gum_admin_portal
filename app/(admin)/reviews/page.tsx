@@ -109,6 +109,11 @@ export default function ReviewsPage() {
   const [formReviewText, setFormReviewText] = useState('');
   const [formStatus, setFormStatus] = useState('published');
 
+  // BUG-64: multi-select + bulk actions (pattern from support-tickets/page.tsx)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+
   const toolbarRef = useRef<DataToolbarHandle>(null);
 
   const fetchData = useCallback(async () => {
@@ -139,7 +144,7 @@ export default function ReviewsPage() {
     } catch {}
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); setSelectedIds(new Set()); }, [fetchData]); // BUG-64: clear selection on reload
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
   const handleSort = (field: SortField) => {
@@ -232,6 +237,44 @@ export default function ReviewsPage() {
     } catch { toast.error('Failed to load review'); }
   };
 
+  // BUG-64: multi-select helpers + bulk actions that loop the existing single-item calls
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  };
+  const toggleSelectAll = () => {
+    setSelectedIds(selectedIds.size === rows.length ? new Set() : new Set(rows.map(r => r.id)));
+  };
+  const handleBulkSoftDelete = async () => {
+    if (!confirm(`Move ${selectedIds.size} review(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) { try { const r = await api.softDeleteReview(ids[i]); if (r.success) ok++; } catch {} setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} review(s) moved to trash`);
+    setSelectedIds(new Set()); fetchData(); fetchStats(); setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  };
+  const handleBulkRestore = async () => {
+    if (!confirm(`Restore ${selectedIds.size} review(s)?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) { try { const r = await api.restoreReview(ids[i]); if (r.success) ok++; } catch {} setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} review(s) restored`);
+    setSelectedIds(new Set()); fetchData(); fetchStats(); setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  };
+  const handleBulkPermanentDelete = async () => {
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} review(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) { try { const r = await api.deleteReview(ids[i]); if (r.success) ok++; } catch {} setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} review(s) permanently deleted`);
+    setSelectedIds(new Set()); fetchData(); fetchStats(); setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  };
+
   const totalPages = Math.ceil(total / pageSize);
 
   return (
@@ -311,10 +354,28 @@ export default function ReviewsPage() {
       />
 
       <div className="bg-white border rounded-lg overflow-hidden">
+        {/* BUG-64: bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
+            <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
+            <div className="flex items-center gap-2">
+              {trashed ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected</Button>
+                  <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
+                </>
+              ) : (
+                <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <Table>
             <THead>
               <TR>
+                <TH className="w-10"><input type="checkbox" checked={rows.length > 0 && selectedIds.size === rows.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                 <TH className="cursor-pointer" onClick={() => handleSort('id')}>
                   <span className="inline-flex items-center gap-1">ID <SortIcon field="id" /></span>
                 </TH>
@@ -340,14 +401,14 @@ export default function ReviewsPage() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TR key={i}>
-                    {Array.from({ length: 11 }).map((_, j) => (
+                    {Array.from({ length: 12 }).map((_, j) => (
                       <TD key={j}><Skeleton className="h-4 w-full" /></TD>
                     ))}
                   </TR>
                 ))
               ) : rows.length === 0 ? (
                 <TR>
-                  <td colSpan={11}>
+                  <td colSpan={12}>
                     <EmptyState icon={Star} title="No reviews found" description={trashed ? 'Trash is empty' : 'No reviews match your filters'} />
                   </td>
                 </TR>
@@ -355,7 +416,9 @@ export default function ReviewsPage() {
                 rows.map(row => {
                   const StIcon = STATUS_ICONS[row.status] || Clock;
                   return (
-                    <TR key={row.id}>
+                    <TR key={row.id} className={selectedIds.has(row.id) ? 'bg-brand-50/40' : undefined}>
+                      {/* BUG-64: row select checkbox */}
+                      <TD><input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleSelect(row.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                       <TD className="font-mono text-xs">{row.id}</TD>
                       <TD className="max-w-[120px] truncate text-sm">{row.user_name || `User #${row.user_id}`}</TD>
                       <TD>
@@ -384,7 +447,18 @@ export default function ReviewsPage() {
                       </TD>
                       <TD className="text-xs text-slate-500">{fromNow(row.created_at)}</TD>
                       <TD>
-                        <Dropdown trigger={<button className="p-1 hover:bg-slate-100 rounded"><MoreVertical className="w-4 h-4" /></button>}>
+                        <div className="flex items-center gap-1">
+                          {/* BUG-64: inline quick actions */}
+                          <button onClick={() => handleView(row.id)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                          {!trashed ? (
+                            <button onClick={() => handleSoftDelete(row.id)} disabled={deleting} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Move to Trash"><Trash2 className="w-3.5 h-3.5" /></button>
+                          ) : (
+                            <>
+                              <button onClick={() => handleRestore(row.id)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setDeleteId(row.id)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </>
+                          )}
+                          <Dropdown trigger={<button className="p-1 hover:bg-slate-100 rounded"><MoreVertical className="w-4 h-4" /></button>}>
                           <DropdownItem onClick={() => handleView(row.id)}>
                             <Eye className="w-4 h-4 mr-2" /> View
                           </DropdownItem>
@@ -416,7 +490,8 @@ export default function ReviewsPage() {
                               </DropdownItem>
                             </>
                           )}
-                        </Dropdown>
+                          </Dropdown>
+                        </div>
                       </TD>
                     </TR>
                   );

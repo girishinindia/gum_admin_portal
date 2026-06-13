@@ -226,14 +226,21 @@ export default function EmailTemplatesPage() {
       if (payload[k] === '') payload[k] = null;
     }
 
-    const res = editing
-      ? await api.updateEmailTemplate(editing.id, payload)
-      : await api.createEmailTemplate(payload);
-    setFormLoading(false);
-    if (res.success) {
-      toast.success(editing ? 'Template updated' : 'Template created');
-      setDialogOpen(false); load(); refreshSummary();
-    } else toast.error(res.error || 'Failed');
+    // BUG-61 fix: api.request() THROWS on non-2xx (incl. the 409 "Template key already
+    // exists"). Without a catch the submit button stuck on "Saving…" and no toast showed.
+    try {
+      const res = editing
+        ? await api.updateEmailTemplate(editing.id, payload)
+        : await api.createEmailTemplate(payload);
+      if (res.success) {
+        toast.success(editing ? 'Template updated' : 'Template created');
+        setDialogOpen(false); load(); refreshSummary();
+      } else toast.error(res.error || 'Failed');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setFormLoading(false);
+    }
   }
 
   async function onSoftDelete(item: EmailTemplate) {

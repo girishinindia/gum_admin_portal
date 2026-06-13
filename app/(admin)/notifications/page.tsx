@@ -230,11 +230,18 @@ export default function NotificationsPage() {
   async function onSaveCreate(formData: any) {
     setSaving(true);
     try {
-      await api.createNotification({
+      const res: any = await api.createNotification({
         ...formData,
         user_id: Number(formData.user_id),
       });
-      toast.success('Notification created');
+      // BUG-60 fix: the API now returns { skipped: true, reason } (with a "Skipped ..."
+      // message) when the recipient has disabled that in-app notification type. Surface
+      // that as an info toast instead of a misleading "created" success.
+      if (res?.data?.skipped || (typeof res?.message === 'string' && res.message.startsWith('Skipped'))) {
+        toast.info(res?.message || 'Skipped — user turned off this type');
+      } else {
+        toast.success('Notification created');
+      }
       setCreateOpen(false);
       fetchData();
       fetchStats();

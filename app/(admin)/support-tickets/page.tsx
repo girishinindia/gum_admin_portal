@@ -1871,41 +1871,72 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
           <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Messages ({messages.length})</h3>
         </div>
 
-        {messagesLoading ? (
+        {messagesLoading || attachmentsLoading ? (
           <div className="p-6 space-y-3">
             {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
           </div>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && attachments.length === 0 ? (
           <div className="p-6 text-center text-sm text-slate-500">No messages yet</div>
         ) : (
+          // BUG-63 fix: render ONE chronological timeline — messages plus ticket-level
+          // attachments (message_id == null), sorted by created_at. Message-scoped
+          // attachments stay inline under their own message. The separate flat
+          // "Attachments" panel below is now upload-only (no duplicate listing).
           <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
-            {messages.map(msg => (
-              <div key={msg.id} className={cn('px-6 py-4', msg.is_internal && 'bg-amber-50/50')}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-900">
-                      {msg.users ? `${msg.users.first_name || ''} ${msg.users.last_name || ''}`.trim() : (msg.sender_name || `User #${msg.user_id || '--'}`)}
-                    </span>
-                    {msg.is_internal && <Badge variant="warning">Internal</Badge>}
+            {[
+              ...messages.map(m => ({ kind: 'message' as const, at: m.created_at, data: m })),
+              ...attachments.filter(a => a.message_id == null).map(a => ({ kind: 'attachment' as const, at: a.created_at, data: a })),
+            ]
+              .sort((x, y) => new Date(x.at || 0).getTime() - new Date(y.at || 0).getTime())
+              .map(entry => entry.kind === 'message' ? (
+                <div key={`msg-${entry.data.id}`} className={cn('px-6 py-4', entry.data.is_internal && 'bg-amber-50/50')}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-900">
+                        {entry.data.users ? `${entry.data.users.first_name || ''} ${entry.data.users.last_name || ''}`.trim() : (entry.data.sender_name || `User #${entry.data.user_id || '--'}`)}
+                      </span>
+                      {entry.data.is_internal && <Badge variant="warning">Internal</Badge>}
+                    </div>
+                    <span className="text-xs text-slate-400">{entry.data.created_at ? fromNow(entry.data.created_at) : '--'}</span>
                   </div>
-                  <span className="text-xs text-slate-400">{msg.created_at ? fromNow(msg.created_at) : '--'}</span>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{entry.data.message}</p>
+                  {/* BUG-08: attachments threaded to THIS message render inline (sorted by created_at) */}
+                  {attachments.filter(a => a.message_id === entry.data.id).length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {attachments.filter(a => a.message_id === entry.data.id)
+                        .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime())
+                        .map(att => (
+                          <span key={att.id} className="inline-flex items-center gap-1 text-xs text-brand-700 bg-brand-50 border border-brand-100 rounded-md pl-2 pr-1 py-1">
+                            <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:underline">
+                              <Paperclip className="w-3 h-3" /> {att.file_name || 'Attachment'}
+                            </a>
+                            {/* BUG-63: keep delete reachable now that the flat panel is gone */}
+                            <button onClick={() => handleDeleteAttachment(att)} disabled={deletingAttId !== null} className="p-0.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete">
+                              {deletingAttId === att.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">{msg.message}</p>
-                {/* BUG-08 fix: render attachments threaded to this message inline, so the
-                    admin can actually see files a student attached to a specific reply
-                    (previously they were only listed in a separate flat panel / not visible). */}
-                {attachments.filter(a => a.message_id === msg.id).length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {attachments.filter(a => a.message_id === msg.id).map(att => (
-                      <a key={att.id} href={att.file_url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-100 rounded-md px-2 py-1 transition-colors">
-                        <Paperclip className="w-3 h-3" /> {att.file_name || 'Attachment'}
-                      </a>
-                    ))}
+              ) : (
+                // Ticket-level attachment (not tied to a message) placed in time order
+                <div key={`att-${entry.data.id}`} className="px-6 py-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-sm font-medium text-slate-900 inline-flex items-center gap-1.5"><Paperclip className="w-3.5 h-3.5 text-slate-400" /> Attachment</span>
+                    <span className="text-xs text-slate-400">{entry.data.created_at ? fromNow(entry.data.created_at) : '--'}</span>
                   </div>
-                )}
-              </div>
-            ))}
+                  <span className="inline-flex items-center gap-1 text-xs text-brand-700 bg-brand-50 border border-brand-100 rounded-md pl-2 pr-1 py-1">
+                    <a href={entry.data.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:underline">
+                      <Paperclip className="w-3 h-3" /> {entry.data.file_name || 'Attachment'}
+                    </a>
+                    {/* BUG-63: delete reachable from the timeline */}
+                    <button onClick={() => handleDeleteAttachment(entry.data)} disabled={deletingAttId !== null} className="p-0.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete">
+                      {deletingAttId === entry.data.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                    </button>
+                  </span>
+                </div>
+              ))}
           </div>
         )}
 
@@ -1949,10 +1980,12 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
         )}
       </div>
 
-      {/* Attachments Section */}
+      {/* Attachments Section — BUG-63: upload-only now. The file LISTING moved into the
+          chronological message timeline above (this panel used to re-list every attachment
+          a second time, out of order). */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm mb-6">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attachments ({attachments.length})</h3>
+          <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2"><Upload className="w-4 h-4" /> Add Attachments</h3>
           <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
             <Upload className="w-3.5 h-3.5" /> Upload Files
           </Button>
@@ -1987,44 +2020,10 @@ function TicketDetailTab({ ticketId, onBack }: { ticketId: number; onBack: () =>
           )}
         </div>
 
-        {/* Attachment List */}
-        {attachmentsLoading ? (
-          <div className="p-6 space-y-2">
-            {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
-          </div>
-        ) : attachments.length === 0 ? (
-          <div className="p-6 text-center text-sm text-slate-500">No attachments yet</div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {attachments.map(att => {
-              const FileIcon = getFileIcon(att.file_type);
-              return (
-                <div key={att.id} className="px-6 py-3 flex items-center justify-between group">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FileIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-900 truncate">{att.file_name || 'Attachment'}</div>
-                      <div className="text-xs text-slate-400">
-                        {att.file_type?.split('/').pop() || '--'}
-                        {att.file_size ? ` · ${att.file_size > 1048576 ? `${(att.file_size / 1048576).toFixed(1)} MB` : `${(att.file_size / 1024).toFixed(1)} KB`}` : ''}
-                        {att.created_at ? ` · ${fromNow(att.created_at)}` : ''}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {att.file_url && (
-                      <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Download">
-                        <Download className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                    <button onClick={() => handleDeleteAttachment(att)} disabled={deletingAttId !== null} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50" title="Delete">
-                      {deletingAttId === att.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        {/* BUG-63: per-message + ticket-level attachments are now listed in the
+            chronological timeline above. Show a hint to delete them from there. */}
+        {!attachmentsLoading && attachments.length > 0 && (
+          <p className="px-6 pb-4 text-xs text-slate-400">{attachments.length} attachment{attachments.length > 1 ? 's' : ''} shown in the conversation above. Open one to download, or delete it from there.</p>
         )}
       </div>
 

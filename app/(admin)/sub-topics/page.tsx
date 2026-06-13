@@ -60,15 +60,20 @@ export default function SubTopicsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SubTopic | null>(null);
-  // BUG-12 fix: signed thumbnail for the edit modal (raw vz urls 403 under token auth)
-  const [signedThumb, setSignedThumb] = useState<string | null>(null);
+  // BUG-56 fix: signed PLAYER preview for the edit modal. The signed thumbnail url
+  // 403s on Bunny's CDN, but the signed iframe player works — so render the player
+  // instead of a broken <img>.
+  const [signedEmbed, setSignedEmbed] = useState<string | null>(null);
+  const [signedEmbedLoading, setSignedEmbedLoading] = useState(false);
   useEffect(() => {
-    setSignedThumb(null);
+    setSignedEmbed(null);
     const e = editing as any;
     if (e?.id && e?.video_id && (e.video_source === 'bunny' || e.video_source === 'bunny_pending')) {
+      setSignedEmbedLoading(true);
       api.getSubTopicPlayback(e.id)
-        .then((r: any) => setSignedThumb(r?.data?.thumbnail_url || null))
-        .catch(() => setSignedThumb(null));
+        .then((r: any) => setSignedEmbed(r?.data?.embed_url || null))
+        .catch(() => setSignedEmbed(null))
+        .finally(() => setSignedEmbedLoading(false));
     }
   }, [editing]);
   const [viewing, setViewing] = useState<SubTopic | null>(null);
@@ -953,30 +958,50 @@ export default function SubTopicsPage() {
 
             {/* Show current video if editing */}
             {editing && (editing as any).video_source && (
-              <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                {(editing as any).video_source === 'bunny' && (signedThumb || (editing as any).video_thumbnail_url) && (
-                  // BUG-12 fix: use the SIGNED thumbnail (raw url 403s under token auth)
-                  <img src={signedThumb || (editing as any).video_thumbnail_url} alt="" className="w-20 h-12 rounded object-cover"
-                    onError={(ev) => { (ev.target as HTMLImageElement).style.display = 'none'; }} />
+              <div className="bg-slate-50 rounded-lg p-3 space-y-3">
+                {/* BUG-56 fix: render the SIGNED iframe player as the preview for Bunny
+                    videos (the signed thumbnail url 403s on the CDN). Covers both
+                    'bunny' and 'bunny_pending'; falls back to a status placeholder when
+                    the embed url isn't ready (processing/failed) instead of a broken img. */}
+                {((editing as any).video_source === 'bunny' || (editing as any).video_source === 'bunny_pending') && (
+                  signedEmbed ? (
+                    <div className="relative w-full rounded-lg overflow-hidden bg-black" style={{ paddingTop: '56.25%' }}>
+                      <iframe src={signedEmbed} allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                        allowFullScreen className="absolute inset-0 w-full h-full border-0" title="Video preview" />
+                    </div>
+                  ) : (
+                    <div className="w-full rounded-lg bg-slate-100 border border-slate-200 flex flex-col items-center justify-center text-center py-8 px-4">
+                      {signedEmbedLoading ? (
+                        <><Loader2 className="w-5 h-5 animate-spin text-slate-400" /><span className="mt-2 text-xs text-slate-500">Loading preview…</span></>
+                      ) : (
+                        <><Video className="w-5 h-5 text-slate-400" />
+                          <span className="mt-2 text-xs text-slate-500">
+                            {(editing as any).video_status === 'failed' ? 'Video processing failed' : 'Video is still processing — preview not ready yet'}
+                          </span></>
+                      )}
+                    </div>
+                  )
                 )}
                 {(editing as any).video_source === 'youtube' && (
                   <div className="w-20 h-12 rounded bg-red-100 flex items-center justify-center">
                     <span className="text-red-600 text-xs font-bold">YT</span>
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <Badge variant={(editing as any).video_source === 'bunny' ? 'info' : 'warning'}>
-                    {(editing as any).video_source === 'bunny' ? 'Bunny Stream' : 'YouTube'}
-                  </Badge>
-                  {(editing as any).video_status && <span className="ml-2 text-xs text-slate-500">{(editing as any).video_status}</span>}
-                </div>
-                <button type="button" onClick={async () => {
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <Badge variant={((editing as any).video_source === 'bunny' || (editing as any).video_source === 'bunny_pending') ? 'info' : 'warning'}>
+                      {((editing as any).video_source === 'bunny' || (editing as any).video_source === 'bunny_pending') ? 'Bunny Stream' : 'YouTube'}
+                    </Badge>
+                    {(editing as any).video_status && <span className="ml-2 text-xs text-slate-500">{(editing as any).video_status}</span>}
+                  </div>
+                  <button type="button" onClick={async () => {
                   if (!confirm('Remove current video?')) return;
                   await api.deleteSubTopicVideo(editing.id);
                   const refreshed = await api.getSubTopic(editing.id);
                   if (refreshed.success) setEditing(refreshed.data);
                   toast.success('Video removed');
                 }} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                </div>
               </div>
             )}
 
