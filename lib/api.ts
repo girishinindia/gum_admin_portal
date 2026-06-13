@@ -2473,7 +2473,7 @@ export const api = {
   softDeleteWallet: (id: number) => request(`/wallets/${id}`, { method: 'DELETE' }),
   restoreWallet: (id: number) => request(`/wallets/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteWallet: (id: number) => request(`/wallets/${id}/permanent`, { method: 'DELETE' }),
-  toggleFreezeWallet: (id: number) => request(`/wallets/${id}/freeze`, { method: 'POST' }),
+  toggleFreezeWallet: (id: number, body?: { reason: string }) => request(`/wallets/${id}/freeze`, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
   walletManualCredit: (id: number, data: any) => request(`/wallets/${id}/credit`, { method: 'POST', body: JSON.stringify(data) }),
   walletManualDebit: (id: number, data: any) => request(`/wallets/${id}/debit`, { method: 'POST', body: JSON.stringify(data) }),
 

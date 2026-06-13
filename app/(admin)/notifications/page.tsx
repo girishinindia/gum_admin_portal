@@ -12,6 +12,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
@@ -101,6 +102,18 @@ export default function NotificationsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [channelFilter, setChannelFilter] = useState('');
   const [readFilter, setReadFilter] = useState('');
+  // BUG-22 fix: Sent At date-range filter
+  const [sentFrom, setSentFrom] = useState('');
+  const [sentTo, setSentTo] = useState('');
+  // BUG-19 fix: user picker data
+  const [pickUsers, setPickUsers] = useState<any[]>([]);
+  useEffect(() => {
+    api.listUsers('?limit=500&sort=first_name&order=asc').then((r: any) => setPickUsers(r?.data || [])).catch(() => setPickUsers([]));
+  }, []);
+  const userOptions = pickUsers.map((u: any) => ({
+    value: String(u.id),
+    label: `${[u.first_name, u.last_name].filter(Boolean).join(' ') || 'User'} — ${u.email || u.mobile || `#${u.id}`}`,
+  }));
   const toolbarRef = useRef<DataToolbarHandle>(null);
 
   // ── Stats state ──
@@ -114,7 +127,7 @@ export default function NotificationsPage() {
   // ── Create state ──
   const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, watch, setValue } = useForm();
 
   // ── Action loaders ──
   const [actionLoaders, setActionLoaders] = useState<Record<number, string>>({});
@@ -134,12 +147,14 @@ export default function NotificationsPage() {
       if (typeFilter) params.notification_type = typeFilter;
       if (channelFilter) params.channel = channelFilter;
       if (readFilter) params.is_read = readFilter;
+      if (sentFrom) params.sent_from = sentFrom; // BUG-22
+      if (sentTo) params.sent_to = sentTo;
       const res = await api.getNotifications(params);
       setData(res.data || []);
       setTotal(res.pagination?.total || 0);
     } catch { toast.error('Failed to load notifications'); }
     setLoading(false);
-  }, [page, pageSize, sort, asc, showTrash, search, typeFilter, channelFilter, readFilter]);
+  }, [page, pageSize, sort, asc, showTrash, search, typeFilter, channelFilter, readFilter, sentFrom, sentTo]);
 
   const fetchTrashCount = useCallback(async () => {
     try {
@@ -298,6 +313,9 @@ export default function NotificationsPage() {
           <select className={selectClass} value={readFilter} onChange={e => { setReadFilter(e.target.value); setPage(1); }}>
             {READ_FILTER.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+          {/* BUG-22: Sent At range */}
+          <input type="date" title="Sent from" className={selectClass} value={sentFrom} onChange={e => { setSentFrom(e.target.value); setPage(1); }} />
+          <input type="date" title="Sent to" className={selectClass} value={sentTo} onChange={e => { setSentTo(e.target.value); setPage(1); }} />
           <Button variant={showTrash ? 'danger' : 'outline'} size="sm" onClick={() => { setShowTrash(!showTrash); setPage(1); }}>
             <Trash2 className="w-4 h-4" />
             Trash
@@ -398,14 +416,14 @@ export default function NotificationsPage() {
                           </Button>
                         </div>
                       ) : (
-                        <Dropdown trigger={<MoreVertical className="w-4 h-4 text-slate-500 hover:text-slate-700" />} align="right" width="w-48">
-                          <DropdownItem icon={Eye} onClick={() => openView(item.id)}>View</DropdownItem>
+                        <div className="inline-flex items-center whitespace-nowrap">
+                          {/* BUG-22: direct icon actions */}
+                          <button title="View" className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" onClick={() => openView(item.id)}><Eye className="w-4 h-4" /></button>
                           {!item.is_read && (
-                            <DropdownItem icon={Check} onClick={() => handleMarkAsRead(item.id)}>Mark as Read</DropdownItem>
+                            <button title="Mark as Read" className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600" onClick={() => handleMarkAsRead(item.id)}><Check className="w-4 h-4" /></button>
                           )}
-                          <DropdownDivider />
-                          <DropdownItem icon={Trash2} danger onClick={() => handleSoftDelete(item.id)}>Delete</DropdownItem>
-                        </Dropdown>
+                          <button title="Delete" className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500" onClick={() => handleSoftDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
+                        </div>
                       )}
                     </TD>
                   </TR>
@@ -472,10 +490,11 @@ export default function NotificationsPage() {
               <DetailRow label="User" value={viewItem.users?.full_name || viewItem.users?.email || `User #${viewItem.user_id}`} />
               <div className="col-span-2">
                 <dt className="text-xs font-medium text-slate-400 uppercase tracking-wider">Body</dt>
-                <dd className="mt-0.5 text-sm text-slate-800 whitespace-pre-wrap">{viewItem.body || '--'}</dd>
+                <dd className="mt-0.5 text-sm text-slate-800 whitespace-pre-wrap">{viewItem.message || viewItem.body || '--'}</dd>
               </div>
               <DetailRow label="Notification Type" value={capitalize(viewItem.notification_type || '')} />
               <DetailRow label="Channel" value={capitalize(viewItem.channel || '')} />
+              <DetailRow label="Priority" value={capitalize(viewItem.priority || 'normal')} />
               <DetailRow label="Read" value={viewItem.is_read ? 'Yes' : 'No'} />
               <DetailRow label="Sent At" value={viewItem.sent_at ? fromNow(viewItem.sent_at) : '--'} />
               <DetailRow label="Read At" value={viewItem.read_at ? fromNow(viewItem.read_at) : '--'} />
@@ -501,8 +520,10 @@ export default function NotificationsPage() {
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="Create Notification" size="md">
         <form onSubmit={handleSubmit(onSaveCreate)} className="p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">User ID *</label>
-            <Input type="number" placeholder="Enter user ID..." {...register('user_id', { required: true })} />
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">User *</label>
+            {/* BUG-19: searchable picker instead of a raw ID */}
+            <SearchableSelect options={userOptions} value={watch('user_id') || ''} onChange={(v) => setValue('user_id', v, { shouldValidate: true })} placeholder="Search by name or email…" />
+            <input type="hidden" {...register('user_id', { required: true })} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Title *</label>

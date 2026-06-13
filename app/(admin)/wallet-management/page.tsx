@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
@@ -320,11 +321,28 @@ function WalletsTab() {
     } else toast.error(res.error || 'Debit failed');
   }
 
+  // BUG-39: users for the create-wallet picker
+  const [pickUsers, setPickUsers] = useState<any[]>([]);
+  useEffect(() => {
+    api.listUsers('?limit=500&sort=first_name&order=asc').then((r: any) => setPickUsers(r?.data || [])).catch(() => setPickUsers([]));
+  }, []);
+  const pickUserOptions = pickUsers.map((u: any) => ({
+    value: String(u.id),
+    label: `${[u.first_name, u.last_name].filter(Boolean).join(' ') || 'User'} — ${u.email || u.mobile || `#${u.id}`}`,
+  }));
+
   async function onToggleFreeze(w: any) {
     const action = w.is_frozen ? 'unfreeze' : 'freeze';
+    // BUG-42: freezing requires a reason (recorded + shown in details)
+    let reason: string | null = null;
+    if (action === 'freeze') {
+      reason = window.prompt('Reason for freezing this wallet (required):', '');
+      if (reason === null) return;            // cancelled
+      if (!reason.trim()) { toast.error('A freeze reason is required'); return; }
+    }
     if (!confirm(`${capitalize(action)} wallet #${w.id}?`)) return;
     setActionLoadingId(w.id);
-    const res = await api.toggleFreezeWallet(w.id);
+    const res = await api.toggleFreezeWallet(w.id, reason ? { reason: reason.trim() } : undefined);
     setActionLoadingId(null);
     if (res.success) { toast.success(`Wallet ${action === 'freeze' ? 'frozen' : 'unfrozen'}`); load(); }
     else toast.error(res.error || 'Failed');
@@ -598,7 +616,12 @@ function WalletsTab() {
       {/* ── Create/Edit Dialog ── */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Wallet' : 'Create Wallet'} size="md">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4" key={dialogKey}>
-          <Input label="User ID" type="number" placeholder="User ID" {...register('user_id', { required: true })} />
+          {/* BUG-39: searchable user picker instead of a raw ID */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">User *</label>
+            <SearchableSelect options={pickUserOptions} value={watch('user_id') ? String(watch('user_id')) : ''} onChange={(v) => setValue('user_id', v, { shouldValidate: true })} placeholder="Search by name or email…" />
+            <input type="hidden" {...register('user_id', { required: true })} />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Payout Day (1-28)" type="number" min={1} max={28} placeholder="e.g. 15" {...register('payout_day')} />
             <Input label="Min Payout Amount" type="number" step="0.01" placeholder="e.g. 500" {...register('min_payout_amount')} />
