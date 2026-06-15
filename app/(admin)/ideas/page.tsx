@@ -212,7 +212,7 @@ function DetailModal({ idea, onClose, onChanged }: { idea: any; onClose: () => v
             height, which made the modal jump as section content changed. */}
         <div className="grid gap-4 p-5 lg:grid-cols-2 items-start">
           {/* Left: content */}
-          <div className="space-y-3 text-sm">
+          <div className="space-y-3 text-sm min-w-0">
             {[
               ['Short summary', idea.short_summary], ['Description', idea.description], ['Problem statement', idea.problem_statement],
               ['Proposed solution', idea.proposed_solution], ['Target users', idea.target_users], ['Expected benefit', idea.expected_benefit],
@@ -220,7 +220,7 @@ function DetailModal({ idea, onClose, onChanged }: { idea: any; onClose: () => v
             ].filter(([, v]) => v).map(([k, v]) => (
               <div key={k as string}>
                 <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{k}</div>
-                <p className="text-slate-700 whitespace-pre-wrap mt-0.5">{v}</p>
+                <p className="text-slate-700 whitespace-pre-wrap break-words mt-0.5">{v}</p>
               </div>
             ))}
             {Array.isArray(idea.tags) && idea.tags.length ? (

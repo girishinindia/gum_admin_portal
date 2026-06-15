@@ -31,7 +31,7 @@ export default function IdeaCategoriesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiRequest<any>('/idea-categories?include_inactive=true&limit=200');
+      const res = await apiRequest<any>('/idea-categories?include_inactive=true&include_deleted=true&limit=200');
       setRows(Array.isArray(res?.data) ? res.data : []);
     } catch { toast.error('Failed to load categories'); }
     setLoading(false);
