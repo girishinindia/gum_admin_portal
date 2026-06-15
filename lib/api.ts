@@ -140,21 +140,37 @@ function formDataRequest<T = any>(
   return request<T>(path, { method, body: fd, isFormData: true });
 }
 
+// Single-flight token refresh. The notifications bell polls /notifications/me
+// AND /me/unread-count together every 30s, so when the access token expires both
+// 401 at the same instant and both would call /auth/refresh concurrently. Because
+// the refresh token is ROTATED on use, the second call would reuse an already-spent
+// token, fail, and the loser would clear tokens → spurious logout + 401 spam.
+// Sharing one in-flight refresh fixes both: only one /auth/refresh runs; every
+// waiter resolves with the same result and retries with the new access token.
+let _refreshInFlight: Promise<boolean> | null = null;
 async function refreshTokens(): Promise<boolean> {
+  if (_refreshInFlight) return _refreshInFlight;
+  _refreshInFlight = (async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: tokens.refresh }),
+      });
+      const data = await res.json();
+      if (data.success && data.data?.access_token) {
+        tokens.set(data.data.access_token, data.data.refresh_token);
+        userCache.set(data.data.user);
+        return true;
+      }
+    } catch {}
+    return false;
+  })();
   try {
-    const res = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: tokens.refresh }),
-    });
-    const data = await res.json();
-    if (data.success && data.data?.access_token) {
-      tokens.set(data.data.access_token, data.data.refresh_token);
-      userCache.set(data.data.user);
-      return true;
-    }
-  } catch {}
-  return false;
+    return await _refreshInFlight;
+  } finally {
+    _refreshInFlight = null;
+  }
 }
 
 // Phase 44.11 — shared XHR upload helper for the dedicated course video
