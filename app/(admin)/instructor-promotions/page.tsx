@@ -67,7 +67,7 @@ const emptyPromo: Partial<Promotion> = {
   discount_type: 'percentage', discount_value: null, max_discount_amount: null,
   min_purchase_amount: null, applicable_to: 'all_my_courses',
   valid_from: null, valid_until: null, usage_limit: null, usage_per_user: null,
-  promotion_status: 'draft', requires_approval: true, is_active: true,
+  promotion_status: 'active', requires_approval: false, is_active: true,
 };
 
 // Phase 47 — safe date formatter: avoids the literal "Invalid Date" string when

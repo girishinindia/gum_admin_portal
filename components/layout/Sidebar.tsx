@@ -50,6 +50,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboards/catalog',    label: 'Catalog & Content',  icon: BookOpen,        iconColor: 'text-indigo-600' },
       { href: '/dashboards/engagement', label: 'Student Engagement', icon: Star,            iconColor: 'text-violet-600' },
       { href: '/revenue-dashboard',     label: 'Revenue (live MV)',  icon: BarChart3,       iconColor: 'text-cyan-600' },
+      { href: '/platform-revenue',      label: 'Platform Revenue',   icon: Banknote,        iconColor: 'text-green-600' },
     ],
   },
   {

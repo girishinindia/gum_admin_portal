@@ -179,7 +179,7 @@ export default function AnnouncementsPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState } = useForm();
 
   const watchScope = watch('target_scope');
 
@@ -248,7 +248,7 @@ export default function AnnouncementsPage() {
     reset({
       title: '', content: '', announcement_type: 'general',
       target_scope: 'all', target_id: '', target_name: '',
-      priority: 'medium', is_pinned: false,
+      priority: 'medium', status: 'draft', is_pinned: false,
       publish_at: '', expires_at: '',
       channels: ['in_app'], is_active: true,
     });
@@ -265,6 +265,7 @@ export default function AnnouncementsPage() {
       target_id: item.target_id ?? '',
       target_name: item.target_name || '',
       priority: priorityToLabel(item.priority), // BUG-37/50/54: int -> label for the select
+      status: item.status || 'draft',
       is_pinned: item.is_pinned ?? false,
       publish_at: item.publish_at ? item.publish_at.slice(0, 16) : '',
       expires_at: item.expires_at ? item.expires_at.slice(0, 16) : '',
@@ -771,6 +772,13 @@ export default function AnnouncementsPage() {
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
+            <select className={cn(selectClass, 'w-full')} {...register('status')}>
+              {STATUSES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Target Scope <span className="text-red-500">*</span></label>
@@ -823,7 +831,7 @@ export default function AnnouncementsPage() {
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">{editing ? 'Save changes' : 'Create'}</Button>
+            <Button type="submit" disabled={formState.isSubmitting}>{formState.isSubmitting ? 'Saving…' : editing ? 'Save changes' : 'Create'}</Button>
           </div>
         </form>
       </Dialog>

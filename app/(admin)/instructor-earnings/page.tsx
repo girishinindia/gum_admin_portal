@@ -11,12 +11,11 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
-import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
   Trash2, Edit2, Eye, ArrowUpDown, ArrowUp, ArrowDown,
-  RotateCcw, Loader2, MoreVertical, Wallet,
+  RotateCcw, Loader2, Wallet,
 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { usePageSize } from '@/hooks/usePageSize';
@@ -381,12 +380,11 @@ export default function InstructorEarningsPage() {
                           </Button>
                         </div>
                       ) : (
-                        <Dropdown trigger={<span className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition-colors" title="Actions" aria-label="Actions"><MoreVertical className="w-4 h-4" /></span>} align="right" width="w-48">
-                          <DropdownItem icon={Eye} onClick={() => openView(item.id)}>View</DropdownItem>
-                          <DropdownItem icon={Edit2} onClick={() => openEdit(item)}>Edit</DropdownItem>
-                          <DropdownDivider />
-                          <DropdownItem icon={Trash2} danger onClick={() => handleSoftDelete(item.id)}>Delete</DropdownItem>
-                        </Dropdown>
+                        <div className="flex items-center gap-1 justify-end">
+                          <button onClick={() => openView(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleSoftDelete(item.id)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
                       )}
                     </TD>
                   </TR>
