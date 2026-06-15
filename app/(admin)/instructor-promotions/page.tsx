@@ -76,7 +76,12 @@ function fmtDate(value: string | null | undefined, withTime = false): string {
   if (!value) return '—';
   const d = new Date(value);
   if (isNaN(d.getTime()) || d.getFullYear() < 2000 || d.getFullYear() > 2100) return '—';
-  return withTime ? d.toLocaleString() : d.toLocaleDateString();
+  // Show the explicit local timezone (e.g. "Jun 15, 2026, 03:13 AM GMT+5:30")
+  // so the displayed validity unambiguously matches the wall-clock time the
+  // admin set — no silent UTC vs local confusion.
+  return withTime
+    ? d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+    : d.toLocaleDateString();
 }
 
 // Local "now" formatted for a datetime-local input min attribute.

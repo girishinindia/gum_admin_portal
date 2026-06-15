@@ -12,6 +12,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { FileUpload } from '@/components/ui/FileUpload';
 import { VideoUpload } from '@/components/ui/VideoUpload';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { DataToolbar } from '@/components/ui/DataToolbar';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Plus, Pencil, Trash2, ArrowLeft, CheckCircle, XCircle, Send, ShieldCheck,
@@ -150,6 +151,8 @@ function CourseBuilderInner() {
   const [levelFilter, setLevelFilter] = useState('');
   const [pricingFilter, setPricingFilter] = useState('');
   const [verifiedFilter, setVerifiedFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const selectClass = "h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 appearance-none cursor-pointer bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2394a3b8%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat";
   const [showTrash, setShowTrash] = useState(false);
   const [stats, setStats] = useState({ total: 0, published: 0, pending: 0, trash: 0 });
   const [viewing, setViewing] = useState<any | null>(null);
@@ -524,7 +527,8 @@ JavaScript Essentials
   // Instructor Courses filters: Level / Pricing / Verified, layered on top of the
   // server-side Status filter — same filter set the Courses page offers.
   const filteredCourses = courses.filter((c: any) =>
-    (!levelFilter || c.level === levelFilter)
+    (!search || String(c.title || c.name || '').toLowerCase().includes(search.toLowerCase()))
+    && (!levelFilter || c.level === levelFilter)
     && (!pricingFilter || String(!!c.is_free) === pricingFilter)
     && (!verifiedFilter || (verifiedFilter === 'true' ? !!c.verified_at : !c.verified_at))
   );
@@ -625,13 +629,32 @@ JavaScript Essentials
           </button>
         </div>
 
-        {/* Filters (normal view only) — parity with the Courses page */}
+        {/* Filters (normal view only) — horizontal toolbar with search, matching the Courses page */}
         {!showTrash && (
-          <div className="mb-4 flex flex-wrap gap-2">
-            <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} options={[{ value: '', label: 'All Statuses' }, { value: 'draft', label: 'Draft' }, { value: 'pending_approval', label: 'Pending Approval' }, { value: 'published', label: 'Published' }, { value: 'rejected', label: 'Rejected' }]} />
-            <Select value={levelFilter} onChange={e => setLevelFilter(e.target.value)} options={[{ value: '', label: 'All Levels' }, ...LEVELS]} />
-            <Select value={pricingFilter} onChange={e => setPricingFilter(e.target.value)} options={[{ value: '', label: 'All Pricing' }, { value: 'true', label: 'Free' }, { value: 'false', label: 'Paid' }]} />
-            <Select value={verifiedFilter} onChange={e => setVerifiedFilter(e.target.value)} options={[{ value: '', label: 'All Verified' }, { value: 'true', label: 'Verified' }, { value: 'false', label: 'Not Verified' }]} />
+          <div className="mb-4">
+            <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search courses...">
+              <select className={selectClass} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                <option value="">All Statuses</option>
+                <option value="draft">Draft</option>
+                <option value="pending_approval">Pending Approval</option>
+                <option value="published">Published</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <select className={selectClass} value={levelFilter} onChange={e => setLevelFilter(e.target.value)}>
+                <option value="">All Levels</option>
+                {LEVELS.map((l: any) => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+              <select className={selectClass} value={pricingFilter} onChange={e => setPricingFilter(e.target.value)}>
+                <option value="">All Pricing</option>
+                <option value="true">Free</option>
+                <option value="false">Paid</option>
+              </select>
+              <select className={selectClass} value={verifiedFilter} onChange={e => setVerifiedFilter(e.target.value)}>
+                <option value="">All Verified</option>
+                <option value="true">Verified</option>
+                <option value="false">Not Verified</option>
+              </select>
+            </DataToolbar>
           </div>
         )}
 
