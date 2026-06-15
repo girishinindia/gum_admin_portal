@@ -269,7 +269,7 @@ export default function BadgesPage() {
                 </TD>
                 <TD className="text-sm text-slate-500">{row.sort_order}</TD>
                 <TD className="text-right">
-                  <Dropdown trigger={<button className="p-1 rounded hover:bg-slate-100"><MoreVertical className="w-4 h-4 text-slate-400" /></button>}>
+                  <Dropdown trigger={<span className="p-1 rounded hover:bg-slate-100 inline-flex items-center"><MoreVertical className="w-4 h-4 text-slate-400" /></span>}>
                     <DropdownItem icon={Eye} onClick={() => { setSelected(row); setViewDialogOpen(true); }}>View</DropdownItem>
                     {!row.deleted_at && <DropdownItem icon={Edit2} onClick={() => openEdit(row)}>Edit</DropdownItem>}
                     <DropdownDivider />

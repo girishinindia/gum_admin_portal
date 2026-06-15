@@ -65,9 +65,18 @@ export function Dropdown({ trigger, children, align = 'right', width = 'w-72', c
 
   return (
     <div ref={triggerRef} className="relative inline-block">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="focus:outline-none">
+      {/* Wrapper is a div[role=button], not a <button> — callers often pass a
+          <button> as the trigger, and a button-in-button is invalid HTML that
+          React rejects as a hydration error. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((o) => !o); } }}
+        className="focus:outline-none cursor-pointer"
+      >
         {trigger}
-      </button>
+      </div>
       {open && coords && typeof document !== 'undefined' && createPortal(
         <div
           ref={menuRef}

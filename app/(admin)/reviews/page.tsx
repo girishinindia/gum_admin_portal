@@ -458,7 +458,7 @@ export default function ReviewsPage() {
                               <button onClick={() => setDeleteId(row.id)} className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
                             </>
                           )}
-                          <Dropdown trigger={<button className="p-1 hover:bg-slate-100 rounded"><MoreVertical className="w-4 h-4" /></button>}>
+                          <Dropdown trigger={<span className="p-1 hover:bg-slate-100 rounded inline-flex items-center"><MoreVertical className="w-4 h-4" /></span>}>
                           <DropdownItem onClick={() => handleView(row.id)}>
                             <Eye className="w-4 h-4 mr-2" /> View
                           </DropdownItem>
