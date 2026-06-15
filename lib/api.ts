@@ -1621,9 +1621,11 @@ export const api = {
   moveWishlistToCart: (id: number) => request(`/wishlists/move-to-cart/${id}`, { method: 'POST' }),
 
   // ── Orders ──
-  listOrders: (qs = '') => request(`/orders${qs}`, { auth: false }),
-  getOrder: (id: number) => request(`/orders/${id}`, { auth: false }),
-  getOrderItems: (orderId: number) => request(`/orders/${orderId}/items`, { auth: false }),
+  // These are admin endpoints behind authMiddleware. auth:false dropped the
+  // Bearer token → "No token provided". Default to auth:true (same as BUG-25).
+  listOrders: (qs = '') => request(`/orders${qs}`),
+  getOrder: (id: number) => request(`/orders/${id}`),
+  getOrderItems: (orderId: number) => request(`/orders/${orderId}/items`),
   createOrder: (data: any) => request('/orders', { method: 'POST', body: JSON.stringify(data) }),
   updateOrder: (id: number, data: any) => request(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeleteOrder: (id: number) => request(`/orders/${id}`, { method: 'DELETE' }),
@@ -1633,9 +1635,9 @@ export const api = {
   confirmOrder: (id: number) => request(`/orders/${id}/confirm`, { method: 'PATCH' }),
 
   // ── Payments ──
-  listPayments: (qs = '') => request(`/payments${qs}`, { auth: false }),
-  getPayment: (id: number) => request(`/payments/${id}`, { auth: false }),
-  getPaymentsByOrder: (orderId: number) => request(`/payments/order/${orderId}`, { auth: false }),
+  listPayments: (qs = '') => request(`/payments${qs}`),
+  getPayment: (id: number) => request(`/payments/${id}`),
+  getPaymentsByOrder: (orderId: number) => request(`/payments/order/${orderId}`),
   createPayment: (data: any) => request('/payments', { method: 'POST', body: JSON.stringify(data) }),
   updatePayment: (id: number, data: any) => request(`/payments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeletePayment: (id: number) => request(`/payments/${id}`, { method: 'DELETE' }),
@@ -1643,10 +1645,10 @@ export const api = {
   deletePayment: (id: number) => request(`/payments/${id}/permanent`, { method: 'DELETE' }),
 
   // ── Transactions ──
-  listTransactions: (qs = '') => request(`/transactions${qs}`, { auth: false }),
-  getTransaction: (id: number) => request(`/transactions/${id}`, { auth: false }),
-  getTransactionsByOrder: (orderId: number) => request(`/transactions/order/${orderId}`, { auth: false }),
-  getTransactionsByUser: (userId: number) => request(`/transactions/user/${userId}`, { auth: false }),
+  listTransactions: (qs = '') => request(`/transactions${qs}`),
+  getTransaction: (id: number) => request(`/transactions/${id}`),
+  getTransactionsByOrder: (orderId: number) => request(`/transactions/order/${orderId}`),
+  getTransactionsByUser: (userId: number) => request(`/transactions/user/${userId}`),
   createTransaction: (data: any) => request('/transactions', { method: 'POST', body: JSON.stringify(data) }),
   updateTransaction: (id: number, data: any) => request(`/transactions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeleteTransaction: (id: number) => request(`/transactions/${id}`, { method: 'DELETE' }),
@@ -1669,9 +1671,9 @@ export const api = {
   updateEnrollmentProgress: (id: number, data: any) => request(`/enrollments/${id}/progress`, { method: 'POST', body: JSON.stringify(data) }),
 
   // ── Invoices ──
-  listInvoices: (qs = '') => request(`/invoices${qs}`, { auth: false }),
-  getInvoice: (id: number) => request(`/invoices/${id}`, { auth: false }),
-  getInvoicesByOrder: (orderId: number) => request(`/invoices/order/${orderId}`, { auth: false }),
+  listInvoices: (qs = '') => request(`/invoices${qs}`),
+  getInvoice: (id: number) => request(`/invoices/${id}`),
+  getInvoicesByOrder: (orderId: number) => request(`/invoices/order/${orderId}`),
   createInvoice: (data: any) => request('/invoices', { method: 'POST', body: JSON.stringify(data) }),
   updateInvoice: (id: number, data: any) => request(`/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeleteInvoice: (id: number) => request(`/invoices/${id}`, { method: 'DELETE' }),
@@ -1681,9 +1683,9 @@ export const api = {
   cancelInvoice: (id: number) => request(`/invoices/${id}/cancel-invoice`, { method: 'PATCH' }),
 
   // ── Refunds ──
-  listRefunds: (qs = '') => request(`/refunds${qs}`, { auth: false }),
-  getRefund: (id: number) => request(`/refunds/${id}`, { auth: false }),
-  getRefundsByOrder: (orderId: number) => request(`/refunds/order/${orderId}`, { auth: false }),
+  listRefunds: (qs = '') => request(`/refunds${qs}`),
+  getRefund: (id: number) => request(`/refunds/${id}`),
+  getRefundsByOrder: (orderId: number) => request(`/refunds/order/${orderId}`),
   createRefund: (data: any) => request('/refunds', { method: 'POST', body: JSON.stringify(data) }),
   updateRefund: (id: number, data: any) => request(`/refunds/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeleteRefund: (id: number) => request(`/refunds/${id}`, { method: 'DELETE' }),
