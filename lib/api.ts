@@ -110,6 +110,15 @@ async function request<T = any>(
       (typeof json?.error === 'string'   && json.error)   ||
       (typeof json?.message === 'string' && json.message) ||
       `Request failed (${res.status})`;
+    // Stale-pagination guard (platform-wide). A list page still on a high page
+    // number after a filter narrows the result set asks the API for rows past
+    // the end, which PostgREST rejects as "Requested range not satisfiable".
+    // That's an empty page, not a real failure — resolve with an empty list
+    // envelope so the table renders nothing and its "reset to page 1" effect
+    // reloads, instead of throwing an unhandled error that crashes the route.
+    if (/range not satisfiable/i.test(message)) {
+      return { success: true, data: [], pagination: { total: 0, page: 1, limit: 0, totalPages: 1 } } as unknown as ApiResponse<T>;
+    }
     throw new Error(message);
   }
   return json;

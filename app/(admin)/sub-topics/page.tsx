@@ -198,8 +198,21 @@ export default function SubTopicsPage() {
     loadCoverage();
   }, []);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterSubject, filterChapter, filterTopic, filterStatus, filterDifficulty, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterSubject, filterChapter, filterTopic, filterStatus, filterDifficulty, showTrash]);
+  // Single effect keyed on the whole query. When search / filters / page size /
+  // trash change, force page 1 *before* loading — requesting a stale high page
+  // after a filter narrows the result set is what triggered the
+  // "range not satisfiable" crash. Folding the old two effects into one avoids
+  // the race where load() fired with the previous page number.
+  const queryKeyRef = useRef('');
+  useEffect(() => {
+    const queryKey = JSON.stringify([searchDebounce, filterSubject, filterChapter, filterTopic, filterStatus, filterDifficulty, pageSize, showTrash]);
+    if (queryKey !== queryKeyRef.current) {
+      queryKeyRef.current = queryKey;
+      setSelectedIds(new Set());
+      if (page !== 1) { setPage(1); return; } // page change re-runs this effect → load at page 1
+    }
+    load();
+  }, [searchDebounce, page, pageSize, sortField, sortOrder, filterSubject, filterChapter, filterTopic, filterStatus, filterDifficulty, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -218,13 +231,19 @@ export default function SubTopicsPage() {
       if (filterStatus) qs.set('is_active', filterStatus);
       if (filterDifficulty) qs.set('difficulty_level', filterDifficulty);
     }
-    const res = await api.listSubTopics('?' + qs.toString());
-    if (res.success) {
-      setItems(res.data || []);
-      setTotalPages(res.pagination?.totalPages || 1);
-      setTotal(res.pagination?.total || 0);
+    try {
+      const res = await api.listSubTopics('?' + qs.toString());
+      if (res.success) {
+        setItems(res.data || []);
+        setTotalPages(res.pagination?.totalPages || 1);
+        setTotal(res.pagination?.total || 0);
+      }
+    } catch (e: any) {
+      setItems([]);
+      toast.error(e?.message || 'Failed to load sub-topics');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function refreshSummary() {
