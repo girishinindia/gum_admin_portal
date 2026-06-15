@@ -8,6 +8,12 @@ export const metadata: Metadata = {
   description: 'Admin portal for Grow Up More e-learning platform',
 };
 
+// The admin portal is a private, auth-gated dashboard with no SEO needs, and many
+// pages use useSearchParams. Force dynamic rendering app-wide so the production
+// build never statically prerenders them (which fails with "useSearchParams()
+// should be wrapped in a suspense boundary"). Mirrors the gum_web (app) group.
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
