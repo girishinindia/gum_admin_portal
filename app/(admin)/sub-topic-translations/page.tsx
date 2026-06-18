@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePageSize } from '@/hooks/usePageSize';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
@@ -22,7 +23,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, BookMarked, Trash2, Edit2, Globe, Wand2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Eye, Sparkles, Loader2, ChevronDown, ChevronUp, X, Mic } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
-import type { SubTopicTranslation, SubTopic, Language } from '@/lib/types';
+import type { SubTopicTranslation, SubTopic, Subject, Chapter, Topic, Language } from '@/lib/types';
 
 const TABS = ['Content', 'Video', 'SEO Meta', 'Open Graph', 'Twitter'] as const;
 type SortField = 'id' | 'name' | 'is_active';
@@ -50,6 +51,9 @@ function ViewField({ label, value, mono }: { label: string; value?: string | nul
 export default function SubTopicTranslationsPage() {
   const [items, setItems] = useState<SubTopicTranslation[]>([]);
   const [subTopics, setSubTopics] = useState<SubTopic[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -65,6 +69,9 @@ export default function SubTopicTranslationsPage() {
   const [pageFile, setPageFile] = useState<File | null>(null);
   const [pagePreview, setPagePreview] = useState<string | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
+  const [filterSubject, setFilterSubject] = useState('');
+  const [filterChapter, setFilterChapter] = useState('');
+  const [filterTopic, setFilterTopic] = useState('');
   const [filterSubTopic, setFilterSubTopic] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -85,6 +92,7 @@ export default function SubTopicTranslationsPage() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  const [submitting, setSubmitting] = useState(false);
 
   // View dialog
   const [viewOpen, setViewOpen] = useState(false);
@@ -169,17 +177,46 @@ export default function SubTopicTranslationsPage() {
 
   useEffect(() => {
     api.listSubTopics('?limit=500&is_active=true').then(res => { if (res.success) setSubTopics(res.data || []); });
+    api.listSubjects('?limit=500&sort=code').then(res => { if (res.success) setSubjects(res.data || []); });
+    api.listTopics('?limit=500&is_active=true').then(res => { if (res.success) setTopics(res.data || []); });
     api.listLanguages('?for_material=true&limit=100').then(res => { if (res.success) setLanguages((res.data || []).filter((l: Language) => l.is_active)); });
     refreshSummary();
   }, []);
+
+  // ─── Cascading filter: Subject → Chapter → Topic → Sub-topic ───
+  // Subject change → reset chapter/topic/sub-topic, load chapters for that subject
+  useEffect(() => {
+    setFilterChapter(''); setFilterTopic(''); setFilterSubTopic('');
+    if (filterSubject) {
+      api.listChapters(`?limit=500&is_active=true&subject_id=${filterSubject}`).then(res => { if (res.success) setChapters(res.data || []); });
+    } else {
+      setChapters([]);
+    }
+  }, [filterSubject]);
+
+  // Chapter change → reset topic/sub-topic
+  useEffect(() => { setFilterTopic(''); setFilterSubTopic(''); }, [filterChapter]);
+
+  // Topic change → reset sub-topic
+  useEffect(() => { setFilterSubTopic(''); }, [filterTopic]);
+
+  // Client-side narrowing of the dependent selects
+  const filteredTopics = filterChapter ? topics.filter(t => String((t as any).chapter_id) === filterChapter) : topics;
+  const filteredSubTopics = filterTopic
+    ? subTopics.filter(st => String(st.topic_id) === filterTopic)
+    : filterChapter
+      ? subTopics.filter(st => String((st as any).topics?.chapter_id) === filterChapter)
+      : filterSubject
+        ? subTopics.filter(st => String((st as any).topics?.chapters?.subject_id) === filterSubject)
+        : subTopics;
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounce(search), 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterSubTopic, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterSubTopic, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterSubject, filterChapter, filterTopic, filterSubTopic, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, filterSubject, filterChapter, filterTopic, filterSubTopic, filterLanguage, filterStatus, sortField, sortOrder, pageSize, showTrash]);
 
   async function refreshSummary() {
     const res = await api.getTableSummary('sub_topic_translations');
@@ -210,7 +247,10 @@ export default function SubTopicTranslationsPage() {
     setLoading(false);
   }
 
-  function openCreate() {
+  async function openCreate() {
+    // FIX 5: refresh the sub-topic pool so a sub-topic created elsewhere is selectable.
+    const res = await api.listSubTopics('?limit=500&is_active=true');
+    if (res.success) setSubTopics(res.data || []);
     setEditing(null); setImageFile(null); setImagePreview(null); setVideoThumbnailFile(null); setVideoThumbnailPreview(null);
     setOgImageFile(null); setOgImagePreview(null); setTwitterImageFile(null); setTwitterImagePreview(null);
     setPageFile(null); setPagePreview(null);
@@ -251,25 +291,30 @@ export default function SubTopicTranslationsPage() {
   }
 
   async function onSubmit(data: any) {
-    const fd = new FormData();
-    const tagsArr = data.tags ? data.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
-    data.tags = JSON.stringify(tagsArr);
-    Object.keys(data).forEach(k => {
-      if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
-    });
-    if (imageFile) fd.append('image_file', imageFile, imageFile.name);
-    if (videoThumbnailFile) fd.append('video_thumbnail_file', videoThumbnailFile, videoThumbnailFile.name);
-    if (ogImageFile) fd.append('og_image_file', ogImageFile, ogImageFile.name);
-    if (twitterImageFile) fd.append('twitter_image_file', twitterImageFile, twitterImageFile.name);
-    if (pageFile) fd.append('page_file', pageFile, pageFile.name);
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      const tagsArr = data.tags ? data.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
+      data.tags = JSON.stringify(tagsArr);
+      Object.keys(data).forEach(k => {
+        if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
+      });
+      if (imageFile) fd.append('image_file', imageFile, imageFile.name);
+      if (videoThumbnailFile) fd.append('video_thumbnail_file', videoThumbnailFile, videoThumbnailFile.name);
+      if (ogImageFile) fd.append('og_image_file', ogImageFile, ogImageFile.name);
+      if (twitterImageFile) fd.append('twitter_image_file', twitterImageFile, twitterImageFile.name);
+      if (pageFile) fd.append('page_file', pageFile, pageFile.name);
 
-    const res = editing
-      ? await api.updateSubTopicTranslation(editing.id, fd, true)
-      : await api.createSubTopicTranslation(fd, true);
-    if (res.success) {
-      toast.success(editing ? 'Translation updated' : 'Translation created');
-      setDialogOpen(false); load(); refreshSummary();
-    } else toast.error(res.error || 'Failed');
+      const res = editing
+        ? await api.updateSubTopicTranslation(editing.id, fd, true)
+        : await api.createSubTopicTranslation(fd, true);
+      if (res.success) {
+        toast.success(editing ? 'Translation updated' : 'Translation created');
+        setDialogOpen(false); load(); refreshSummary();
+      } else toast.error(res.error || 'Failed');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function onSoftDelete(item: SubTopicTranslation) {
@@ -547,11 +592,36 @@ export default function SubTopicTranslationsPage() {
         <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search translations...'}>
           {!showTrash && (
             <>
-              <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-                value={filterSubTopic} onChange={e => setFilterSubTopic(e.target.value)}>
-                <option value="">All sub-topics</option>
-                {subTopics.map(st => <option key={st.id} value={st.id}>{st.slug}{(st as any).topics?.slug ? ` (${(st as any).topics.slug})` : ''}</option>)}
-              </select>
+              <SearchableSelect
+                options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || s.code || '' }))}
+                value={filterSubject}
+                onChange={setFilterSubject}
+                placeholder="All subjects"
+                searchPlaceholder="Search subjects..."
+              />
+              <SearchableSelect
+                options={chapters.map(c => ({ value: String(c.id), label: (c as any).english_name || '' }))}
+                value={filterChapter}
+                onChange={setFilterChapter}
+                placeholder={filterSubject ? 'All chapters' : 'Select subject first'}
+                searchPlaceholder="Search chapters..."
+                disabled={!filterSubject}
+              />
+              <SearchableSelect
+                options={filteredTopics.map(t => ({ value: String(t.id), label: (t as any).english_name || '' }))}
+                value={filterTopic}
+                onChange={setFilterTopic}
+                placeholder={filterChapter ? 'All topics' : 'Select chapter first'}
+                searchPlaceholder="Search topics..."
+                disabled={!filterChapter}
+              />
+              <SearchableSelect
+                options={filteredSubTopics.map(st => ({ value: String(st.id), label: `${st.slug || ''}${(st as any).topics?.slug ? ` (${(st as any).topics.slug})` : ''}` }))}
+                value={filterSubTopic}
+                onChange={setFilterSubTopic}
+                placeholder="All sub-topics"
+                searchPlaceholder="Search sub-topics..."
+              />
               <select className="h-10 px-3 pr-8 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)}>
                 <option value="">All languages</option>
@@ -995,7 +1065,7 @@ export default function SubTopicTranslationsPage() {
 
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">{editing ? 'Save changes' : 'Create'}</Button>
+            <Button type="submit" disabled={submitting}>{editing ? 'Save changes' : 'Create'}</Button>
           </div>
         </form>
       </Dialog>

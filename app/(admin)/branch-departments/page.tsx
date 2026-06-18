@@ -52,7 +52,7 @@ export default function BranchDepartmentsPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [aiOpen, setAiOpen] = useState(false);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -184,17 +184,15 @@ export default function BranchDepartmentsPage() {
       sort_order: parseInt(data.sort_order) || 0,
     };
 
-    const res = editing
-      ? await api.updateBranchDepartment(editing.id, payload)
-      : await api.createBranchDepartment(payload);
-
-    if (res.success) {
+    try {
+      if (editing) await api.updateBranchDepartment(editing.id, payload);
+      else await api.createBranchDepartment(payload);
       toast.success(editing ? 'Assignment updated' : 'Assignment created');
       setDialogOpen(false);
       load();
       refreshSummary();
-    } else {
-      toast.error(res.error || 'Failed');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save assignment');
     }
   }
 
@@ -744,7 +742,8 @@ export default function BranchDepartmentsPage() {
           <Input
             label="Extension Number"
             placeholder="Optional - phone extension"
-            {...register('extension_number')}
+            error={errors.extension_number?.message as string}
+            {...register('extension_number', { pattern: { value: /^\d{1,10}$/, message: 'Extension must be 1–10 digits' } })}
           />
 
           <Input

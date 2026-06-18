@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Dialog } from './Dialog';
 import { ImageEditor } from './ImageEditor';
 import { Upload, X, Edit2 } from 'lucide-react';
@@ -38,7 +38,11 @@ export function ImageUpload({
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [removed, setRemoved] = useState(false);
   const dragCounter = useRef(0);
+
+  // Reset the removed flag whenever the parent swaps the underlying row's image.
+  useEffect(() => { setRemoved(false); }, [value]);
 
   function openEditor(file: File) {
     setRawFile(file);
@@ -93,6 +97,7 @@ export function ImageUpload({
     // Convert data URL → File (most reliable way to ensure multer receives the file)
     const editedFile = dataUrlToFile(previewDataUrl, `edited-${Date.now()}.png`);
     setPreview(previewDataUrl);
+    setRemoved(false);
     setEditorOpen(false);
     setRawFile(null);
     setFileName(editedFile.name);
@@ -107,6 +112,7 @@ export function ImageUpload({
   function handleRemove(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    setRemoved(true);
     setPreview(null);
     setFileName(null);
     onChange(null, null);
@@ -118,8 +124,8 @@ export function ImageUpload({
     inputRef.current?.click();
   }
 
-  const hasImage = preview || value;
-  const displayUrl = preview || value;
+  const hasImage = preview || (value && !removed);
+  const displayUrl = preview || (removed ? null : value);
   const isCircle = shape === 'circle';
 
   return (

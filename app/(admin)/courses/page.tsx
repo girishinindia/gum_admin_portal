@@ -91,6 +91,10 @@ export default function CoursesPage() {
   // dropdown of valid ids (was a free number input that let admins type a
   // non-existent id like 10, tripping courses_course_language_id_fkey).
   const [languages, setLanguages] = useState<Array<{ id: number; name: string }>>([]);
+  // Instructor picker — load real instructor-type users so Instructor ID is a
+  // dropdown of valid users (was a free number input that let admins type a
+  // non-existent id).
+  const [instructors, setInstructors] = useState<{ id: number; name: string }[]>([]);
   // Phase 44.9 Issue 5 — today (yyyy-mm-dd) for the "New Until" min date.
   const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -188,6 +192,10 @@ export default function CoursesPage() {
       if (res?.success && Array.isArray(res.data)) {
         setLanguages(res.data.map((l: any) => ({ id: l.id, name: l.name })));
       }
+    }).catch(() => { /* non-fatal — field falls back to empty list */ });
+    // Load instructor-type users for the Instructor dropdown.
+    api.listUsers('?type=instructor&limit=500&sort=first_name&order=asc').then((res: any) => {
+      if (res?.success && Array.isArray(res.data)) setInstructors(res.data.map((u: any) => ({ id: u.id, name: u.full_name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || ('#' + u.id) })));
     }).catch(() => { /* non-fatal — field falls back to empty list */ });
   }, []);
 
@@ -1163,14 +1171,24 @@ export default function CoursesPage() {
                     type="number" step="0.01" min={0}
                     placeholder={isFree ? '—' : '0.00'}
                     disabled={isFree}
-                    {...register('original_price')}
+                    {...register('original_price', {
+                      onChange: (e) => {
+                        const op = Number(e.target.value || 0), d = Number(watch('discount_percentage') || 0);
+                        if (op > 0 && d > 0) setValue('price', String(Math.round(op * (1 - d / 100) * 100) / 100), { shouldDirty: true });
+                      },
+                    })}
                   />
                   <Input
                     label="Discount %"
                     type="number" step="0.01" min={0} max={100}
                     placeholder={isFree ? '—' : '0'}
                     disabled={isFree}
-                    {...register('discount_percentage')}
+                    {...register('discount_percentage', {
+                      onChange: (e) => {
+                        const d = Math.min(100, Math.max(0, Number(e.target.value || 0))), op = Number(watch('original_price') || 0);
+                        if (op > 0) setValue('price', String(Math.round(op * (1 - d / 100) * 100) / 100), { shouldDirty: true });
+                      },
+                    })}
                   />
                 </div>
                 <Input label="Refund Days" type="number" placeholder="0" {...register('refund_days')} />
@@ -1231,7 +1249,20 @@ export default function CoursesPage() {
                 <Input label="Max Students" type="number" placeholder="0" {...register('max_students')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Input label="Instructor ID" type="number" placeholder="User ID" {...register('instructor_id')} />
+                {/* Instructor dropdown — real instructor-type users (was a free
+                    number input that let admins enter a non-existent id). */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Instructor</label>
+                  <select
+                    className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white"
+                    {...register('instructor_id')}
+                  >
+                    <option value="">— Select instructor —</option>
+                    {instructors.map(i => (
+                      <option key={i.id} value={i.id}>{i.name}</option>
+                    ))}
+                  </select>
+                </div>
                 {/* Phase 44.9 Issue 4 — dropdown of real languages (was a free
                     number input that let admins enter a non-existent id and
                     trip courses_course_language_id_fkey). */}

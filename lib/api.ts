@@ -119,7 +119,10 @@ async function request<T = any>(
     if (/range not satisfiable/i.test(message)) {
       return { success: true, data: [], pagination: { total: 0, page: 1, limit: 0, totalPages: 1 } } as unknown as ApiResponse<T>;
     }
-    throw new Error(message);
+    // Surface field-level validation detail (the API's `errors[]`) so callers
+    // get "Validation failed: email: Invalid email" instead of a bare message.
+    const detail = Array.isArray(json?.errors) && json.errors.length ? `: ${json.errors.join('; ')}` : '';
+    throw new Error(message + detail);
   }
   return json;
 }

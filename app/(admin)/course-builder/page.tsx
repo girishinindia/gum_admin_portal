@@ -366,7 +366,10 @@ JavaScript Essentials
 
       const [catRes, subRes, catTr, subTr] = await Promise.all([
         api.listCategories('?limit=500&is_active=true'),
-        api.listSubCategories('?limit=1000&is_active=true'),
+        // Load ALL sub-categories (incl. inactive) so a saved-but-now-inactive
+        // sub-category stays selectable; the dropdown still hides inactive ones
+        // from NEW picks (see subOptions in BasicsTab).
+        api.listSubCategories('?limit=1000'),
         api.listCategoryTranslations('?limit=1000'),
         api.listSubCategoryTranslations('?limit=2000'),
       ]);
@@ -448,6 +451,8 @@ JavaScript Essentials
     // BUG-15: only admins choose the instructor; instructors author their own course.
     if (isAdmin && !form.instructor_id) { toast.error('Select the instructor this course belongs to'); return; }
     if (!form.title?.trim()) { toast.error('Title is required'); return; }
+    if (!form.language_id) { toast.error('Language is required'); return; }
+    if (!form.category_id) { toast.error('Sub-category is required'); return; }
     setSaving(true);
     const payload: any = { ...form };
     // BUG-15: omit instructor_id for non-admins so the API assigns the caller (req.user.id).
@@ -1238,6 +1243,9 @@ JavaScript Essentials
 /* ════════════ Basics Tab ════════════ */
 function BasicsTab({ form, setForm, languages, categories, subCategories, instructors, isAdmin, saving, onSave, courseId, onMedia }: any) {
   const set = (k: string, v: any) => setForm({ ...form, [k]: v });
+  // UI-only discount helper. `authoring_courses` has NO discount column, so this
+  // is never sent to the API — it only computes `price` from `original_price`.
+  const [discountPct, setDiscountPct] = useState('');
   const [thumbBusy, setThumbBusy] = useState(false);
   const [trailerProgress, setTrailerProgress] = useState<number | null>(null);
 
@@ -1250,9 +1258,19 @@ function BasicsTab({ form, setForm, languages, categories, subCategories, instru
       if (sc) setCatParent(String(sc.category_id));
     }
   }, [form.category_id, subCategories]);
-  const subOptions = subCategories
-    .filter((s: any) => catParent && String(s.category_id) === String(catParent))
-    .map((s: any) => ({ value: s.id, label: s.name }));
+  // Dropdown lists only ACTIVE sub-categories for the chosen parent (new picks).
+  // But if the saved category_id points at a now-inactive sub-category, prepend
+  // it (looked up in the full list incl. inactive) so it stays visible/selected.
+  const subOptions = (() => {
+    const opts = subCategories
+      .filter((s: any) => catParent && String(s.category_id) === String(catParent) && s.is_active !== false)
+      .map((s: any) => ({ value: s.id, label: s.name }));
+    if (form.category_id && !opts.some((o: any) => String(o.value) === String(form.category_id))) {
+      const sel = subCategories.find((s: any) => String(s.id) === String(form.category_id));
+      opts.unshift({ value: Number(form.category_id), label: `${sel?.name || `#${form.category_id}`} (inactive)` });
+    }
+    return opts;
+  })();
 
   async function onThumbnail(file: File | null) {
     if (!file) { set('thumbnail_url', null); return; }
@@ -1327,9 +1345,25 @@ function BasicsTab({ form, setForm, languages, categories, subCategories, instru
           />
         </Field>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <Field label="Price (₹)"><Input type="number" min={0} value={form.price ?? ''} onChange={e => set('price', e.target.value)} disabled={form.is_free} /></Field>
         <Field label="Original price (₹)"><Input type="number" min={0} value={form.original_price ?? ''} onChange={e => set('original_price', e.target.value)} disabled={form.is_free} /></Field>
+        {/* UI-only Discount (%). Computes price from original price; never sent to the API. */}
+        <Field label="Discount (%)">
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            value={discountPct}
+            disabled={form.is_free}
+            onChange={e => {
+              const pct = Math.min(100, Math.max(0, Number(e.target.value)));
+              setDiscountPct(e.target.value === '' ? '' : String(pct));
+              const op = Number(form.original_price);
+              if (op > 0) set('price', Math.round(op * (1 - pct / 100)));
+            }}
+          />
+        </Field>
         <div className="flex items-end gap-4 pb-1">
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.is_free} onChange={e => { const c = e.target.checked; setForm({ ...form, is_free: c, ...(c ? { price: 0, original_price: 0 } : {}) }); }} /> Free</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.has_certificate} onChange={e => set('has_certificate', e.target.checked)} /> Certificate</label>
@@ -1440,103 +1474,26 @@ function CurriculumTab({ courseId, units, reload }: any) {
   }
 
   function downloadSampleFile() {
-    const sample = `# Sample: Full Course Import
-# This file imports course details, highlights, FAQs, AND curriculum
-# All sections are optional — include only what you need
-# Lines starting with # are comments (ignored)
-
-[COURSE]
-title: Introduction to Web Development
-subtitle: Build modern websites from scratch
-short_intro: Learn HTML, CSS, and JavaScript step by step
-long_intro: This comprehensive course takes you from absolute beginner to building complete websites. You will learn the core technologies of the web — HTML for structure, CSS for styling, and JavaScript for interactivity.
-level: beginner
-price: 499
-original_price: 999
-is_free: false
-has_certificate: true
-
-[HIGHLIGHTS]
-# Format: kind: text
-# Kinds: prerequisite, outcome, skill, audience, requirement
-prerequisite: Basic computer literacy
-prerequisite: A laptop or desktop computer
-outcome: Build responsive websites from scratch
-outcome: Write clean, semantic HTML
-outcome: Style pages with modern CSS (Flexbox, Grid)
-outcome: Add interactivity with JavaScript
-skill: HTML5
-skill: CSS3
-skill: JavaScript ES6+
-skill: Responsive Design
-audience: Aspiring web developers
-audience: Designers who want to code
-requirement: A code editor (VS Code recommended)
-requirement: Chrome or Firefox browser
-
-[FAQ]
-Q: Do I need programming experience?
-A: No! This course starts from the very basics. If you can use a computer, you can learn web development.
-Q: What tools do I need?
-A: Just a code editor (VS Code is free) and a modern web browser. Everything else is taught in the course.
-Q: How long does the course take?
-A: Most students complete it in 4-6 weeks at 5-10 hours per week. But you have lifetime access to go at your own pace.
-Q: Will I get a certificate?
-A: Yes! Upon completing all modules and passing the final project, you receive a verified certificate.
-
-[CURRICULUM]
+    const sample = `# Sample: Curriculum Import (tab-indented tree)
 # 0 tabs = Module, 1 tab = Chapter, 2 tabs = Topic | type
-# Supported topic types: video, article, quiz, exercise, project
-# Optional properties: summary, is_free_preview, points, youtube_url
+# Topic types: video, article, quiz, exercise, project
+# Optional props (one level deeper): summary, is_free_preview, points, youtube_url
 
 Introduction to Web Development
 \tsummary: Learn the fundamentals of building websites
 \tHTML Fundamentals
-\t\tsummary: Core HTML concepts and document structure
 \t\tWhat is HTML | video
-\t\t\tsummary: Overview of HTML markup language
 \t\t\tis_free_preview: true
-\t\tHTML Document Structure | article
-\t\t\tsummary: DOCTYPE, head, body elements explained
 \t\tHTML Tags Practice | exercise
-\t\t\tsummary: Build your first HTML page from scratch
 \t\t\tpoints: 10
 \tCSS Styling
-\t\tsummary: Style your web pages with CSS
-\t\tCSS Selectors and Properties | video
-\t\t\tsummary: Learn how to target and style elements
-\t\t\tis_free_preview: true
-\t\tBox Model Deep Dive | article
-\t\t\tsummary: Understanding margins, padding, borders
+\t\tCSS Selectors | video
 \t\tCSS Layout Quiz | quiz
-\t\t\tsummary: Test your CSS knowledge
-\t\t\tpoints: 15
-JavaScript Essentials
-\tsummary: Master the programming language of the web
-\tVariables and Data Types
-\t\tsummary: Foundation of JavaScript programming
-\t\tUnderstanding Variables | video
-\t\t\tsummary: var, let, const differences
-\t\t\tis_free_preview: true
-\t\tData Types Explained | article
-\t\t\tsummary: Strings, numbers, booleans, arrays, objects
-\t\tData Type Quiz | quiz
-\t\t\tsummary: Identify correct data types
-\t\t\tpoints: 10
-\tFunctions and Scope
-\t\tsummary: Functions, closures, and scope chains
-\t\tArrow Functions | video
-\t\t\tsummary: Modern function syntax in ES6+
-\t\tClosure Exercise | exercise
-\t\t\tsummary: Build a counter using closures
-\t\t\tpoints: 20
-\t\tMini Project | project
-\t\t\tsummary: Build a calculator app
-\t\t\tpoints: 50`;
+\t\t\tpoints: 15`;
     const blob = new Blob([sample], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'sample_course_import.txt'; a.click();
+    a.href = url; a.download = 'sample_curriculum_import.txt'; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -1564,6 +1521,10 @@ JavaScript Essentials
     setVidProg(null);
   }
   async function uploadTopicPdf(kind: string, file: File | null) {
+    if (file && kind === 'exercise_solution' && !u.exercise_pdf) {
+      toast.error('Upload the Exercise PDF before adding a Solution PDF');
+      return;
+    }
     const col = PDF_FIELD[kind];
     if (!file) {
       if (editing) {

@@ -154,7 +154,7 @@ export default function SubTopicsPage() {
 
   // Load subjects on mount
   useEffect(() => {
-    api.listSubjects('?limit=500&is_active=true').then(res => { if (res.success) setSubjects(res.data || []); });
+    api.listSubjects('?limit=500&sort=code').then(res => { if (res.success) setSubjects(res.data || []); });
     api.listTopics('?limit=500&is_active=true').then(res => { if (res.success) setTopics(res.data || []); });
   }, []);
 
@@ -613,7 +613,7 @@ export default function SubTopicsPage() {
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || '' }))}
+              options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || (s as any).code || '' }))}
               value={filterSubject}
               onChange={setFilterSubject}
               placeholder="All subjects"
@@ -919,7 +919,7 @@ export default function SubTopicsPage() {
 
           <SearchableSelect
             label="Subject"
-            options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || '' }))}
+            options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: (s as any).english_name || (s as any).code || '' }))}
             value={dialogSubject}
             onChange={(val) => {
               setDialogSubject(val);

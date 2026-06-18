@@ -50,7 +50,7 @@ export default function DepartmentsPage() {
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -179,16 +179,17 @@ export default function DepartmentsPage() {
       parent_department_id: data.parent_department_id ? parseInt(data.parent_department_id) : null,
       head_user_id: data.head_user_id ? parseInt(data.head_user_id) : null,
     };
-    const res = editing
-      ? await api.updateDepartment(editing.id, payload)
-      : await api.createDepartment(payload);
-    if (res.success) {
+    try {
+      if (editing) await api.updateDepartment(editing.id, payload);
+      else await api.createDepartment(payload);
       toast.success(editing ? 'Department updated' : 'Department created');
       setDialogOpen(false);
       load();
       refreshDepartments();
       refreshSummary();
-    } else toast.error(res.error || 'Failed');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save department');
+    }
   }
 
   async function onSoftDelete(d: Department) {
@@ -655,8 +656,8 @@ export default function DepartmentsPage() {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Name" placeholder="Engineering" {...register('name', { required: true })} />
-            <Input label="Code" placeholder="ENG" {...register('code', { required: true })} />
+            <Input label="Name" placeholder="Engineering" error={errors.name?.message as string} {...register('name', { required: 'Name is required', pattern: { value: /^[^0-9]+$/, message: 'Name cannot contain numbers' } })} />
+            <Input label="Code" placeholder="ENG" error={errors.code?.message as string} {...register('code', { required: 'Code is required', pattern: { value: /^[A-Za-z0-9_-]+$/, message: 'Only letters, numbers, hyphens and underscores' } })} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Parent Department</label>

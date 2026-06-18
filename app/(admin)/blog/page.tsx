@@ -260,13 +260,14 @@ function CategoriesTab() {
       payload[k] = v;
     });
 
-    const res = editing
-      ? await api.updateBlogCategory(editing.id, payload)
-      : await api.createBlogCategory(payload);
-    if (res.success) {
+    try {
+      if (editing) await api.updateBlogCategory(editing.id, payload);
+      else await api.createBlogCategory(payload);
       toast.success(editing ? 'Category updated' : 'Category created');
       setDialogOpen(false); load(); refreshSummary(); loadAllCategories();
-    } else toast.error(res.error || 'Failed');
+    } catch (e:any) {
+      toast.error(e.message || 'Failed');
+    }
   }
 
   async function onSoftDelete(c: any) {

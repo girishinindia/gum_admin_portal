@@ -44,13 +44,21 @@ export default function LoginPage() {
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
-    const res = await login(data.identifier, data.password);
-    setLoading(false);
-    if (res.success) {
-      toast.success('Welcome back!');
-      router.push('/dashboard');
-    } else {
-      toast.error(res.error || 'Login failed');
+    try {
+      const res = await login(data.identifier, data.password);
+      if (res.success) {
+        toast.success('Welcome back!');
+        router.push('/dashboard');
+      } else {
+        toast.error(res.error || 'Login failed');
+      }
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      toast.error(/429|too many/i.test(msg)
+        ? 'Too many attempts. Please try again shortly.'
+        : (msg || 'Login failed'));
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -60,7 +60,7 @@ export default function BranchesPage() {
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
-  const { register, handleSubmit, reset, watch, setValue } = useForm();
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm();
   const watchCountry = watch('country_id');
   const watchState = watch('state_id');
 
@@ -244,15 +244,16 @@ export default function BranchesPage() {
       google_maps_url: data.google_maps_url || null
     };
 
-    const res = editing
-      ? await api.updateBranch(editing.id, payload)
-      : await api.createBranch(payload);
-    if (res.success) {
+    try {
+      if (editing) await api.updateBranch(editing.id, payload);
+      else await api.createBranch(payload);
       toast.success(editing ? 'Branch updated' : 'Branch created');
       setDialogOpen(false);
       load();
       refreshSummary();
-    } else toast.error(res.error || 'Failed');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save branch');
+    }
   }
 
   async function onSoftDelete(branch: Branch) {
@@ -763,8 +764,8 @@ export default function BranchesPage() {
             </div>
           )}
 
-          <Input label="Name" placeholder="Mumbai Office, NYC Headquarters..." {...register('name', { required: true })} />
-          <Input label="Code" placeholder="MUM-01, NYC-HQ" {...register('code', { required: true })} />
+          <Input label="Name" placeholder="Mumbai Office, NYC Headquarters..." error={errors.name?.message as string} {...register('name', { required: 'Name is required' })} />
+          <Input label="Code" placeholder="MUM-01, NYC-HQ" error={errors.code?.message as string} {...register('code', { required: 'Code is required' })} />
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Branch Type</label>
@@ -778,16 +779,16 @@ export default function BranchesPage() {
           <Input label="Address Line 2" placeholder="Suite 100, Floor 5" {...register('address_line_2')} />
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Pincode" placeholder="400001" {...register('pincode')} />
-            <Input label="Phone" placeholder="+91 22 1234 5678" {...register('phone')} />
+            <Input label="Pincode" placeholder="400001" error={errors.pincode?.message as string} {...register('pincode', { maxLength: { value: 20, message: 'Max 20 characters' } })} />
+            <Input label="Phone" placeholder="+91 22 1234 5678" error={errors.phone?.message as string} {...register('phone', { maxLength: { value: 20, message: 'Max 20 characters' } })} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Email" type="email" placeholder="office@company.com" {...register('email')} />
-            <Input label="Website" placeholder="https://office.company.com" {...register('website')} />
+            <Input label="Email" type="email" placeholder="office@company.com" error={errors.email?.message as string} {...register('email', { pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email' } })} />
+            <Input label="Website" placeholder="https://office.company.com" error={errors.website?.message as string} {...register('website', { pattern: { value: /^https?:\/\/.+/i, message: 'Use a full URL (https://…)' } })} />
           </div>
 
-          <Input label="Google Maps URL" placeholder="https://maps.google.com/..." {...register('google_maps_url')} />
+          <Input label="Google Maps URL" placeholder="https://maps.google.com/..." error={errors.google_maps_url?.message as string} {...register('google_maps_url', { pattern: { value: /^https?:\/\/.+/i, message: 'Use a full URL (https://…)' } })} />
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

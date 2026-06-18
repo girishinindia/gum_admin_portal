@@ -1080,7 +1080,11 @@ export default function CapstoneProjectsPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
                     <div className="px-3 py-2 bg-gray-50 border rounded-md text-sm text-gray-600">
-                      {formCourseId ? `ID: ${formCourseId}` : '---'}
+                      {formCourseId
+                        ? (courses.find((c:any) => c.id === formCourseId)?.english_name
+                           || courses.find((c:any) => c.id === formCourseId)?.name
+                           || `ID: ${formCourseId}`)
+                        : '---'}
                     </div>
                     <p className="text-xs text-gray-400 mt-1">Course cannot be changed after creation</p>
                   </div>

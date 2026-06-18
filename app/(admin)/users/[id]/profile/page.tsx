@@ -66,6 +66,7 @@ export default function UserProfilePage() {
   const canEdit = isSuperAdmin || isSelf;
 
   const [activeTab, setActiveTab] = useState<TabId>('personal');
+  const [sectionQuery, setSectionQuery] = useState('');
   const [userData, setUserData] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -248,7 +249,7 @@ export default function UserProfilePage() {
   const [removeProfileImage, setRemoveProfileImage] = useState(false);
   const [removeCoverImage, setRemoveCoverImage] = useState(false);
 
-  const { register, handleSubmit, reset, watch, setValue } = useForm();
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm();
   const { register: eduRegister, handleSubmit: eduHandleSubmit, reset: eduReset, setValue: eduSetValue } = useForm();
   const { register: expRegister, handleSubmit: expHandleSubmit, reset: expReset } = useForm();
   const { register: sklRegister, handleSubmit: sklHandleSubmit, reset: sklReset } = useForm();
@@ -423,6 +424,14 @@ export default function UserProfilePage() {
   }
 
   async function onEduSubmit(data: any) {
+    // If an end date is set, the record can't also be "currently studying"
+    // (the server would null the end date otherwise).
+    if (data.end_date) data.is_currently_studying = false;
+    // Date-order guard
+    if (!data.is_currently_studying && data.start_date && data.end_date && data.end_date < data.start_date) {
+      toast.error('End date must be on or after the start date');
+      return;
+    }
     setEduSaving(true);
     const payload: any = { ...data };
     // Clean empties
@@ -432,24 +441,29 @@ export default function UserProfilePage() {
     if (payload.education_level_id) payload.education_level_id = Number(payload.education_level_id);
     payload.user_id = userId;
 
-    let res: any;
-    if (eduEditing) {
-      res = useSelfEdu
-        ? await api.updateMyEducation(eduEditing.id, payload)
-        : await api.updateUserEducation(eduEditing.id, payload);
-    } else {
-      res = useSelfEdu
-        ? await api.createMyEducation(payload)
-        : await api.createUserEducation(payload);
+    try {
+      let res: any;
+      if (eduEditing) {
+        res = useSelfEdu
+          ? await api.updateMyEducation(eduEditing.id, payload)
+          : await api.updateUserEducation(eduEditing.id, payload);
+      } else {
+        res = useSelfEdu
+          ? await api.createMyEducation(payload)
+          : await api.createUserEducation(payload);
+      }
+      if (res.success) {
+        toast.success(eduEditing ? 'Education updated' : 'Education added');
+        setEduDialogOpen(false);
+        loadEducation();
+      } else {
+        toast.error(res.error || 'Failed to save');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save');
+    } finally {
+      setEduSaving(false);
     }
-    if (res.success) {
-      toast.success(eduEditing ? 'Education updated' : 'Education added');
-      setEduDialogOpen(false);
-      loadEducation();
-    } else {
-      toast.error(res.error || 'Failed to save');
-    }
-    setEduSaving(false);
   }
 
   async function eduSoftDelete(item: any) {
@@ -524,14 +538,19 @@ export default function UserProfilePage() {
   function openExpEdit(item: any) { setExpEditing(item); expReset({ company_name: item.company_name||'', job_title: item.job_title||'', employment_type: item.employment_type||'full_time', department: item.department||'', location: item.location||'', work_mode: item.work_mode||'on_site', start_date: item.start_date||'', end_date: item.end_date||'', is_current_job: item.is_current_job||false, description: item.description||'', key_achievements: item.key_achievements||'', skills_used: item.skills_used||'', designation_id: item.designation_id||'' }); setExpDialogOpen(true); }
 
   async function onExpSubmit(data: any) {
+    if (!data.is_current_job && data.start_date && data.end_date && data.end_date < data.start_date) {
+      toast.error('End date must be on or after the start date');
+      return;
+    }
     setExpSaving(true);
     const payload: any = { ...data }; for (const k of Object.keys(payload)) { if (payload[k] === '' || payload[k] === undefined) payload[k] = null; }
     if (payload.designation_id) payload.designation_id = Number(payload.designation_id); payload.user_id = userId;
-    let res: any;
-    if (expEditing) { res = useSelfExp ? await api.updateMyExperience(expEditing.id, payload) : await api.updateUserExperience(expEditing.id, payload); }
-    else { res = useSelfExp ? await api.createMyExperience(payload) : await api.createUserExperience(payload); }
-    if (res.success) { toast.success(expEditing ? 'Updated' : 'Added'); setExpDialogOpen(false); loadExperience(); } else toast.error(res.error || 'Failed');
-    setExpSaving(false);
+    try {
+      let res: any;
+      if (expEditing) { res = useSelfExp ? await api.updateMyExperience(expEditing.id, payload) : await api.updateUserExperience(expEditing.id, payload); }
+      else { res = useSelfExp ? await api.createMyExperience(payload) : await api.createUserExperience(payload); }
+      if (res.success) { toast.success(expEditing ? 'Updated' : 'Added'); setExpDialogOpen(false); loadExperience(); } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e?.message || 'Failed to save'); } finally { setExpSaving(false); }
   }
 
   async function expSoftDelete(item: any) { if (!confirm(`Move "${item.company_name}" to trash?`)) return; const res = useSelfExp ? await api.deleteMyExperience(item.id) : await api.deleteUserExperience(item.id); if (res.success) { toast.success('Moved to trash'); loadExperience(); } else toast.error(res.error || 'Failed'); }
@@ -562,11 +581,12 @@ export default function UserProfilePage() {
     setSklSaving(true);
     const payload: any = { ...data }; for (const k of Object.keys(payload)) { if (payload[k] === '' || payload[k] === undefined) payload[k] = null; }
     if (payload.skill_id) payload.skill_id = Number(payload.skill_id); if (payload.years_of_experience) payload.years_of_experience = Number(payload.years_of_experience); payload.user_id = userId;
-    let res: any;
-    if (sklEditing) { res = useSelfSkl ? await api.updateMySkill(sklEditing.id, payload) : await api.updateUserSkill(sklEditing.id, payload); }
-    else { res = useSelfSkl ? await api.createMySkill(payload) : await api.createUserSkill(payload); }
-    if (res.success) { toast.success(sklEditing ? 'Updated' : 'Added'); setSklDialogOpen(false); loadSkills(); } else toast.error(res.error || 'Failed');
-    setSklSaving(false);
+    try {
+      let res: any;
+      if (sklEditing) { res = useSelfSkl ? await api.updateMySkill(sklEditing.id, payload) : await api.updateUserSkill(sklEditing.id, payload); }
+      else { res = useSelfSkl ? await api.createMySkill(payload) : await api.createUserSkill(payload); }
+      if (res.success) { toast.success(sklEditing ? 'Updated' : 'Added'); setSklDialogOpen(false); loadSkills(); } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e?.message || 'Failed to save'); } finally { setSklSaving(false); }
   }
   async function sklSoftDelete(item: any) { if (!confirm(`Delete this skill?`)) return; const res = useSelfSkl ? await api.deleteMySkill(item.id) : await api.deleteUserSkill(item.id); if (res.success) { toast.success('Moved to trash'); loadSkills(); } else toast.error(res.error || 'Failed'); }
   async function sklRestore(item: any) { const res = useSelfSkl ? await api.restoreMySkill(item.id) : await api.restoreUserSkill(item.id); if (res.success) { toast.success('Restored'); loadSkills(); } else toast.error(res.error || 'Failed'); }
@@ -596,11 +616,12 @@ export default function UserProfilePage() {
     setLngSaving(true);
     const payload: any = { ...data }; for (const k of Object.keys(payload)) { if (payload[k] === '' || payload[k] === undefined) payload[k] = null; }
     if (payload.language_id) payload.language_id = Number(payload.language_id); payload.user_id = userId;
-    let res: any;
-    if (lngEditing) { res = useSelfLng ? await api.updateMyLanguage(lngEditing.id, payload) : await api.updateUserLanguage(lngEditing.id, payload); }
-    else { res = useSelfLng ? await api.createMyLanguage(payload) : await api.createUserLanguage(payload); }
-    if (res.success) { toast.success(lngEditing ? 'Updated' : 'Added'); setLngDialogOpen(false); loadLanguages(); } else toast.error(res.error || 'Failed');
-    setLngSaving(false);
+    try {
+      let res: any;
+      if (lngEditing) { res = useSelfLng ? await api.updateMyLanguage(lngEditing.id, payload) : await api.updateUserLanguage(lngEditing.id, payload); }
+      else { res = useSelfLng ? await api.createMyLanguage(payload) : await api.createUserLanguage(payload); }
+      if (res.success) { toast.success(lngEditing ? 'Updated' : 'Added'); setLngDialogOpen(false); loadLanguages(); } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e?.message || 'Failed to save'); } finally { setLngSaving(false); }
   }
   async function lngSoftDelete(item: any) { if (!confirm('Delete?')) return; const res = useSelfLng ? await api.deleteMyLanguage(item.id) : await api.deleteUserLanguage(item.id); if (res.success) { toast.success('Moved to trash'); loadLanguages(); } else toast.error(res.error || 'Failed'); }
   async function lngRestore(item: any) { const res = useSelfLng ? await api.restoreMyLanguage(item.id) : await api.restoreUserLanguage(item.id); if (res.success) { toast.success('Restored'); loadLanguages(); } else toast.error(res.error || 'Failed'); }
@@ -630,11 +651,12 @@ export default function UserProfilePage() {
     setSmSaving(true);
     const payload: any = { ...data }; for (const k of Object.keys(payload)) { if (payload[k] === '' || payload[k] === undefined) payload[k] = null; }
     if (payload.social_media_id) payload.social_media_id = Number(payload.social_media_id); payload.user_id = userId;
-    let res: any;
-    if (smEditing) { res = useSelfSm ? await api.updateMySocialMedia(smEditing.id, payload) : await api.updateUserSocialMedia(smEditing.id, payload); }
-    else { res = useSelfSm ? await api.createMySocialMedia(payload) : await api.createUserSocialMedia(payload); }
-    if (res.success) { toast.success(smEditing ? 'Updated' : 'Added'); setSmDialogOpen(false); loadSocialMedia(); } else toast.error(res.error || 'Failed');
-    setSmSaving(false);
+    try {
+      let res: any;
+      if (smEditing) { res = useSelfSm ? await api.updateMySocialMedia(smEditing.id, payload) : await api.updateUserSocialMedia(smEditing.id, payload); }
+      else { res = useSelfSm ? await api.createMySocialMedia(payload) : await api.createUserSocialMedia(payload); }
+      if (res.success) { toast.success(smEditing ? 'Updated' : 'Added'); setSmDialogOpen(false); loadSocialMedia(); } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e?.message || 'Failed to save'); } finally { setSmSaving(false); }
   }
   async function smSoftDelete(item: any) { if (!confirm('Delete?')) return; const res = useSelfSm ? await api.deleteMySocialMedia(item.id) : await api.deleteUserSocialMedia(item.id); if (res.success) { toast.success('Deleted'); loadSocialMedia(); } else toast.error(res.error || 'Failed'); }
   async function smRestore(item: any) { const res = useSelfSm ? await api.restoreMySocialMedia(item.id) : await api.restoreUserSocialMedia(item.id); if (res.success) { toast.success('Restored'); loadSocialMedia(); } else toast.error(res.error || 'Failed'); }
@@ -662,6 +684,10 @@ export default function UserProfilePage() {
   function openDocCreate() { setDocEditing(null); docReset({ user_id: userId, document_type_id: '', document_id: '', document_number: '', issue_date: '', expiry_date: '' }); setDocFile(null); setDocPreview(null); setDocDialogOpen(true); }
   function openDocEdit(item: any) { setDocEditing(item); docReset({ document_type_id: item.document_type_id||'', document_id: item.document_id||'', document_number: item.document_number||'', issue_date: item.issue_date||'', expiry_date: item.expiry_date||'' }); setDocFile(null); setDocPreview(item.file || null); setDocDialogOpen(true); }
   async function onDocSubmit(data: any) {
+    if (data.issue_date && data.expiry_date && data.expiry_date < data.issue_date) {
+      toast.error('Expiry date must be on or after the issue date');
+      return;
+    }
     setDocSaving(true);
     const fd = new FormData();
     if (docFile) fd.append('file', docFile);
@@ -671,11 +697,12 @@ export default function UserProfilePage() {
     if (data.document_number) fd.append('document_number', data.document_number);
     if (data.issue_date) fd.append('issue_date', data.issue_date);
     if (data.expiry_date) fd.append('expiry_date', data.expiry_date);
-    let res: any;
-    if (docEditing) { res = useSelfDoc ? await api.updateMyDocument(docEditing.id, fd, true) : await api.updateUserDocument(docEditing.id, fd, true); }
-    else { res = useSelfDoc ? await api.createMyDocument(fd, true) : await api.createUserDocument(fd, true); }
-    if (res.success) { toast.success(docEditing ? 'Updated' : 'Added'); setDocDialogOpen(false); setDocFile(null); setDocPreview(null); loadDocuments(); } else toast.error(res.error || 'Failed');
-    setDocSaving(false);
+    try {
+      let res: any;
+      if (docEditing) { res = useSelfDoc ? await api.updateMyDocument(docEditing.id, fd, true) : await api.updateUserDocument(docEditing.id, fd, true); }
+      else { res = useSelfDoc ? await api.createMyDocument(fd, true) : await api.createUserDocument(fd, true); }
+      if (res.success) { toast.success(docEditing ? 'Updated' : 'Added'); setDocDialogOpen(false); setDocFile(null); setDocPreview(null); loadDocuments(); } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e?.message || 'Failed to save'); } finally { setDocSaving(false); }
   }
   async function docSoftDelete(item: any) { if (!confirm('Delete?')) return; const res = useSelfDoc ? await api.deleteMyDocument(item.id) : await api.deleteUserDocument(item.id); if (res.success) { toast.success('Deleted'); loadDocuments(); } else toast.error(res.error || 'Failed'); }
   async function docRestore(item: any) { const res = useSelfDoc ? await api.restoreMyDocument(item.id) : await api.restoreUserDocument(item.id); if (res.success) { toast.success('Restored'); loadDocuments(); } else toast.error(res.error || 'Failed'); }
@@ -704,11 +731,12 @@ export default function UserProfilePage() {
     setPrjSaving(true);
     const payload: any = { ...data }; for (const k of Object.keys(payload)) { if (payload[k] === '' || payload[k] === undefined) payload[k] = null; }
     payload.user_id = userId;
-    let res: any;
-    if (prjEditing) { res = useSelfPrj ? await api.updateMyProject(prjEditing.id, payload) : await api.updateUserProject(prjEditing.id, payload); }
-    else { res = useSelfPrj ? await api.createMyProject(payload) : await api.createUserProject(payload); }
-    if (res.success) { toast.success(prjEditing ? 'Updated' : 'Added'); setPrjDialogOpen(false); loadProjects(); } else toast.error(res.error || 'Failed');
-    setPrjSaving(false);
+    try {
+      let res: any;
+      if (prjEditing) { res = useSelfPrj ? await api.updateMyProject(prjEditing.id, payload) : await api.updateUserProject(prjEditing.id, payload); }
+      else { res = useSelfPrj ? await api.createMyProject(payload) : await api.createUserProject(payload); }
+      if (res.success) { toast.success(prjEditing ? 'Updated' : 'Added'); setPrjDialogOpen(false); loadProjects(); } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e?.message || 'Failed to save'); } finally { setPrjSaving(false); }
   }
   async function prjSoftDelete(item: any) { if (!confirm(`Delete "${item.project_title}"?`)) return; const res = useSelfPrj ? await api.deleteMyProject(item.id) : await api.deleteUserProject(item.id); if (res.success) { toast.success('Deleted'); loadProjects(); } else toast.error(res.error || 'Failed'); }
   async function prjRestore(item: any) { const res = useSelfPrj ? await api.restoreMyProject(item.id) : await api.restoreUserProject(item.id); if (res.success) { toast.success('Restored'); loadProjects(); } else toast.error(res.error || 'Failed'); }
@@ -868,30 +896,35 @@ export default function UserProfilePage() {
     }
 
     const hasFiles = profileImageFile || coverImageFile;
-    let res: any;
-    if (hasFiles || removeProfileImage || removeCoverImage) {
-      const fd = new FormData();
-      for (const [k, v] of Object.entries(cleaned)) {
-        if (v !== null && v !== undefined) fd.append(k, String(v));
+    try {
+      let res: any;
+      if (hasFiles || removeProfileImage || removeCoverImage) {
+        const fd = new FormData();
+        for (const [k, v] of Object.entries(cleaned)) {
+          if (v !== null && v !== undefined) fd.append(k, String(v));
+        }
+        if (profileImageFile) fd.append('profile_image', profileImageFile);
+        if (coverImageFile) fd.append('cover_image', coverImageFile);
+        if (removeProfileImage) fd.append('profile_image_url', 'null');
+        if (removeCoverImage) fd.append('cover_image_url', 'null');
+        res = isSelf && !isSuperAdmin ? await api.updateMyProfile(fd, true) : await api.upsertUserProfile(userId, fd, true);
+      } else {
+        res = isSelf && !isSuperAdmin ? await api.updateMyProfile(cleaned) : await api.upsertUserProfile(userId, cleaned);
       }
-      if (profileImageFile) fd.append('profile_image', profileImageFile);
-      if (coverImageFile) fd.append('cover_image', coverImageFile);
-      if (removeProfileImage) fd.append('profile_image_url', 'null');
-      if (removeCoverImage) fd.append('cover_image_url', 'null');
-      res = isSelf && !isSuperAdmin ? await api.updateMyProfile(fd, true) : await api.upsertUserProfile(userId, fd, true);
-    } else {
-      res = isSelf && !isSuperAdmin ? await api.updateMyProfile(cleaned) : await api.upsertUserProfile(userId, cleaned);
-    }
 
-    if (res.success) {
-      toast.success(res.message || 'Profile saved');
-      setProfileImageFile(null); setCoverImageFile(null);
-      setRemoveProfileImage(false); setRemoveCoverImage(false);
-      load();
-    } else {
-      toast.error(res.error || 'Failed to save');
+      if (res.success) {
+        toast.success(res.message || 'Profile saved');
+        setProfileImageFile(null); setCoverImageFile(null);
+        setRemoveProfileImage(false); setRemoveCoverImage(false);
+        load();
+      } else {
+        toast.error(res.error || 'Failed to save');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   // ── Loading ──
@@ -996,13 +1029,27 @@ export default function UserProfilePage() {
         {/* Sidebar */}
         <nav className="w-56 flex-shrink-0">
           <Card className="sticky top-4">
+            <div className="px-3 pt-3 pb-2 border-b border-slate-100">
+              <input
+                type="text"
+                value={sectionQuery}
+                onChange={(e) => setSectionQuery(e.target.value)}
+                placeholder="Find section..."
+                className="w-full h-8 px-2.5 text-xs rounded-lg border border-slate-200 bg-white placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
+              />
+            </div>
             <div className="py-2">
-              {TABS.filter(tab => {
-                // Show only the profile tab matching the user's type
-                const profileTabs = ['instructor'];
-                if (profileTabs.includes(tab.id)) return tab.id === userData?.type;
-                return true;
-              }).map(tab => {
+              {(() => {
+                const visibleTabs = TABS.filter(tab => {
+                  // Show only the profile tab matching the user's type
+                  const profileTabs = ['instructor'];
+                  if (profileTabs.includes(tab.id)) return tab.id === userData?.type;
+                  return true;
+                }).filter(tab => tab.label.toLowerCase().includes(sectionQuery.toLowerCase()));
+                if (visibleTabs.length === 0) {
+                  return <div className="px-4 py-3 text-xs text-slate-400">No sections</div>;
+                }
+                return visibleTabs.map(tab => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
@@ -1021,7 +1068,8 @@ export default function UserProfilePage() {
                     {tab.label}
                   </button>
                 );
-              })}
+                });
+              })()}
             </div>
             {/* Save button in sidebar — only for main form tabs (not profile tabs which have their own save) */}
             {canEdit && !['instructor'].includes(activeTab) && (
@@ -1258,7 +1306,7 @@ export default function UserProfilePage() {
                       </div>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input label="Aadhar Number" {...register('aadhar_number')} placeholder="12 digit Aadhar" maxLength={12} />
+                      <Input label="Aadhar Number" {...register('aadhar_number', { pattern: { value: /^\d{12}$/, message: 'Aadhaar must be 12 digits' } })} error={(errors as any).aadhar_number?.message} placeholder="12 digit Aadhar" maxLength={12} />
                       <Input label="PAN Number" {...register('pan_number')} placeholder="e.g. ABCDE1234F" maxLength={10} />
                       <Input label="Passport Number" {...register('passport_number')} placeholder="Passport No." maxLength={20} />
                       <Input label="Driving License" {...register('driving_license_number')} placeholder="DL No." maxLength={20} />
@@ -1440,7 +1488,7 @@ export default function UserProfilePage() {
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Input label="Account Holder Name" {...register('bank_account_name')} placeholder="Name as per bank" />
-                        <Input label="Account Number" {...register('bank_account_number')} placeholder="Account number" />
+                        <Input label="Account Number" {...register('bank_account_number', { pattern: { value: /^\d+$/, message: 'Account number must be digits only' } })} error={(errors as any).bank_account_number?.message} placeholder="Account number" />
                         <Input label="IFSC Code" {...register('bank_ifsc_code')} placeholder="e.g. SBIN0001234" maxLength={11} />
                         <Input label="Bank Name" {...register('bank_name')} placeholder="e.g. State Bank of India" />
                         <Input label="Branch" {...register('bank_branch')} placeholder="Branch name" />
@@ -1459,8 +1507,8 @@ export default function UserProfilePage() {
                         UPI Details
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input label="UPI ID" {...register('upi_id')} placeholder="e.g. name@upi or name@paytm" />
-                        <Input label="UPI Number" {...register('upi_number')} placeholder="e.g. 9876543210" maxLength={20} />
+                        <Input label="UPI ID" {...register('upi_id', { pattern: { value: /^[\w.\-]+@[\w.\-]+$/, message: 'UPI ID must contain "@"' } })} error={(errors as any).upi_id?.message} placeholder="e.g. name@upi or name@paytm" />
+                        <Input label="UPI Number" {...register('upi_number', { pattern: { value: /^\d+$/, message: 'UPI number must be digits only' } })} error={(errors as any).upi_number?.message} placeholder="e.g. 9876543210" maxLength={20} />
                       </div>
                     </div>
                   </div>

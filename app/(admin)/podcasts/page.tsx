@@ -661,7 +661,7 @@ export default function PodcastsPage() {
                         <>
                           <button onClick={() => openView(item)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
                           <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                          {(item.video_url || item.youtube_url) && (
+                          {item.status === 'published' && (item.video_url || item.youtube_url) && (
                             <button onClick={() => openPlayback(item)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Play">
                               <Play className="w-3.5 h-3.5" />
                             </button>
@@ -783,7 +783,7 @@ export default function PodcastsPage() {
 
             <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-100">
               <Button variant="outline" onClick={() => setViewing(null)}>Close</Button>
-              {(viewing.video_url || viewing.youtube_url) && (
+              {viewing.status === 'published' && (viewing.video_url || viewing.youtube_url) && (
                 <Button variant="outline" onClick={() => openPlayback(viewing)}><Play className="w-4 h-4" /> Play</Button>
               )}
               <Button onClick={() => { setViewing(null); openEdit(viewing); }}><Edit2 className="w-4 h-4" /> Edit</Button>

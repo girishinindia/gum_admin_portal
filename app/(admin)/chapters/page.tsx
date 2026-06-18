@@ -125,7 +125,7 @@ export default function ChaptersPage() {
   ]);
 
   useEffect(() => {
-    api.listSubjects('?limit=500&is_active=true').then(res => { if (res.success) setSubjects(res.data || []); });
+    api.listSubjects('?limit=500&sort=code').then(res => { if (res.success) setSubjects(res.data || []); });
   }, []);
 
   // Search debounce
@@ -600,7 +600,7 @@ Unsupervised Learning
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
+              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code || '' }))}
               value={filterSubject}
               onChange={setFilterSubject}
               placeholder="All subjects"
@@ -697,7 +697,7 @@ Unsupervised Learning
                   <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{c.id}</span></TD>
                   <TD className="py-2.5">
-                    <span className="text-slate-600">{subjects.find(s => s.id === c.subject_id)?.english_name || ''}</span>
+                    <span className="text-slate-600">{subjects.find(s => s.id === c.subject_id)?.english_name || c.subjects?.code || c.subjects?.slug || ''}</span>
                   </TD>
                   <TD className="py-2.5">
                     <div>
@@ -808,13 +808,13 @@ Unsupervised Learning
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 font-mono">{viewing.slug}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  {viewing.subject_id && <Badge variant="info">{subjects.find(s => s.id === viewing.subject_id)?.english_name || viewing.subjects?.code || '—'}</Badge>}
+                  {viewing.subject_id && <Badge variant="info">{subjects.find(s => s.id === viewing.subject_id)?.english_name || viewing.subjects?.code || viewing.subjects?.slug || '—'}</Badge>}
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-              <DetailRow label="Subject" value={subjects.find(s => s.id === viewing.subject_id)?.english_name || viewing.subjects?.code} />
+              <DetailRow label="Subject" value={subjects.find(s => s.id === viewing.subject_id)?.english_name || viewing.subjects?.code || viewing.subjects?.slug} />
               <DetailRow label="Slug" value={`/${viewing.slug}`} />
               <DetailRow label="Display Order" value={String(viewing.display_order)} />
               <DetailRow label="Sort Order" value={String(viewing.sort_order ?? 0)} />
@@ -868,7 +868,7 @@ Unsupervised Learning
 
           <SearchableSelect
             label="Subject"
-            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
+            options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: s.english_name || s.code || '' }))}
             value={watch('subject_id') || ''}
             onChange={(val) => setValue('subject_id', val)}
             placeholder="Select a subject"
@@ -1024,7 +1024,7 @@ Unsupervised Learning
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Parent Subject <span className="text-red-500">*</span></label>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
+              options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: s.english_name || s.code || '' }))}
               value={importSubjectId}
               onChange={setImportSubjectId}
               placeholder="Select a subject..."

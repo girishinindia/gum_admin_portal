@@ -153,6 +153,8 @@ function PolicyTypesTab({ onViewTranslations }: { onViewTranslations: (id: numbe
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const [slugManual, setSlugManual] = useState(false);
+  const watchedName = watch('name');
 
   useKeyboardShortcuts([
     { key: '/', action: () => toolbarRef.current?.focusSearch() },
@@ -160,6 +162,14 @@ function PolicyTypesTab({ onViewTranslations }: { onViewTranslations: (id: numbe
     { key: 'r', action: () => load() },
     { key: 't', action: () => setShowTrash(prev => !prev) },
   ]);
+
+  // Auto-generate slug from name
+  useEffect(() => {
+    if (!slugManual && watchedName !== undefined) {
+      const slug = (watchedName || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      setValue('slug', slug);
+    }
+  }, [watchedName, slugManual, setValue]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounce(search), 400);
@@ -219,12 +229,14 @@ function PolicyTypesTab({ onViewTranslations }: { onViewTranslations: (id: numbe
 
   function openCreate() {
     setEditing(null); setDialogKey(k => k + 1);
+    setSlugManual(false);
     reset({ name: '', code: '', slug: '', description: '', display_order: '', is_active: true });
     setDialogOpen(true);
   }
 
   function openEdit(c: any) {
     setEditing(c); setDialogKey(k => k + 1);
+    setSlugManual(!!c.slug);
     reset({
       name: c.name || '', code: c.code || '', slug: c.slug || '', description: c.description || '',
       display_order: c.display_order ?? '', is_active: c.is_active ?? true,
@@ -236,7 +248,8 @@ function PolicyTypesTab({ onViewTranslations }: { onViewTranslations: (id: numbe
     const payload: Record<string, any> = {};
     Object.keys(data).forEach(k => {
       const v = data[k];
-      if (v === '' || v === undefined || v === null) return;
+      if (v === undefined || v === null) return;
+      if (v === '') { if (editing) payload[k] = null; return; }
       if (typeof v === 'boolean') { payload[k] = v; return; }
       const numericFields = ['display_order'];
       if (numericFields.includes(k) && v !== '') { payload[k] = Number(v); return; }
@@ -552,7 +565,7 @@ function PolicyTypesTab({ onViewTranslations }: { onViewTranslations: (id: numbe
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Slug</label>
-              <Input {...register('slug')} placeholder="auto-generated-slug" />
+              <Input {...register('slug', { onChange: () => setSlugManual(true) })} placeholder="auto-generated-slug" />
             </div>
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Display Order</label>
@@ -696,7 +709,8 @@ function TypeTranslationsTab({ filterPolicyTypeId }: { filterPolicyTypeId: numbe
     const payload: Record<string, any> = {};
     Object.keys(data).forEach(k => {
       const v = data[k];
-      if (v === '' || v === undefined || v === null) return;
+      if (v === undefined || v === null) return;
+      if (v === '') { if (editing) payload[k] = null; return; }
       if (typeof v === 'boolean') { payload[k] = v; return; }
       const numericFields = ['policy_type_id', 'language_id'];
       if (numericFields.includes(k) && v !== '') { payload[k] = Number(v); return; }
@@ -1107,6 +1121,8 @@ function PoliciesTab({ onViewTranslations }: { onViewTranslations: (id: number) 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
+  const [slugManual, setSlugManual] = useState(false);
+  const watchedTitle = watch('title');
 
   useKeyboardShortcuts([
     { key: '/', action: () => toolbarRef.current?.focusSearch() },
@@ -1114,6 +1130,14 @@ function PoliciesTab({ onViewTranslations }: { onViewTranslations: (id: number) 
     { key: 'r', action: () => load() },
     { key: 't', action: () => setShowTrash(prev => !prev) },
   ]);
+
+  // Auto-generate slug from title
+  useEffect(() => {
+    if (!slugManual && watchedTitle !== undefined) {
+      const slug = (watchedTitle || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      setValue('slug', slug);
+    }
+  }, [watchedTitle, slugManual, setValue]);
 
   useEffect(() => {
     api.getPolicyTypes({ limit: 200, is_active: 'true' }).then(res => {
@@ -1178,6 +1202,7 @@ function PoliciesTab({ onViewTranslations }: { onViewTranslations: (id: number) 
 
   function openCreate() {
     setEditing(null); setDialogKey(k => k + 1);
+    setSlugManual(false);
     reset({
       policy_type_id: '', title: '', content: '', version: '1.0', version_notes: '',
       content_format: 'html', slug: '', meta_title: '', meta_description: '',
@@ -1188,6 +1213,7 @@ function PoliciesTab({ onViewTranslations }: { onViewTranslations: (id: number) 
 
   function openEdit(c: any) {
     setEditing(c); setDialogKey(k => k + 1);
+    setSlugManual(!!c.slug);
     reset({
       policy_type_id: c.policy_type_id ?? '', title: c.title || '', content: c.content || '',
       version: c.version || '', version_notes: c.version_notes || '',
@@ -1204,7 +1230,8 @@ function PoliciesTab({ onViewTranslations }: { onViewTranslations: (id: number) 
     const payload: Record<string, any> = {};
     Object.keys(data).forEach(k => {
       const v = data[k];
-      if (v === '' || v === undefined || v === null) return;
+      if (v === undefined || v === null) return;
+      if (v === '') { if (editing) payload[k] = null; return; }
       if (typeof v === 'boolean') { payload[k] = v; return; }
       const numericFields = ['policy_type_id'];
       if (numericFields.includes(k) && v !== '') { payload[k] = Number(v); return; }
@@ -1590,7 +1617,7 @@ function PoliciesTab({ onViewTranslations }: { onViewTranslations: (id: number) 
             </div>
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Slug</label>
-              <Input {...register('slug')} placeholder="auto-generated-slug" />
+              <Input {...register('slug', { onChange: () => setSlugManual(true) })} placeholder="auto-generated-slug" />
             </div>
           </div>
           <div>
@@ -1773,7 +1800,8 @@ function PolicyTranslationsTab({ filterPolicyId }: { filterPolicyId: number | nu
     const payload: Record<string, any> = {};
     Object.keys(data).forEach(k => {
       const v = data[k];
-      if (v === '' || v === undefined || v === null) return;
+      if (v === undefined || v === null) return;
+      if (v === '') { if (editing) payload[k] = null; return; }
       if (typeof v === 'boolean') { payload[k] = v; return; }
       const numericFields = ['policy_id', 'language_id'];
       if (numericFields.includes(k) && v !== '') { payload[k] = Number(v); return; }

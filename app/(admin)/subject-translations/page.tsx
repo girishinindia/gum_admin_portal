@@ -55,6 +55,8 @@ export default function SubjectTranslationsPage() {
   const [editing, setEditing] = useState<SubjectTranslation | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageRemoved, setImageRemoved] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [dialogKey, setDialogKey] = useState(0);
   const [filterSubject, setFilterSubject] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
@@ -158,7 +160,7 @@ export default function SubjectTranslationsPage() {
         setValue('short_intro', item.short_intro || '');
         setValue('long_intro', item.long_intro || '');
         setValue('sort_order', item.sort_order ?? 0);
-        setImageFile(null); setImagePreview(null);
+        setImageFile(null); setImagePreview(null); setImageRemoved(false);
         toast.info(`Loaded existing ${languages.find(l => String(l.id) === String(watchedLangId))?.name || ''} translation`);
       } else {
         setEditing(null);
@@ -167,7 +169,7 @@ export default function SubjectTranslationsPage() {
         setValue('short_intro', '');
         setValue('long_intro', '');
         setValue('sort_order', 0);
-        setImageFile(null); setImagePreview(null);
+        setImageFile(null); setImagePreview(null); setImageRemoved(false);
       }
       setFormLoading(false);
     };
@@ -219,7 +221,7 @@ export default function SubjectTranslationsPage() {
 
   function openCreate() {
     skipAutoFetchRef.current = true;
-    setEditing(null); setFormMode('new'); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1);
+    setEditing(null); setFormMode('new'); setImageFile(null); setImagePreview(null); setImageRemoved(false); setDialogKey(k => k + 1);
     reset({
       subject_id: subjects[0]?.id || '', language_id: languages[0]?.id || '',
       name: '', short_intro: '', long_intro: '', sort_order: 0,
@@ -229,7 +231,7 @@ export default function SubjectTranslationsPage() {
 
   function openEdit(item: SubjectTranslation) {
     skipAutoFetchRef.current = true;
-    setEditing(item); setFormMode('existing'); setImageFile(null); setImagePreview(null); setDialogKey(k => k + 1);
+    setEditing(item); setFormMode('existing'); setImageFile(null); setImagePreview(null); setImageRemoved(false); setDialogKey(k => k + 1);
     reset({
       subject_id: item.subject_id, language_id: item.language_id,
       name: item.name, short_intro: item.short_intro || '', long_intro: item.long_intro || '',
@@ -239,22 +241,29 @@ export default function SubjectTranslationsPage() {
   }
 
   async function onSubmit(data: any) {
-    const fd = new FormData();
-    fd.append('subject_id', String(data.subject_id));
-    fd.append('language_id', String(data.language_id));
-    fd.append('name', data.name);
-    if (data.short_intro) fd.append('short_intro', data.short_intro);
-    if (data.long_intro) fd.append('long_intro', data.long_intro);
-    fd.append('sort_order', String(data.sort_order || 0));
-    if (imageFile) fd.append('image_file', imageFile, imageFile.name);
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append('subject_id', String(data.subject_id));
+      fd.append('language_id', String(data.language_id));
+      fd.append('name', data.name);
+      if (data.short_intro) fd.append('short_intro', data.short_intro);
+      if (data.long_intro) fd.append('long_intro', data.long_intro);
+      fd.append('sort_order', String(data.sort_order || 0));
+      if (imageFile) fd.append('image_file', imageFile, imageFile.name);
+      // Explicit removal: persist a null image (backend treats empty `image` as null).
+      else if (imageRemoved) fd.append('image', '');
 
-    const res = editing
-      ? await api.updateSubjectTranslation(editing.id, fd, true)
-      : await api.createSubjectTranslation(fd, true);
-    if (res.success) {
-      toast.success(editing ? 'Subject translation updated' : 'Subject translation created');
-      setDialogOpen(false); load(); refreshSummary();
-    } else toast.error(res.error || 'Failed');
+      const res = editing
+        ? await api.updateSubjectTranslation(editing.id, fd, true)
+        : await api.createSubjectTranslation(fd, true);
+      if (res.success) {
+        toast.success(editing ? 'Subject translation updated' : 'Subject translation created');
+        setDialogOpen(false); load(); refreshSummary();
+      } else toast.error(res.error || 'Failed');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function onSoftDelete(item: SubjectTranslation) {
@@ -771,13 +780,20 @@ export default function SubjectTranslationsPage() {
 
           <ImageUpload key={`img-${dialogKey}`} label="Image" hint="Upload an image for this translation"
             value={editing?.image} maxWidth={800} maxHeight={600} shape="rounded"
-            onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }} />
+            onChange={(file, preview) => {
+              if (file) {
+                setImageFile(file); setImagePreview(preview); setImageRemoved(false);
+              } else {
+                setImageFile(null); setImagePreview(null);
+                if (editing?.image) setImageRemoved(true);
+              }
+            }} />
 
           <Input label="Sort Order" type="number" {...register('sort_order')} />
 
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={formLoading}>{editing ? 'Save changes' : 'Create'}</Button>
+            <Button type="submit" disabled={formLoading || submitting}>{editing ? 'Save changes' : 'Create'}</Button>
           </div>
         </form>
       </Dialog>

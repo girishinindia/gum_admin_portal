@@ -133,7 +133,7 @@ export default function TopicsPage() {
   ]);
 
   useEffect(() => {
-    api.listSubjects('?limit=500&is_active=true').then(res => { if (res.success) setSubjects(res.data || []); });
+    api.listSubjects('?limit=500&sort=code').then(res => { if (res.success) setSubjects(res.data || []); });
     api.listChapters('?limit=500&is_active=true').then(res => { if (res.success) setChapters(res.data || []); });
   }, []);
 
@@ -623,7 +623,7 @@ Model Evaluation Metrics`;
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
+              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code || '' }))}
               value={filterSubject}
               onChange={(val) => { setFilterSubject(val); setFilterChapter(''); }}
               placeholder="All subjects"
@@ -898,7 +898,7 @@ Model Evaluation Metrics`;
 
           <SearchableSelect
             label="Subject"
-            options={subjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
+            options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: s.english_name || s.code || '' }))}
             value={dialogSubject}
             onChange={(val) => {
               setDialogSubject(val);
@@ -1073,7 +1073,7 @@ Model Evaluation Metrics`;
           {/* Subject selector */}
           <SearchableSelect
             label="Parent Subject *"
-            options={importSubjects.map(s => ({ value: String(s.id), label: s.english_name || '' }))}
+            options={importSubjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: s.english_name || s.code || '' }))}
             value={importSubjectId}
             onChange={(val) => { setImportSubjectId(val); setImportChapterId(''); }}
             placeholder="Select a subject..."

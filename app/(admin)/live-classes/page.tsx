@@ -239,7 +239,7 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [saving, setSaving] = useState(false);
-  const { register, handleSubmit, reset, watch, setValue } = useForm();
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm();
   const isRecurring = watch('is_recurring');
   const watchedItemType = watch('item_type');
 
@@ -750,7 +750,7 @@ function SessionsTab({ onStatsChange }: { onStatsChange: () => void }) {
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Meeting URL</label>
-              <Input {...register('meeting_url')} placeholder="https://..." />
+              <Input {...register('meeting_url', { pattern: { value: /^https?:\/\/.+/i, message: 'Use a full URL (https://…)' } })} error={errors.meeting_url?.message as string} placeholder="https://..." />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Meeting ID</label>
