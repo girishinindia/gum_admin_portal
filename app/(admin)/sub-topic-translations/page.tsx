@@ -616,7 +616,7 @@ export default function SubTopicTranslationsPage() {
                 disabled={!filterChapter}
               />
               <SearchableSelect
-                options={filteredSubTopics.map(st => ({ value: String(st.id), label: `${st.slug || ''}${(st as any).topics?.slug ? ` (${(st as any).topics.slug})` : ''}` }))}
+                options={filteredSubTopics.map(st => { const tName = (topics.find(t => t.id === (st as any).topic_id) as any)?.english_name || (st as any).topics?.slug; return { value: String(st.id), label: `${(st as any).english_name || st.slug || ''}${tName ? ` (${tName})` : ''}` }; })}
                 value={filterSubTopic}
                 onChange={setFilterSubTopic}
                 placeholder="All sub-topics"
@@ -694,8 +694,8 @@ export default function SubTopicTranslationsPage() {
                     <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{item.id}</span></TD>
                     <TD className="py-2.5"><span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{item.name}</span>{item.short_intro && !showTrash && <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{item.short_intro}</p>}</TD>
                     <TD className="py-2.5">
-                      {(item as any).sub_topics?.slug ? <Badge variant="info">{(item as any).sub_topics.slug}</Badge> : <span className="text-slate-300">—</span>}
-                      {(item as any).sub_topics?.topics?.slug && <div className="text-xs text-slate-400 mt-0.5">{(item as any).sub_topics.topics.slug}</div>}
+                      {(item as any).sub_topics?.slug ? <Badge variant="info">{(subTopics.find(st => st.id === item.sub_topic_id) as any)?.english_name || (item as any).sub_topics.slug}</Badge> : <span className="text-slate-300">—</span>}
+                      {(() => { const st = subTopics.find(st => st.id === item.sub_topic_id) as any; const tName = (topics.find(t => t.id === st?.topic_id) as any)?.english_name || (item as any).sub_topics?.topics?.slug; return tName ? <div className="text-xs text-slate-400 mt-0.5">{tName}</div> : null; })()}
                     </TD>
                     <TD className="py-2.5">{(item as any).languages?.name ? <Badge variant="muted">{(item as any).languages.name}{(item as any).languages.iso_code ? ` (${(item as any).languages.iso_code})` : ''}</Badge> : <span className="text-slate-300">—</span>}</TD>
                     {!showTrash && (
@@ -749,8 +749,8 @@ export default function SubTopicTranslationsPage() {
           <div className="p-6 space-y-4">
             {/* Header info */}
             <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="info">{(viewItem as any).sub_topics?.slug || `SubTopic #${viewItem.sub_topic_id}`}</Badge>
-              {(viewItem as any).sub_topics?.topics?.slug && <Badge variant="muted">{(viewItem as any).sub_topics.topics.slug}</Badge>}
+              <Badge variant="info">{(subTopics.find(st => st.id === viewItem.sub_topic_id) as any)?.english_name || (viewItem as any).sub_topics?.slug || `SubTopic #${viewItem.sub_topic_id}`}</Badge>
+              {(() => { const st = subTopics.find(st => st.id === viewItem.sub_topic_id) as any; const tName = (topics.find(t => t.id === st?.topic_id) as any)?.english_name || (viewItem as any).sub_topics?.topics?.slug; return tName ? <Badge variant="muted">{tName}</Badge> : null; })()}
               <Badge variant="muted">{(viewItem as any).languages?.name || `Lang #${viewItem.language_id}`}{(viewItem as any).languages?.iso_code ? ` (${(viewItem as any).languages.iso_code})` : ''}</Badge>
               <Badge variant={viewItem.is_active ? 'success' : 'danger'}>{viewItem.is_active ? 'Active' : 'Inactive'}</Badge>
             </div>
@@ -955,7 +955,7 @@ export default function SubTopicTranslationsPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Sub-Topic</label>
                   <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     {...register('sub_topic_id', { required: true })}>
-                    {subTopics.map(st => <option key={st.id} value={st.id}>{st.slug}{(st as any).topics?.slug ? ` (${(st as any).topics.slug})` : ''}</option>)}
+                    {subTopics.map(st => { const tName = (topics.find(t => t.id === (st as any).topic_id) as any)?.english_name || (st as any).topics?.slug; return <option key={st.id} value={st.id}>{(st as any).english_name || st.slug}{tName ? ` (${tName})` : ''}</option>; })}
                   </select>
                 </div>
                 <div>

@@ -21,7 +21,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { Plus, BookMarked, Trash2, Edit2, Globe, Wand2, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, XCircle, BarChart3, RotateCcw, AlertTriangle, Eye, Sparkles, Loader2, ChevronDown, ChevronUp, X, Mic } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
-import type { SubCategoryTranslation, SubCategory, Language } from '@/lib/types';
+import type { SubCategoryTranslation, SubCategory, Category, Language } from '@/lib/types';
 
 const TABS = ['Content', 'SEO Meta', 'Open Graph', 'Twitter'] as const;
 type SortField = 'id' | 'name' | 'is_active';
@@ -49,6 +49,7 @@ function ViewField({ label, value, mono }: { label: string; value?: string | nul
 export default function SubCategoryTranslationsPage() {
   const [items, setItems] = useState<SubCategoryTranslation[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -161,6 +162,7 @@ export default function SubCategoryTranslationsPage() {
 
   useEffect(() => {
     api.listSubCategories('?limit=100').then(res => { if (res.success) setSubCategories((res.data || []).filter((sc: SubCategory) => sc.is_active)); });
+    api.listCategories('?limit=100').then(res => { if (res.success) setCategories((res.data || []).filter((c: Category) => c.is_active)); });
     api.listLanguages('?for_material=true&limit=100').then(res => { if (res.success) setLanguages((res.data || []).filter((l: Language) => l.is_active)); });
     refreshSummary();
   }, []);
@@ -550,8 +552,8 @@ export default function SubCategoryTranslationsPage() {
                     <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{item.id}</span></TD>
                     <TD className="py-2.5"><span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{item.name}</span>{item.description && !showTrash && <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{item.description}</p>}</TD>
                     <TD className="py-2.5">
-                      {item.sub_categories?.code ? <Badge variant="info">{item.sub_categories.code}</Badge> : <span className="text-slate-300">—</span>}
-                      {item.sub_categories?.categories?.code && <div className="text-xs text-slate-400 mt-0.5">{item.sub_categories.categories.code}</div>}
+                      {item.sub_categories?.code ? <Badge variant="info">{subCategories.find(sc => sc.id === item.sub_category_id)?.english_name || item.sub_categories.code}</Badge> : <span className="text-slate-300">—</span>}
+                      {(() => { const sc = subCategories.find(sc => sc.id === item.sub_category_id); const catName = categories.find(c => c.id === (sc?.category_id ?? item.sub_categories?.category_id))?.english_name || item.sub_categories?.categories?.code; return catName ? <div className="text-xs text-slate-400 mt-0.5">{catName}</div> : null; })()}
                     </TD>
                     <TD className="py-2.5">{item.languages?.name ? <Badge variant="muted">{item.languages.name}{item.languages.iso_code ? ` (${item.languages.iso_code})` : ''}</Badge> : <span className="text-slate-300">—</span>}</TD>
                     {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{item.deleted_at ? fromNow(item.deleted_at) : '—'}</span></TD>}
@@ -594,8 +596,8 @@ export default function SubCategoryTranslationsPage() {
           <div className="p-6 space-y-4">
             {/* Header info */}
             <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="info">{viewItem.sub_categories?.code || `SubCat #${viewItem.sub_category_id}`}</Badge>
-              {viewItem.sub_categories?.categories?.code && <Badge variant="muted">{viewItem.sub_categories.categories.code}</Badge>}
+              <Badge variant="info">{subCategories.find(sc => sc.id === viewItem.sub_category_id)?.english_name || viewItem.sub_categories?.code || `SubCat #${viewItem.sub_category_id}`}</Badge>
+              {(() => { const sc = subCategories.find(sc => sc.id === viewItem.sub_category_id); const catName = categories.find(c => c.id === (sc?.category_id ?? viewItem.sub_categories?.category_id))?.english_name || viewItem.sub_categories?.categories?.code; return catName ? <Badge variant="muted">{catName}</Badge> : null; })()}
               <Badge variant="muted">{viewItem.languages?.name || `Lang #${viewItem.language_id}`}{viewItem.languages?.iso_code ? ` (${viewItem.languages.iso_code})` : ''}</Badge>
               <Badge variant={viewItem.is_active ? 'success' : 'danger'}>{viewItem.is_active ? 'Active' : 'Inactive'}</Badge>
             </div>

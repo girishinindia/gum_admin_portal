@@ -516,9 +516,9 @@ export default function CourseSubCategoriesPage() {
         {viewing && (
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="info">{viewing.courses?.name || viewing.courses?.code || `Course #${viewing.course_id}`}</Badge>
+              <Badge variant="info">{courses.find(c => c.id === viewing.course_id)?.name || viewing.courses?.name || viewing.courses?.code || `Course #${viewing.course_id}`}</Badge>
               <span className="text-slate-400">&rarr;</span>
-              <Badge variant="muted">{viewing.sub_categories?.name || viewing.sub_categories?.code || `SubCat #${viewing.sub_category_id}`}</Badge>
+              <Badge variant="muted">{subCategories.find(sc => sc.id === viewing.sub_category_id)?.english_name || viewing.sub_categories?.name || viewing.sub_categories?.code || `SubCat #${viewing.sub_category_id}`}</Badge>
               {viewing.sub_categories?.categories && (
                 <>
                   <span className="text-slate-300 text-xs">in</span>
@@ -729,9 +729,9 @@ export default function CourseSubCategoriesPage() {
 
             {/* Read-only info */}
             <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="info">{editing.courses?.name || editing.courses?.code || `Course #${editing.course_id}`}</Badge>
+              <Badge variant="info">{courses.find(c => c.id === editing.course_id)?.name || editing.courses?.name || editing.courses?.code || `Course #${editing.course_id}`}</Badge>
               <span className="text-slate-400">&rarr;</span>
-              <Badge variant="muted">{editing.sub_categories?.name || editing.sub_categories?.code || `SubCat #${editing.sub_category_id}`}</Badge>
+              <Badge variant="muted">{subCategories.find(sc => sc.id === editing.sub_category_id)?.english_name || editing.sub_categories?.name || editing.sub_categories?.code || `SubCat #${editing.sub_category_id}`}</Badge>
             </div>
 
             <label className="flex items-center gap-2 cursor-pointer">

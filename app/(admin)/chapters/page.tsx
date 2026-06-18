@@ -600,7 +600,7 @@ Unsupervised Learning
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || s.code || '' }))}
+              options={subjects.map(s => ({ value: String(s.id), label: s.english_name || (s as any).name || s.code || '' }))}
               value={filterSubject}
               onChange={setFilterSubject}
               placeholder="All subjects"
@@ -868,7 +868,7 @@ Unsupervised Learning
 
           <SearchableSelect
             label="Subject"
-            options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: s.english_name || s.code || '' }))}
+            options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: s.english_name || (s as any).name || s.code || '' }))}
             value={watch('subject_id') || ''}
             onChange={(val) => setValue('subject_id', val)}
             placeholder="Select a subject"
@@ -1024,7 +1024,7 @@ Unsupervised Learning
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Parent Subject <span className="text-red-500">*</span></label>
             <SearchableSelect
-              options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: s.english_name || s.code || '' }))}
+              options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: s.english_name || (s as any).name || s.code || '' }))}
               value={importSubjectId}
               onChange={setImportSubjectId}
               placeholder="Select a subject..."

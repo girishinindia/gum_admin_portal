@@ -577,7 +577,7 @@ export default function SubjectTranslationsPage() {
                       <span className={cn('font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{item.name}</span>
                       {item.short_intro && !showTrash && <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{item.short_intro}</p>}
                     </TD>
-                    <TD className="py-2.5">{item.subjects?.code ? <Badge variant="info">{item.subjects.code}</Badge> : <span className="text-slate-300">—</span>}</TD>
+                    <TD className="py-2.5">{item.subjects?.code ? <Badge variant="info">{subjects.find(s => s.id === item.subject_id)?.english_name || item.subjects.code}</Badge> : <span className="text-slate-300">—</span>}</TD>
                     <TD className="py-2.5">{item.languages?.name ? <Badge variant="muted">{item.languages.name}{item.languages.iso_code ? ` (${item.languages.iso_code})` : ''}</Badge> : <span className="text-slate-300">—</span>}</TD>
                     {!showTrash && (
                       <TD className="py-2.5">
@@ -625,7 +625,7 @@ export default function SubjectTranslationsPage() {
           <div className="p-6 space-y-4">
             {/* Header info */}
             <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="info">{viewItem.subjects?.code || `Subject #${viewItem.subject_id}`}</Badge>
+              <Badge variant="info">{subjects.find(s => s.id === viewItem.subject_id)?.english_name || viewItem.subjects?.code || `Subject #${viewItem.subject_id}`}</Badge>
               <Badge variant="muted">{viewItem.languages?.name || `Lang #${viewItem.language_id}`}{viewItem.languages?.iso_code ? ` (${viewItem.languages.iso_code})` : ''}</Badge>
               <Badge variant={viewItem.is_active ? 'success' : 'danger'}>{viewItem.is_active ? 'Active' : 'Inactive'}</Badge>
             </div>

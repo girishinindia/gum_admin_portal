@@ -613,14 +613,14 @@ export default function SubTopicsPage() {
         {!showTrash && (
           <>
             <SearchableSelect
-              options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || (s as any).code || '' }))}
+              options={subjects.map(s => ({ value: String(s.id), label: (s as any).english_name || (s as any).name || (s as any).code || (s as any).slug || '' }))}
               value={filterSubject}
               onChange={setFilterSubject}
               placeholder="All subjects"
               searchPlaceholder="Search subjects..."
             />
             <SearchableSelect
-              options={chapters.map(c => ({ value: String(c.id), label: (c as any).english_name || '' }))}
+              options={chapters.map(c => ({ value: String(c.id), label: (c as any).english_name || (c as any).name || (c as any).slug || '' }))}
               value={filterChapter}
               onChange={setFilterChapter}
               placeholder={filterSubject ? 'All chapters' : 'Select subject first'}
@@ -628,7 +628,7 @@ export default function SubTopicsPage() {
               disabled={!filterSubject}
             />
             <SearchableSelect
-              options={filteredTopics.map(t => ({ value: String(t.id), label: (t as any).english_name || '' }))}
+              options={filteredTopics.map(t => ({ value: String(t.id), label: (t as any).english_name || (t as any).name || (t as any).slug || '' }))}
               value={filterTopic}
               onChange={setFilterTopic}
               placeholder={filterChapter ? 'All topics' : 'Select chapter first'}
@@ -703,7 +703,7 @@ export default function SubTopicsPage() {
                 <TR key={t.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(t.id) && 'bg-brand-50/40')}>
                   <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(t.id)} onChange={() => toggleSelect(t.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="py-2.5"><span className="font-mono text-xs text-slate-500">{t.id}</span></TD>
-                  <TD className="py-2.5"><span className="text-slate-600">{topics.find(tp => tp.id === t.topic_id)?.english_name || ''}</span></TD>
+                  <TD className="py-2.5"><span className="text-slate-600">{(() => { const tp = topics.find(tp => tp.id === t.topic_id) as any; return (tp?.english_name || tp?.name || tp?.slug || ''); })()}</span></TD>
                   <TD className="py-2.5">
                     <span className={cn('text-sm font-medium', showTrash ? 'text-slate-500 line-through' : 'text-slate-900')}>{(t as any).english_name || (t as any).name || t.slug || ''}</span>
                   </TD>
@@ -870,13 +870,13 @@ export default function SubTopicsPage() {
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">{(viewing as any).english_name || viewing.slug}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  {viewing.topic_id && <Badge variant="info">{topics.find(tp => tp.id === viewing.topic_id)?.english_name || ''}</Badge>}
+                  {viewing.topic_id && <Badge variant="info">{(() => { const tp = topics.find(tp => tp.id === viewing.topic_id) as any; return (tp?.english_name || tp?.name || tp?.slug || ''); })()}</Badge>}
                   <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-              <DetailRow label="Topic" value={topics.find(tp => tp.id === viewing.topic_id)?.english_name || ''} />
+              <DetailRow label="Topic" value={(() => { const tp = topics.find(tp => tp.id === viewing.topic_id) as any; return (tp?.english_name || tp?.name || tp?.slug || ''); })()} />
               <DetailRow label="Slug" value={`/${viewing.slug}`} />
               <DetailRow label="Difficulty" value={viewing.difficulty_level?.replace('_', ' ')} />
               <DetailRow label="Est. Minutes" value={viewing.estimated_minutes ? String(viewing.estimated_minutes) : undefined} />
@@ -919,7 +919,7 @@ export default function SubTopicsPage() {
 
           <SearchableSelect
             label="Subject"
-            options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: (s as any).english_name || (s as any).code || '' }))}
+            options={subjects.filter((s: any) => s.is_active !== false).map(s => ({ value: String(s.id), label: (s as any).english_name || (s as any).name || (s as any).code || (s as any).slug || '' }))}
             value={dialogSubject}
             onChange={(val) => {
               setDialogSubject(val);
@@ -939,7 +939,7 @@ export default function SubTopicsPage() {
           />
           <SearchableSelect
             label="Chapter"
-            options={dialogChapters.map(c => ({ value: String(c.id), label: (c as any).english_name || '' }))}
+            options={dialogChapters.map(c => ({ value: String(c.id), label: (c as any).english_name || (c as any).name || (c as any).slug || '' }))}
             value={dialogChapter}
             onChange={(val) => {
               setDialogChapter(val);
