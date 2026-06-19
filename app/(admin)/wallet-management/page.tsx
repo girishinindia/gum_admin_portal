@@ -89,7 +89,7 @@ function formatCurrency(val: any) {
 }
 
 function walletUserLine(wallet: any) {
-  const user = wallet?.users;
+  const user = wallet?.user;
   if (!user) return null;
   const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || '--';
   return (
@@ -101,8 +101,8 @@ function walletUserLine(wallet: any) {
 }
 
 function txUserLine(tx: any) {
-  const wallet = tx?.wallets;
-  const user = wallet?.users;
+  const wallet = tx?.wallet;
+  const user = wallet?.user;
   if (!user) return null;
   const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || '--';
   return (
@@ -586,7 +586,7 @@ function WalletsTab() {
               </div>
             </div>
             <div className="grid grid-cols-3 gap-x-8 gap-y-4">
-              <DetailRow label="User" value={viewing.users ? `${[viewing.users.first_name, viewing.users.last_name].filter(Boolean).join(' ')} (${viewing.users.email || ''})` : `User ID: ${viewing.user_id}`} />
+              <DetailRow label="User" value={viewing.user ? `${[viewing.user.first_name, viewing.user.last_name].filter(Boolean).join(' ')} (${viewing.user.email || ''})` : `User ID: ${viewing.user_id}`} />
               <DetailRow label="Balance" value={formatCurrency(viewing.balance)} />
               <DetailRow label="Currency" value={viewing.currency || 'INR'} />
               <DetailRow label="Total Credited" value={formatCurrency(viewing.total_credited)} />
@@ -1051,7 +1051,7 @@ function TransactionsTab() {
             </div>
             <div className="grid grid-cols-3 gap-x-8 gap-y-4">
               <DetailRow label="Wallet ID" value={String(viewing.wallet_id)} />
-              <DetailRow label="User" value={viewing.wallets?.users ? `${[viewing.wallets.users.first_name, viewing.wallets.users.last_name].filter(Boolean).join(' ')} (${viewing.wallets.users.email || ''})` : '--'} />
+              <DetailRow label="User" value={viewing.wallet?.user ? `${[viewing.wallet.user.first_name, viewing.wallet.user.last_name].filter(Boolean).join(' ')} (${viewing.wallet.user.email || ''})` : '--'} />
               <DetailRow label="Transaction Type" value={capitalize(viewing.transaction_type || '')} />
               <DetailRow label="Amount" value={formatCurrency(viewing.amount)} />
               <DetailRow label="Balance Before" value={formatCurrency(viewing.balance_before)} />

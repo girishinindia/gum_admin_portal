@@ -602,7 +602,9 @@ export default function UserProfilePage() {
   const useSelfLng = isSelf && !isSuperAdmin;
   const loadLanguages = useCallback(async () => {
     setLngLoading(true);
-    const qs = `?page=${lngPage}&limit=${lngPageSize}${lngShowTrash ? '&show_deleted=true' : ''}&sort=id&order=desc`;
+    // Fetch all of the user's languages (high limit) so the client-side search
+    // filter is authoritative across the whole list, not just the current page.
+    const qs = `?page=${lngPage}&limit=200${lngShowTrash ? '&show_deleted=true' : ''}&sort=id&order=desc`;
     const res = useSelfLng ? await api.listMyLanguages(qs) : await api.listUserLanguages(`?user_id=${userId}&${qs.slice(1)}`);
     if (res.success) { setLngRecords(res.data || []); setLngTotal(res.pagination?.total || 0); }
     if (languagesList.length === 0) { const l = await api.listLanguages('?limit=300&sort=name&order=asc'); if (l.success) setLanguagesList(l.data || []); }

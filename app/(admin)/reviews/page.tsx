@@ -18,6 +18,7 @@ import {
   Plus, Trash2, Eye, ArrowUpDown, ArrowUp, ArrowDown,
   Loader2, MoreVertical, Star, RefreshCw, RotateCcw,
   ThumbsUp, Flag, EyeOff, CheckCircle, Clock,
+  ShieldCheck, ShieldOff,
 } from 'lucide-react';
 import { fromNow } from '@/lib/utils';
 import { usePageSize } from '@/hooks/usePageSize';
@@ -198,6 +199,17 @@ export default function ReviewsPage() {
     setSaving(false);
   };
 
+  // Toggle the verified-purchase flag on a review, then refresh the list.
+  const handleToggleVerified = async (row: any) => {
+    try {
+      const res = await api.updateReview(row.id, { is_verified_purchase: !row.is_verified_purchase });
+      if (res.success) {
+        toast.success(row.is_verified_purchase ? 'Marked as not verified' : 'Marked as verified');
+        fetchData();
+      } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e?.message || 'Failed'); }
+  };
+
   const handleSoftDelete = async (id: number) => {
     setDeleting(true);
     try {
@@ -318,8 +330,12 @@ export default function ReviewsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
+      <DataToolbar
+        ref={toolbarRef}
+        search={search}
+        onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
+        searchPlaceholder="Search by title or review text..."
+      >
         <select
           className="text-sm border rounded-md px-2 py-1.5 bg-white"
           value={filterType}
@@ -344,14 +360,7 @@ export default function ReviewsPage() {
           <option value="">All Ratings</option>
           {[5, 4, 3, 2, 1].map(r => <option key={r} value={r}>{r} Star{r > 1 ? 's' : ''}</option>)}
         </select>
-      </div>
-
-      <DataToolbar
-        ref={toolbarRef}
-        search={search}
-        onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
-        searchPlaceholder="Search by title or review text..."
-      />
+      </DataToolbar>
 
       <div className="bg-white border rounded-lg overflow-hidden">
         {/* BUG-64: bulk action bar */}
@@ -434,15 +443,15 @@ export default function ReviewsPage() {
                         </Badge>
                       </TD>
                       <TD className="text-center">
-                        {row.helpful_count > 0 && (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                            <ThumbsUp className="w-3 h-3" /> {row.helpful_count}
-                          </span>
-                        )}
+                        <span className={`inline-flex items-center gap-1 text-xs ${row.helpful_count > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                          <ThumbsUp className="w-3 h-3" /> {row.helpful_count || 0}
+                        </span>
                       </TD>
                       <TD>
-                        {row.is_verified_purchase && (
+                        {row.is_verified_purchase ? (
                           <Badge color="green">Verified</Badge>
+                        ) : (
+                          <span className="text-xs text-slate-400">Not verified</span>
                         )}
                       </TD>
                       <TD className="text-xs text-slate-500">{fromNow(row.created_at)}</TD>
@@ -464,6 +473,12 @@ export default function ReviewsPage() {
                           </DropdownItem>
                           {!trashed && (
                             <>
+                              <DropdownDivider />
+                              <DropdownItem onClick={() => handleToggleVerified(row)}>
+                                {row.is_verified_purchase
+                                  ? <><ShieldOff className="w-4 h-4 mr-2" /> Mark Not Verified</>
+                                  : <><ShieldCheck className="w-4 h-4 mr-2" /> Mark Verified</>}
+                              </DropdownItem>
                               <DropdownDivider />
                               {STATUSES.filter(s => s !== row.status).map(s => (
                                 <DropdownItem key={s} onClick={() => {

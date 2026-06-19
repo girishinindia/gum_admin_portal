@@ -1866,6 +1866,10 @@ export const api = {
   voteReviewHelpfulness: (data: any) => request('/review-helpfulness', { method: 'POST', body: JSON.stringify(data) }),
   deleteReviewHelpfulness: (id: number) => request(`/review-helpfulness/${id}`, { method: 'DELETE' }),
 
+  // ── Admin Queues (BullMQ control plane) ──
+  getQueues: () => request('/admin/queues'),
+  retryQueueFailed: (name: string) => request(`/admin/queues/${name}/retry-failed`, { method: 'POST' }),
+
   // ── Notifications ──
   getNotifications: (params?: Record<string, any>) => {
     const q = new URLSearchParams();

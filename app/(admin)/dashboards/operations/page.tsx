@@ -39,7 +39,7 @@ export default function OperationsDashboardPage() {
       generatedAt={data?.meta?.generated_at}
       onRefresh={refresh}
       quickActions={[
-        { label: 'Queues',        href: '/admin/queues' },
+        { label: 'Queues',        href: '/queues' },
         { label: 'Scheduled jobs', href: '/scheduled-jobs' },
         { label: 'Activity logs',  href: '/activity-logs' },
         { label: 'Tickets',        href: '/support-tickets' },
