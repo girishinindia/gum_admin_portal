@@ -1996,7 +1996,7 @@ export default function UserProfilePage() {
                         <Skeleton className="h-10" />
                         <Skeleton className="h-10" />
                       </div>
-                    ) : lngRecords.length === 0 ? (
+                    ) : lngRecords.filter((r: any) => { const qq = lngSearch.trim().toLowerCase(); return !qq || (r.language?.name || '').toLowerCase().includes(qq) || (r.proficiency_level || '').toLowerCase().includes(qq); }).length === 0 ? (
                       <div className="px-5 py-12 text-center">
                         <Languages className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                         <p className="text-sm text-slate-500">{lngShowTrash ? 'No records in trash' : 'No languages yet'}</p>
@@ -2022,7 +2022,7 @@ export default function UserProfilePage() {
                             </TR>
                           </THead>
                           <TBody>
-                            {lngRecords.map((rec: any) => (
+                            {lngRecords.filter((r: any) => { const qq = lngSearch.trim().toLowerCase(); return !qq || (r.language?.name || '').toLowerCase().includes(qq) || (r.proficiency_level || '').toLowerCase().includes(qq); }).map((rec: any) => (
                               <TR key={rec.id} className={cn(lngShowTrash && 'bg-amber-50/30', lngSelectedIds.has(rec.id) && 'bg-brand-50/40')}>
                                 <TD>
                                   <input type="checkbox" checked={lngSelectedIds.has(rec.id)} onChange={() => lngToggleSelect(rec.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" />

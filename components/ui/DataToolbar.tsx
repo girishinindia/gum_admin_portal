@@ -57,7 +57,10 @@ export const DataToolbar = forwardRef<DataToolbarHandle, DataToolbarProps>(({
         )}
       </div>
       {children && (
-        <div className="flex flex-wrap items-center gap-3">
+        // Force each filter control to size to content (not w-full) so
+        // SearchableSelect dropdowns sit inline like native selects instead of
+        // stacking full-width below the search box.
+        <div className="flex flex-wrap items-center gap-3 [&>*]:!w-auto [&>*]:min-w-[160px]">
           {children}
         </div>
       )}

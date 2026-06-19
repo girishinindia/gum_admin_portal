@@ -510,7 +510,7 @@ function WalletsTab() {
                 <TH><button onClick={() => handleSort('payout_day')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Payout Day <SortIcon field="payout_day" /></button></TH>
                 {showTrash && <TH>Deleted</TH>}
                 <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Active <SortIcon field="is_active" /></button></TH>
-                <TH className="text-right">Actions</TH>
+                <TH><div className="flex items-center justify-end gap-1 pr-1.5">Actions</div></TH>
               </TR>
             </THead>
             <TBody>
@@ -718,6 +718,8 @@ function TransactionsTab() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterMinAmount, setFilterMinAmount] = useState('');
+  const [filterMaxAmount, setFilterMaxAmount] = useState('');
 
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
   const [showTrash, setShowTrash] = useState(false);
@@ -742,8 +744,8 @@ function TransactionsTab() {
   }, []);
 
   // Reset page on filter change
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterTxType, filterSourceType, filterStatus, filterDateFrom, filterDateTo, pageSize, showTrash]);
-  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterTxType, filterSourceType, filterStatus, filterDateFrom, filterDateTo, showTrash]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterTxType, filterSourceType, filterStatus, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, sortField, sortOrder, filterTxType, filterSourceType, filterStatus, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -757,8 +759,10 @@ function TransactionsTab() {
       if (filterTxType) params.transaction_type = filterTxType;
       if (filterSourceType) params.source_type = filterSourceType;
       if (filterStatus) params.status = filterStatus;
-      if (filterDateFrom) params.date_from = filterDateFrom;
-      if (filterDateTo) params.date_to = filterDateTo;
+      if (filterDateFrom) params.from_date = filterDateFrom;
+      if (filterDateTo) params.to_date = `${filterDateTo}T23:59:59`;
+      if (filterMinAmount) params.min_amount = filterMinAmount;
+      if (filterMaxAmount) params.max_amount = filterMaxAmount;
     }
     const res = await api.getWalletTransactions(params);
     if (res.success) {
@@ -908,6 +912,8 @@ function TransactionsTab() {
             </select>
             <Input type="date" value={filterDateFrom} onChange={(e: any) => setFilterDateFrom(e.target.value)} className="w-36 h-10" title="Date from" />
             <Input type="date" value={filterDateTo} onChange={(e: any) => setFilterDateTo(e.target.value)} className="w-36 h-10" title="Date to" />
+            <Input type="number" value={filterMinAmount} onChange={(e: any) => setFilterMinAmount(e.target.value)} className="w-28 h-10" placeholder="Min amt" title="Min amount" />
+            <Input type="number" value={filterMaxAmount} onChange={(e: any) => setFilterMaxAmount(e.target.value)} className="w-28 h-10" placeholder="Max amt" title="Max amount" />
           </>
         )}
       </DataToolbar>
@@ -960,7 +966,7 @@ function TransactionsTab() {
                 <TH><button onClick={() => handleSort('status')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="status" /></button></TH>
                 <TH><button onClick={() => handleSort('created_at')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Created <SortIcon field="created_at" /></button></TH>
                 {showTrash && <TH>Deleted</TH>}
-                <TH className="text-right">Actions</TH>
+                <TH><div className="flex items-center justify-end gap-1 pr-1.5">Actions</div></TH>
               </TR>
             </THead>
             <TBody>
