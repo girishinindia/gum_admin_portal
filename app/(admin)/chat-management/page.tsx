@@ -18,8 +18,9 @@ import {
   MessageSquare, Plus, Edit2, Trash2, Eye, RotateCcw, Loader2,
   ArrowUpDown, ArrowUp, ArrowDown, Hash, Users, Globe, Lock, Link,
   Smile, Sparkles, Zap, Image, Copy, ExternalLink, RefreshCw,
-  Pin, PinOff, Volume2, VolumeX, UserMinus
+  Pin, PinOff, Volume2, VolumeX, UserMinus, X
 } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePageSize } from '@/hooks/usePageSize';
@@ -68,12 +69,18 @@ function ChatRoomsTab() {
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [membersFor, setMembersFor] = useState<any | null>(null);
   const [messagesFor, setMessagesFor] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset, setValue, watch } = useForm();
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(1); }, [searchDebounce, filterType, pageSize, showTrash]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterType, showTrash]);
+  useEffect(() => { api.getTableSummary('chat_rooms').then(res => { if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]); }); }, []);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterType, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, filterType, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -86,19 +93,62 @@ function ChatRoomsTab() {
     setLoading(false);
   }
 
+  async function refreshSummary() {
+    const res = await api.getTableSummary('chat_rooms');
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
+  }
+
   function openCreate() { setEditing(null); reset({ name: '', description: '', room_type: 'public', max_members: '', allow_invite_link: true }); setDialogKey(k => k + 1); setDialogOpen(true); }
   function openEdit(item: any) { setEditing(item); reset({ name: item.name, description: item.description || '', room_type: item.room_type, max_members: item.max_members || '', allow_invite_link: item.allow_invite_link }); setDialogKey(k => k + 1); setDialogOpen(true); }
 
   async function onSubmit(data: any) {
     const payload: any = { name: data.name, description: data.description || null, room_type: data.room_type, allow_invite_link: data.allow_invite_link };
     if (data.max_members) payload.max_members = parseInt(data.max_members);
-    const res = editing ? await api.updateChatRoom(editing.id, payload) : await api.createChatRoom(payload);
-    if (res.success) { toast.success(editing ? 'Room updated' : 'Room created'); setDialogOpen(false); load(); } else toast.error(res.error);
+    setSaving(true);
+    try {
+      const res = editing ? await api.updateChatRoom(editing.id, payload) : await api.createChatRoom(payload);
+      if (res.success) { toast.success(editing ? 'Room updated' : 'Room created'); setDialogOpen(false); load(); refreshSummary(); } else toast.error(res.error);
+    } finally { setSaving(false); }
   }
 
-  async function onSoftDelete(item: any) { if (!confirm(`Move "${item.name}" to trash?`)) return; setActionLoadingId(item.id); const res = await api.softDeleteChatRoom(item.id); if (res.success) { toast.success('Moved to trash'); load(); } else toast.error(res.error); setActionLoadingId(null); }
-  async function onRestore(item: any) { setActionLoadingId(item.id); const res = await api.restoreChatRoom(item.id); if (res.success) { toast.success('Restored'); load(); } else toast.error(res.error); setActionLoadingId(null); }
-  async function onPermanentDelete(item: any) { if (!confirm(`PERMANENTLY delete "${item.name}"? This cannot be undone.`)) return; setActionLoadingId(item.id); const res = await api.permanentDeleteChatRoom(item.id); if (res.success) { toast.success('Permanently deleted'); load(); } else toast.error(res.error); setActionLoadingId(null); }
+  async function onSoftDelete(item: any) { if (!confirm(`Move "${item.name}" to trash?`)) return; setActionLoadingId(item.id); const res = await api.softDeleteChatRoom(item.id); if (res.success) { toast.success('Moved to trash'); load(); refreshSummary(); } else toast.error(res.error); setActionLoadingId(null); }
+  async function onRestore(item: any) { setActionLoadingId(item.id); const res = await api.restoreChatRoom(item.id); if (res.success) { toast.success('Restored'); load(); refreshSummary(); } else toast.error(res.error); setActionLoadingId(null); }
+  async function onPermanentDelete(item: any) { if (!confirm(`PERMANENTLY delete "${item.name}"? This cannot be undone.`)) return; setActionLoadingId(item.id); const res = await api.permanentDeleteChatRoom(item.id); if (res.success) { toast.success('Permanently deleted'); load(); refreshSummary(); } else toast.error(res.error); setActionLoadingId(null); }
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+  function toggleSelectAll() {
+    if (selectedIds.size === items.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(items.map(i => i.id)));
+  }
+
+  async function handleBulkSoftDelete() {
+    if (!confirm(`Move ${selectedIds.size} item(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds); setBulkProgress({ done: 0, total: ids.length }); let ok = 0;
+    for (let i = 0; i < ids.length; i++) { const res = await api.softDeleteChatRoom(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} item(s) moved to trash`); setSelectedIds(new Set()); load(); refreshSummary();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
+
+  async function handleBulkRestore() {
+    if (!confirm(`Restore ${selectedIds.size} item(s)?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds); setBulkProgress({ done: 0, total: ids.length }); let ok = 0;
+    for (let i = 0; i < ids.length; i++) { const res = await api.restoreChatRoom(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} item(s) restored`); setSelectedIds(new Set()); load(); refreshSummary();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds); setBulkProgress({ done: 0, total: ids.length }); let ok = 0;
+    for (let i = 0; i < ids.length; i++) { const res = await api.permanentDeleteChatRoom(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} item(s) permanently deleted`); setSelectedIds(new Set()); load(); refreshSummary();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
 
   return (
     <div className="space-y-4">
@@ -108,6 +158,7 @@ function ChatRoomsTab() {
         </button>
         <button onClick={() => setShowTrash(true)} className={cn('px-3 py-1.5 text-sm font-medium rounded-md', showTrash ? 'bg-red-50 text-red-700' : 'text-slate-500 hover:text-slate-700')}>
           <Trash2 className="w-4 h-4 inline mr-1" /> Trash
+          {summary && summary.is_deleted > 0 && <span className={cn('ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold', showTrash ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{summary.is_deleted}</span>}
         </button>
         {!showTrash && <Button size="sm" onClick={openCreate} className="ml-auto"><Plus className="w-4 h-4 mr-1" /> Add Room</Button>}
       </div>
@@ -123,8 +174,25 @@ function ChatRoomsTab() {
 
       {loading ? <div className="space-y-2">{Array.from({length:5}).map((_,i)=><Skeleton key={i} className="h-10 w-full" />)}</div> : items.length === 0 ? <EmptyState icon={MessageSquare} title={showTrash ? 'Trash is empty' : 'No chat rooms'} /> : (
         <div className="overflow-x-auto border border-slate-200 rounded-lg">
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
+              <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead><TR>
+              <TH className="sticky top-0 z-10 w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
               <TH className="sticky top-0 z-10">Name</TH>
               <TH className="sticky top-0 z-10">Type</TH>
               <TH className="sticky top-0 z-10">Invite Code</TH>
@@ -136,7 +204,8 @@ function ChatRoomsTab() {
             </TR></THead>
             <TBody>
               {items.map(item => (
-                <TR key={item.id}>
+                <TR key={item.id} className={cn(selectedIds.has(item.id) && 'bg-brand-50/40')}>
+                  <TD><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="font-medium">{item.name}</TD>
                   <TD><Badge variant={item.room_type === 'public' ? 'info' : item.room_type === 'private' ? 'warning' : 'default'}>{item.room_type}</Badge></TD>
                   <TD><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{item.invite_code}</code></TD>
@@ -204,7 +273,7 @@ function ChatRoomsTab() {
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">{editing ? 'Update' : 'Create'}</Button>
+            <Button type="submit" disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editing ? 'Update' : 'Create')}</Button>
           </div>
         </form>
       </Dialog>
@@ -218,8 +287,10 @@ function ChatRoomsTab() {
 // ══════════════════════════════════════════════
 // GENERIC CRUD TAB (for simple tables: sticker categories, emoji categories)
 // ══════════════════════════════════════════════
-function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, apiSoftDelete, apiRestore, apiDelete, fields, filterFields }: {
+function SimpleCrudTab({ entityLabel, summaryTable, apiList, apiGet, apiCreate, apiUpdate, apiSoftDelete, apiRestore, apiDelete, fields, filterFields }: {
   entityLabel: string;
+  /** Table name passed to api.getTableSummary for the Trash count badge. */
+  summaryTable?: string;
   apiList: (params: any) => Promise<any>;
   apiGet: (id: number) => Promise<any>;
   // Phase 15.3 — accept an optional isFormData flag for multipart uploads.
@@ -231,7 +302,7 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
   fields: {
     key: string;
     label: string;
-    type?: 'text' | 'number' | 'checkbox' | 'image';
+    type?: 'text' | 'number' | 'checkbox' | 'image' | 'select';
     required?: boolean;
     /** When type='image', this is the multer field name expected by the backend (e.g. 'image', 'thumbnail'). */
     uploadFieldName?: string;
@@ -239,6 +310,8 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
     imageAspectRatio?: number;
     imageMaxWidth?: number;
     imageMaxHeight?: number;
+    /** When type='select', loads dropdown options (rows mapped to {value:id,label:name}). */
+    optionsLoader?: () => Promise<any>;
   }[];
   filterFields?: { key: string; label: string; options: { value: string; label: string }[] }[];
 }) {
@@ -258,12 +331,34 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   // Phase 15.3 — track an upload File per image-typed field by its uploadFieldName.
   const [imageFiles, setImageFiles] = useState<Record<string, File | null>>({});
+  const [saving, setSaving] = useState(false);
+  const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  // Category/select dropdown options, keyed by field key.
+  const [selectOptions, setSelectOptions] = useState<Record<string, { value: any; label: string }[]>>({});
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset } = useForm();
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(1); }, [searchDebounce, pageSize, showTrash]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, showTrash]);
+  useEffect(() => {
+    if (!summaryTable) return;
+    api.getTableSummary(summaryTable).then(res => { if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]); });
+  }, [summaryTable]);
+  // Load options for any 'select' fields once on mount.
+  useEffect(() => {
+    fields.forEach(f => {
+      if (f.type === 'select' && f.optionsLoader) {
+        f.optionsLoader().then(res => {
+          if (res?.success) setSelectOptions(prev => ({ ...prev, [f.key]: (res.data || []).map((row: any) => ({ value: row.id, label: row.name })) }));
+        }).catch(() => {});
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, pageSize, showTrash]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, showTrash]);
 
   async function load() {
     setLoading(true);
@@ -275,41 +370,84 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
     setLoading(false);
   }
 
+  async function refreshSummary() {
+    if (!summaryTable) return;
+    const res = await api.getTableSummary(summaryTable);
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]);
+  }
+
   function openCreate() { setEditing(null); const defaults: any = {}; fields.forEach(f => defaults[f.key] = f.type === 'checkbox' ? false : f.type === 'number' ? '' : ''); reset(defaults); setImageFiles({}); setDialogKey(k => k + 1); setDialogOpen(true); }
   function openEdit(item: any) { setEditing(item); const vals: any = {}; fields.forEach(f => vals[f.key] = item[f.key] ?? ''); reset(vals); setImageFiles({}); setDialogKey(k => k + 1); setDialogOpen(true); }
 
   async function onSubmit(data: any) {
     // Phase 15.3 — if any image field has a File, submit as FormData; otherwise JSON.
     const hasFiles = Object.values(imageFiles).some((f) => f instanceof File);
-
-    if (hasFiles) {
-      const fd = new FormData();
-      fields.forEach((f) => {
-        const v = data[f.key];
-        if (f.type === 'checkbox')      fd.append(f.key, String(!!v));
-        else if (f.type === 'image')    { /* file is appended below */ }
-        else if (v !== '' && v !== undefined && v !== null) fd.append(f.key, f.type === 'number' ? String(parseInt(v)) : v);
-      });
-      for (const [fieldName, file] of Object.entries(imageFiles)) {
-        if (file) fd.append(fieldName, file, file.name);
+    setSaving(true);
+    try {
+      if (hasFiles) {
+        const fd = new FormData();
+        fields.forEach((f) => {
+          const v = data[f.key];
+          if (f.type === 'checkbox')      fd.append(f.key, String(!!v));
+          else if (f.type === 'image')    { /* file is appended below */ }
+          else if (v !== '' && v !== undefined && v !== null) fd.append(f.key, (f.type === 'number' || f.type === 'select') ? String(parseInt(v)) : v);
+        });
+        for (const [fieldName, file] of Object.entries(imageFiles)) {
+          if (file) fd.append(fieldName, file, file.name);
+        }
+        const res = editing ? await apiUpdate(editing.id, fd, true) : await apiCreate(fd, true);
+        if (res.success) { toast.success(editing ? `${entityLabel} updated` : `${entityLabel} created`); setDialogOpen(false); load(); refreshSummary(); } else toast.error(res.error);
+        return;
       }
-      const res = editing ? await apiUpdate(editing.id, fd, true) : await apiCreate(fd, true);
-      if (res.success) { toast.success(editing ? `${entityLabel} updated` : `${entityLabel} created`); setDialogOpen(false); load(); } else toast.error(res.error);
-      return;
-    }
 
-    const payload: any = {};
-    fields.forEach((f) => {
-      if (f.type === 'image') return;   // skip — only sent via FormData
-      if (data[f.key] !== '' && data[f.key] !== undefined) payload[f.key] = f.type === 'number' ? parseInt(data[f.key]) : data[f.key];
-    });
-    const res = editing ? await apiUpdate(editing.id, payload) : await apiCreate(payload);
-    if (res.success) { toast.success(editing ? `${entityLabel} updated` : `${entityLabel} created`); setDialogOpen(false); load(); } else toast.error(res.error);
+      const payload: any = {};
+      fields.forEach((f) => {
+        if (f.type === 'image') return;   // skip — only sent via FormData
+        if (data[f.key] !== '' && data[f.key] !== undefined) payload[f.key] = (f.type === 'number' || f.type === 'select') ? parseInt(data[f.key]) : data[f.key];
+      });
+      const res = editing ? await apiUpdate(editing.id, payload) : await apiCreate(payload);
+      if (res.success) { toast.success(editing ? `${entityLabel} updated` : `${entityLabel} created`); setDialogOpen(false); load(); refreshSummary(); } else toast.error(res.error);
+    } finally { setSaving(false); }
   }
 
-  async function onSoftDelete(item: any) { if (!confirm(`Move "${item.name || item.title}" to trash?`)) return; setActionLoadingId(item.id); const res = await apiSoftDelete(item.id); if (res.success) { toast.success('Moved to trash'); load(); } else toast.error(res.error); setActionLoadingId(null); }
-  async function onRestore(item: any) { setActionLoadingId(item.id); const res = await apiRestore(item.id); if (res.success) { toast.success('Restored'); load(); } else toast.error(res.error); setActionLoadingId(null); }
-  async function onPermanentDelete(item: any) { if (!confirm(`PERMANENTLY delete "${item.name || item.title}"?`)) return; setActionLoadingId(item.id); const res = await apiDelete(item.id); if (res.success) { toast.success('Permanently deleted'); load(); } else toast.error(res.error); setActionLoadingId(null); }
+  async function onSoftDelete(item: any) { if (!confirm(`Move "${item.name || item.title}" to trash?`)) return; setActionLoadingId(item.id); const res = await apiSoftDelete(item.id); if (res.success) { toast.success('Moved to trash'); load(); refreshSummary(); } else toast.error(res.error); setActionLoadingId(null); }
+  async function onRestore(item: any) { setActionLoadingId(item.id); const res = await apiRestore(item.id); if (res.success) { toast.success('Restored'); load(); refreshSummary(); } else toast.error(res.error); setActionLoadingId(null); }
+  async function onPermanentDelete(item: any) { if (!confirm(`PERMANENTLY delete "${item.name || item.title}"?`)) return; setActionLoadingId(item.id); const res = await apiDelete(item.id); if (res.success) { toast.success('Permanently deleted'); load(); refreshSummary(); } else toast.error(res.error); setActionLoadingId(null); }
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+  function toggleSelectAll() {
+    if (selectedIds.size === items.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(items.map(i => i.id)));
+  }
+
+  async function handleBulkSoftDelete() {
+    if (!confirm(`Move ${selectedIds.size} item(s) to trash?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds); setBulkProgress({ done: 0, total: ids.length }); let ok = 0;
+    for (let i = 0; i < ids.length; i++) { const res = await apiSoftDelete(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} item(s) moved to trash`); setSelectedIds(new Set()); load(); refreshSummary();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
+
+  async function handleBulkRestore() {
+    if (!confirm(`Restore ${selectedIds.size} item(s)?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds); setBulkProgress({ done: 0, total: ids.length }); let ok = 0;
+    for (let i = 0; i < ids.length; i++) { const res = await apiRestore(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} item(s) restored`); setSelectedIds(new Set()); load(); refreshSummary();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
+
+  async function handleBulkPermanentDelete() {
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds); setBulkProgress({ done: 0, total: ids.length }); let ok = 0;
+    for (let i = 0; i < ids.length; i++) { const res = await apiDelete(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} item(s) permanently deleted`); setSelectedIds(new Set()); load(); refreshSummary();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
 
   return (
     <div className="space-y-4">
@@ -319,6 +457,7 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
         </button>
         <button onClick={() => setShowTrash(true)} className={cn('px-3 py-1.5 text-sm font-medium rounded-md', showTrash ? 'bg-red-50 text-red-700' : 'text-slate-500 hover:text-slate-700')}>
           <Trash2 className="w-4 h-4 inline mr-1" /> Trash
+          {summary && summary.is_deleted > 0 && <span className={cn('ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold', showTrash ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{summary.is_deleted}</span>}
         </button>
         {!showTrash && <Button size="sm" onClick={openCreate} className="ml-auto"><Plus className="w-4 h-4 mr-1" /> Add {entityLabel}</Button>}
       </div>
@@ -327,15 +466,33 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
 
       {loading ? <div className="space-y-2">{Array.from({length:5}).map((_,i)=><Skeleton key={i} className="h-10 w-full" />)}</div> : items.length === 0 ? <EmptyState icon={Sparkles} title={showTrash ? 'Trash is empty' : `No ${entityLabel.toLowerCase()}s`} /> : (
         <div className="overflow-x-auto border border-slate-200 rounded-lg">
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
+              <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
+              <div className="flex items-center gap-2">
+                {showTrash ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleBulkRestore} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restore Selected</Button>
+                    <Button size="sm" variant="danger" onClick={handleBulkPermanentDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Permanently</Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="danger" onClick={handleBulkSoftDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead><TR>
+              <TH className="sticky top-0 z-10 w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
               {fields.filter(f => f.key !== 'description').slice(0, 5).map(f => <TH key={f.key} className="sticky top-0 z-10">{f.label}</TH>)}
               <TH className="sticky top-0 z-10">Status</TH>
               <TH className="sticky top-0 z-10 text-right">Actions</TH>
             </TR></THead>
             <TBody>
               {items.map(item => (
-                <TR key={item.id}>
+                <TR key={item.id} className={cn(selectedIds.has(item.id) && 'bg-brand-50/40')}>
+                  <TD><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   {fields.filter(f => f.key !== 'description').slice(0, 5).map(f => (
                     <TD key={f.key} className={f.key === 'name' || f.key === 'title' ? 'font-medium' : 'text-sm text-slate-600'}>
                       {f.type === 'checkbox' ? (item[f.key] ? 'Yes' : 'No') :
@@ -392,6 +549,11 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
                   shape="rounded"
                   onChange={(file) => setImageFiles((prev) => ({ ...prev, [f.uploadFieldName ?? f.key]: file }))}
                 />
+              ) : f.type === 'select' ? (
+                <select {...register(f.key, { required: f.required })} className={cn(selectClass, 'w-full')}>
+                  <option value="">Select {f.label.toLowerCase()}...</option>
+                  {(selectOptions[f.key] || []).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                </select>
               ) : (
                 <Input {...register(f.key, { required: f.required })} type={f.type || 'text'} placeholder={f.label} />
               )}
@@ -399,7 +561,7 @@ function SimpleCrudTab({ entityLabel, apiList, apiGet, apiCreate, apiUpdate, api
           ))}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">{editing ? 'Update' : 'Create'}</Button>
+            <Button type="submit" disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editing ? 'Update' : 'Create')}</Button>
           </div>
         </form>
       </Dialog>
@@ -425,22 +587,32 @@ function ChatInvitesTab() {
   const [filterStatus, setFilterStatus] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [rooms, setRooms] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset } = useForm();
 
   useEffect(() => { api.getChatRooms({ limit: 100 }).then(r => { if (r.success) setRooms(r.data || []); }); }, []);
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(1); }, [searchDebounce, filterStatus, pageSize]);
-  useEffect(() => { load(); }, [searchDebounce, page, pageSize, filterStatus]);
+  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [searchDebounce, filterStatus, pageSize]);
+  useEffect(() => { load(); setSelectedIds(new Set()); }, [searchDebounce, page, pageSize, filterStatus]);
 
   async function load() {
     setLoading(true);
     const params: Record<string, any> = { page, limit: pageSize, sort: 'created_at', order: 'desc' };
     if (searchDebounce) params.search = searchDebounce;
     if (filterStatus) params.status = filterStatus;
-    const res = await api.getChatInvites(params);
-    if (res.success) { setItems(res.data || []); setTotalPages(res.pagination?.totalPages || 1); setTotal(res.pagination?.total || 0); }
-    setLoading(false);
+    try {
+      const res = await api.getChatInvites(params);
+      if (res.success) { setItems(res.data || []); setTotalPages(res.pagination?.totalPages || 1); setTotal(res.pagination?.total || 0); }
+      else toast.error(res.error || 'Failed to load invites');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to load invites');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function openCreate() { reset({ room_id: '', invite_type: 'link', max_uses: '', expires_days: '7' }); setDialogKey(k => k + 1); setDialogOpen(true); }
@@ -452,16 +624,45 @@ function ChatInvitesTab() {
       const exp = new Date(); exp.setDate(exp.getDate() + parseInt(data.expires_days));
       payload.expires_at = exp.toISOString();
     }
-    const res = await api.createChatInvite(payload);
-    if (res.success) {
-      toast.success('Invite created');
-      if (res.data?.invite_url) { navigator.clipboard.writeText(res.data.invite_url).then(() => toast.success('Invite URL copied to clipboard')); }
-      setDialogOpen(false); load();
-    } else toast.error(res.error);
+    setSaving(true);
+    try {
+      const res = await api.createChatInvite(payload);
+      if (res.success) {
+        toast.success('Invite created');
+        if (res.data?.invite_url) { navigator.clipboard.writeText(res.data.invite_url).then(() => toast.success('Invite URL copied to clipboard')); }
+        setDialogOpen(false); load();
+      } else toast.error(res.error);
+    } finally { setSaving(false); }
   }
 
   async function onRevoke(item: any) { if (!confirm('Revoke this invite?')) return; setActionLoadingId(item.id); const res = await api.revokeChatInvite(item.id); if (res.success) { toast.success('Invite revoked'); load(); } else toast.error(res.error); setActionLoadingId(null); }
   async function onDelete(item: any) { if (!confirm('Permanently delete this invite?')) return; setActionLoadingId(item.id); const res = await api.deleteChatInvite(item.id); if (res.success) { toast.success('Deleted'); load(); } else toast.error(res.error); setActionLoadingId(null); }
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+  function toggleSelectAll() {
+    if (selectedIds.size === items.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(items.map(i => i.id)));
+  }
+
+  async function handleBulkRevoke() {
+    if (!confirm(`Revoke ${selectedIds.size} invite(s)?`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds); setBulkProgress({ done: 0, total: ids.length }); let ok = 0;
+    for (let i = 0; i < ids.length; i++) { const res = await api.revokeChatInvite(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} invite(s) revoked`); setSelectedIds(new Set()); load();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
+
+  async function handleBulkDelete() {
+    if (!confirm(`PERMANENTLY delete ${selectedIds.size} invite(s)? This cannot be undone.`)) return;
+    setBulkActionLoading(true);
+    const ids = Array.from(selectedIds); setBulkProgress({ done: 0, total: ids.length }); let ok = 0;
+    for (let i = 0; i < ids.length; i++) { const res = await api.deleteChatInvite(ids[i]); if (res.success) ok++; setBulkProgress({ done: i + 1, total: ids.length }); }
+    toast.success(`${ok} invite(s) deleted`); setSelectedIds(new Set()); load();
+    setBulkActionLoading(false); setBulkProgress({ done: 0, total: 0 });
+  }
 
   return (
     <div className="space-y-4">
@@ -481,8 +682,19 @@ function ChatInvitesTab() {
 
       {loading ? <div className="space-y-2">{Array.from({length:5}).map((_,i)=><Skeleton key={i} className="h-10 w-full" />)}</div> : items.length === 0 ? <EmptyState icon={Link} title="No invites" /> : (
         <div className="overflow-x-auto border border-slate-200 rounded-lg">
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-200">
+              <span className="text-sm font-medium text-brand-700">{bulkActionLoading && bulkProgress.total > 0 ? `Processing ${bulkProgress.done}/${bulkProgress.total}...` : `${selectedIds.size} selected`}</span>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={handleBulkRevoke} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />} Revoke Selected</Button>
+                <Button size="sm" variant="danger" onClick={handleBulkDelete} disabled={bulkActionLoading}>{bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete Selected</Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}><X className="w-3.5 h-3.5" /> Clear</Button>
+              </div>
+            </div>
+          )}
           <Table>
             <THead><TR>
+              <TH className="sticky top-0 z-10 w-10"><input type="checkbox" checked={items.length > 0 && selectedIds.size === items.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
               <TH className="sticky top-0 z-10">Room</TH>
               <TH className="sticky top-0 z-10">Type</TH>
               <TH className="sticky top-0 z-10">Token</TH>
@@ -494,7 +706,8 @@ function ChatInvitesTab() {
             </TR></THead>
             <TBody>
               {items.map(item => (
-                <TR key={item.id}>
+                <TR key={item.id} className={cn(selectedIds.has(item.id) && 'bg-brand-50/40')}>
+                  <TD><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
                   <TD className="font-medium">{item.chat_rooms?.name || '—'}</TD>
                   <TD><Badge variant={item.invite_type === 'link' ? 'info' : 'default'}>{item.invite_type}</Badge></TD>
                   <TD><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{item.invite_token?.substring(0, 12)}...</code></TD>
@@ -540,10 +753,11 @@ function ChatInvitesTab() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title="Generate Invite" size="md">
         <form key={dialogKey} onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           <div><label className="text-sm font-medium text-slate-700">Room *</label>
-            <select {...register('room_id', { required: true })} className={cn(selectClass, 'w-full')}>
+            <select {...register('room_id', { required: true })} className={cn(selectClass, 'w-full')} disabled={rooms.length === 0}>
               <option value="">Select room...</option>
               {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
+            {rooms.length === 0 && <p className="mt-1 text-xs text-amber-600">Create a chat room first — invites can only be generated for an existing room.</p>}
           </div>
           <div><label className="text-sm font-medium text-slate-700">Type</label>
             <select {...register('invite_type')} className={cn(selectClass, 'w-full')}>
@@ -555,7 +769,7 @@ function ChatInvitesTab() {
           <div><label className="text-sm font-medium text-slate-700">Expires in (days)</label><Input {...register('expires_days')} type="number" placeholder="7" /></div>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit">Generate</Button>
+            <Button type="submit" disabled={saving || rooms.length === 0}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Generate'}</Button>
           </div>
         </form>
       </Dialog>
@@ -573,6 +787,16 @@ function RoomMembersDialog({ room, onClose }: { room: any | null; onClose: () =>
   const [newUserId, setNewUserId] = useState('');
   const [bulkIds, setBulkIds] = useState('');
   const [adding, setAdding] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
+
+  // Load users once for the searchable member picker.
+  useEffect(() => {
+    api.listUsers('?limit=500&sort=first_name&order=asc').then((r: any) => setUsers(r?.data || [])).catch(() => setUsers([]));
+  }, []);
+  const userOptions = users.map((u: any) => ({
+    value: String(u.id),
+    label: `${[u.first_name, u.last_name].filter(Boolean).join(' ') || 'User'} — ${u.email || u.mobile || `#${u.id}`}`,
+  }));
 
   const load = useCallback(async () => {
     if (!room) return;
@@ -629,10 +853,10 @@ function RoomMembersDialog({ room, onClose }: { room: any | null; onClose: () =>
       {room && (
         <div className="p-6 space-y-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[170px]">
-              <label className="text-xs font-medium text-slate-500">Add by user ID</label>
+            <div className="flex-1 min-w-[240px]">
+              <label className="text-xs font-medium text-slate-500">Add member</label>
               <div className="flex gap-2 mt-1">
-                <Input value={newUserId} onChange={(e: any) => setNewUserId(e.target.value)} type="number" placeholder="e.g. 42" />
+                <div className="flex-1"><SearchableSelect options={userOptions} value={newUserId} onChange={(v) => setNewUserId(v)} placeholder="Search by name or email…" /></div>
                 <Button size="sm" onClick={addOne} disabled={adding}><Plus className="w-4 h-4" /></Button>
               </div>
             </div>
@@ -788,7 +1012,7 @@ export default function ChatManagementPage() {
       {mainTab === 'rooms' && <ChatRoomsTab />}
 
       {mainTab === 'sticker_categories' && (
-        <SimpleCrudTab entityLabel="Sticker Category"
+        <SimpleCrudTab entityLabel="Sticker Category" summaryTable="sticker_categories"
           apiList={api.getStickerCategories} apiGet={api.getStickerCategory}
           apiCreate={(d, isFD) => api.createStickerCategory(d, isFD)} apiUpdate={(id, d, isFD) => api.updateStickerCategory(id, d, isFD)}
           apiSoftDelete={api.softDeleteStickerCategory} apiRestore={api.restoreStickerCategory} apiDelete={api.permanentDeleteStickerCategory}
@@ -803,14 +1027,14 @@ export default function ChatManagementPage() {
       )}
 
       {mainTab === 'stickers' && (
-        <SimpleCrudTab entityLabel="Sticker"
+        <SimpleCrudTab entityLabel="Sticker" summaryTable="stickers"
           apiList={api.getStickers} apiGet={api.getSticker}
           apiCreate={(d, isFD) => api.createSticker(d, isFD)} apiUpdate={(id, d, isFD) => api.updateSticker(id, d, isFD)}
           apiSoftDelete={api.softDeleteSticker} apiRestore={api.restoreSticker} apiDelete={api.permanentDeleteSticker}
           fields={[
             { key: 'name', label: 'Name', required: true },
             { key: 'slug', label: 'Slug' },
-            { key: 'category_id', label: 'Category ID', type: 'number', required: true },
+            { key: 'category_id', label: 'Category', type: 'select', required: true, optionsLoader: () => api.getStickerCategories({ limit: 500 }) },
             // Phase 15.3 — drag-drop upload; backend multer field name is 'image'
             { key: 'image_url', label: 'Sticker Image', type: 'image', uploadFieldName: 'image', imageAspectRatio: 1, imageMaxWidth: 512, imageMaxHeight: 512 },
             { key: 'is_animated', label: 'Animated', type: 'checkbox' },
@@ -820,7 +1044,7 @@ export default function ChatManagementPage() {
       )}
 
       {mainTab === 'emoji_categories' && (
-        <SimpleCrudTab entityLabel="Emoji Category"
+        <SimpleCrudTab entityLabel="Emoji Category" summaryTable="emoji_categories"
           apiList={api.getEmojiCategories} apiGet={api.getEmojiCategory}
           apiCreate={api.createEmojiCategory} apiUpdate={(id, d) => api.updateEmojiCategory(id, d)}
           apiSoftDelete={api.softDeleteEmojiCategory} apiRestore={api.restoreEmojiCategory} apiDelete={api.permanentDeleteEmojiCategory}
@@ -834,14 +1058,14 @@ export default function ChatManagementPage() {
       )}
 
       {mainTab === 'custom_emojis' && (
-        <SimpleCrudTab entityLabel="Custom Emoji"
+        <SimpleCrudTab entityLabel="Custom Emoji" summaryTable="custom_emojis"
           apiList={api.getCustomEmojis} apiGet={api.getCustomEmoji}
           apiCreate={(d, isFD) => api.createCustomEmoji(d, isFD)} apiUpdate={(id, d, isFD) => api.updateCustomEmoji(id, d, isFD)}
           apiSoftDelete={api.softDeleteCustomEmoji} apiRestore={api.restoreCustomEmoji} apiDelete={api.permanentDeleteCustomEmoji}
           fields={[
             { key: 'name', label: 'Name', required: true },
             { key: 'shortcode', label: 'Shortcode', required: true },
-            { key: 'category_id', label: 'Category ID', type: 'number', required: true },
+            { key: 'category_id', label: 'Category', type: 'select', required: true, optionsLoader: () => api.getEmojiCategories({ limit: 500 }) },
             // Phase 15.3 — drag-drop upload; backend multer field name is 'image'
             { key: 'image_url', label: 'Emoji Image', type: 'image', uploadFieldName: 'image', imageAspectRatio: 1, imageMaxWidth: 256, imageMaxHeight: 256 },
             { key: 'is_animated', label: 'Animated', type: 'checkbox' },
@@ -851,7 +1075,7 @@ export default function ChatManagementPage() {
       )}
 
       {mainTab === 'quick_replies' && (
-        <SimpleCrudTab entityLabel="Quick Reply"
+        <SimpleCrudTab entityLabel="Quick Reply" summaryTable="quick_replies"
           apiList={api.getQuickReplies} apiGet={api.getQuickReply}
           apiCreate={api.createQuickReply} apiUpdate={(id, d) => api.updateQuickReply(id, d)}
           apiSoftDelete={api.softDeleteQuickReply} apiRestore={api.restoreQuickReply} apiDelete={api.permanentDeleteQuickReply}
