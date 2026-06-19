@@ -1489,8 +1489,8 @@ export const api = {
     request('/ai/generate-all-translations', { method: 'POST', body: JSON.stringify(data) }),
 
   // ── Referral Codes ──
-  listReferralCodes: (qs = '') => request(`/referral-codes${qs}`, { auth: false }),
-  getReferralCode: (id: number) => request(`/referral-codes/${id}`, { auth: false }),
+  listReferralCodes: (qs = '') => request(`/referral-codes${qs}`),
+  getReferralCode: (id: number) => request(`/referral-codes/${id}`),
   createReferralCode: (data: any) => request('/referral-codes', { method: 'POST', body: JSON.stringify(data) }),
   updateReferralCode: (id: number, data: any) => request(`/referral-codes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeleteReferralCode: (id: number) => request(`/referral-codes/${id}`, { method: 'DELETE' }),
@@ -1498,8 +1498,8 @@ export const api = {
   deleteReferralCode: (id: number) => request(`/referral-codes/${id}/permanent`, { method: 'DELETE' }),
 
   // ── Referral Usages ──
-  listReferralUsages: (qs = '') => request(`/referral-usages${qs}`, { auth: false }),
-  getReferralUsage: (id: number) => request(`/referral-usages/${id}`, { auth: false }),
+  listReferralUsages: (qs = '') => request(`/referral-usages${qs}`),
+  getReferralUsage: (id: number) => request(`/referral-usages/${id}`),
   createReferralUsage: (data: any) => request('/referral-usages', { method: 'POST', body: JSON.stringify(data) }),
   updateReferralUsage: (id: number, data: any) => request(`/referral-usages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeleteReferralUsage: (id: number) => request(`/referral-usages/${id}`, { method: 'DELETE' }),
@@ -1507,8 +1507,8 @@ export const api = {
   deleteReferralUsage: (id: number) => request(`/referral-usages/${id}/permanent`, { method: 'DELETE' }),
 
   // ── Referral Rewards ──
-  listReferralRewards: (qs = '') => request(`/referral-rewards${qs}`, { auth: false }),
-  getReferralReward: (id: number) => request(`/referral-rewards/${id}`, { auth: false }),
+  listReferralRewards: (qs = '') => request(`/referral-rewards${qs}`),
+  getReferralReward: (id: number) => request(`/referral-rewards/${id}`),
   createReferralReward: (data: any) => request('/referral-rewards', { method: 'POST', body: JSON.stringify(data) }),
   updateReferralReward: (id: number, data: any) => request(`/referral-rewards/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   softDeleteReferralReward: (id: number) => request(`/referral-rewards/${id}`, { method: 'DELETE' }),

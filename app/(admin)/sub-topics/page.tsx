@@ -695,7 +695,7 @@ export default function SubTopicsPage() {
                 {!showTrash && <TH>YT Desc</TH>}
                 {showTrash && <TH>Deleted</TH>}
                 <TH><button onClick={() => handleSort('is_active')} className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer">Status <SortIcon field="is_active" /></button></TH>
-                <TH className="text-right">Actions</TH>
+                <TH><div className="flex items-center justify-end gap-1 pr-1.5">Actions</div></TH>
               </TR>
             </THead>
             <TBody>

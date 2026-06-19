@@ -237,13 +237,20 @@ function ReferralCodesTab() {
       if (filterStatus) qs.set('is_active', filterStatus);
       if (filterRewardType) qs.set('referrer_reward_type', filterRewardType);
     }
-    const res = await api.listReferralCodes('?' + qs.toString());
-    if (res.success) {
-      setItems(res.data || []);
-      setTotalPages(res.pagination?.totalPages || 1);
-      setTotal(res.pagination?.total || 0);
+    try {
+      const res = await api.listReferralCodes('?' + qs.toString());
+      if (res.success) {
+        setItems(res.data || []);
+        setTotalPages(res.pagination?.totalPages || 1);
+        setTotal(res.pagination?.total || 0);
+      } else {
+        toast.error(res.error || 'Failed to load referral codes');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to load referral codes');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function refreshSummary() {
@@ -799,13 +806,20 @@ function ReferralUsagesTab() {
       if (filterUsageStatus) qs.set('usage_status', filterUsageStatus);
       if (filterCodeId) qs.set('referral_code_id', filterCodeId);
     }
-    const res = await api.listReferralUsages('?' + qs.toString());
-    if (res.success) {
-      setItems(res.data || []);
-      setTotalPages(res.pagination?.totalPages || 1);
-      setTotal(res.pagination?.total || 0);
+    try {
+      const res = await api.listReferralUsages('?' + qs.toString());
+      if (res.success) {
+        setItems(res.data || []);
+        setTotalPages(res.pagination?.totalPages || 1);
+        setTotal(res.pagination?.total || 0);
+      } else {
+        toast.error(res.error || 'Failed to load referral usages');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to load referral usages');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function refreshSummary() {
@@ -1210,13 +1224,20 @@ function ReferralRewardsTab() {
       if (filterRewardType) qs.set('reward_type', filterRewardType);
       if (filterRewardStatus) qs.set('status', filterRewardStatus);
     }
-    const res = await api.listReferralRewards('?' + qs.toString());
-    if (res.success) {
-      setItems(res.data || []);
-      setTotalPages(res.pagination?.totalPages || 1);
-      setTotal(res.pagination?.total || 0);
+    try {
+      const res = await api.listReferralRewards('?' + qs.toString());
+      if (res.success) {
+        setItems(res.data || []);
+        setTotalPages(res.pagination?.totalPages || 1);
+        setTotal(res.pagination?.total || 0);
+      } else {
+        toast.error(res.error || 'Failed to load referral rewards');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to load referral rewards');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function refreshSummary() {

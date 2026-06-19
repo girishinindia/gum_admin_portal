@@ -231,6 +231,12 @@ export default function BranchesPage() {
   }
 
   async function onSubmit(data: any) {
+    // Accept a scheme-less host by prepending https:// (server validates the URL).
+    const normalizeUrl = (u: string) => {
+      const s = (u || '').trim();
+      if (!s) return null;
+      return /^https?:\/\//i.test(s) ? s : `https://${s}`;
+    };
     const payload = {
       country_id: data.country_id ? Number(data.country_id) : null,
       state_id: data.state_id ? Number(data.state_id) : null,
@@ -240,8 +246,9 @@ export default function BranchesPage() {
       address_line_1: data.address_line_1 || null,
       address_line_2: data.address_line_2 || null,
       pincode: data.pincode || null, phone: data.phone || null,
-      email: data.email || null, website: data.website || null,
-      google_maps_url: data.google_maps_url || null
+      email: data.email || null,
+      website: normalizeUrl(data.website),
+      google_maps_url: normalizeUrl(data.google_maps_url)
     };
 
     try {
@@ -779,16 +786,16 @@ export default function BranchesPage() {
           <Input label="Address Line 2" placeholder="Suite 100, Floor 5" {...register('address_line_2')} />
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Pincode" placeholder="400001" error={errors.pincode?.message as string} {...register('pincode', { maxLength: { value: 20, message: 'Max 20 characters' } })} />
-            <Input label="Phone" placeholder="+91 22 1234 5678" error={errors.phone?.message as string} {...register('phone', { maxLength: { value: 20, message: 'Max 20 characters' } })} />
+            <Input label="Pincode" placeholder="400001" error={errors.pincode?.message as string} {...register('pincode', { pattern: { value: /^[0-9]{4,10}$/, message: 'Enter a valid PIN/ZIP code (4–10 digits)' } })} />
+            <Input label="Phone" placeholder="+91 22 1234 5678" error={errors.phone?.message as string} {...register('phone', { pattern: { value: /^[+]?[\d\s()-]{7,20}$/, message: 'Enter a valid phone number' } })} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Input label="Email" type="email" placeholder="office@company.com" error={errors.email?.message as string} {...register('email', { pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email' } })} />
-            <Input label="Website" placeholder="https://office.company.com" error={errors.website?.message as string} {...register('website', { pattern: { value: /^https?:\/\/.+/i, message: 'Use a full URL (https://…)' } })} />
+            <Input label="Website" placeholder="office.company.com" error={errors.website?.message as string} {...register('website', { pattern: { value: /^(https?:\/\/)?[\w-]+(\.[\w-]+)+.*$/i, message: 'Enter a valid URL' } })} />
           </div>
 
-          <Input label="Google Maps URL" placeholder="https://maps.google.com/..." error={errors.google_maps_url?.message as string} {...register('google_maps_url', { pattern: { value: /^https?:\/\/.+/i, message: 'Use a full URL (https://…)' } })} />
+          <Input label="Google Maps URL" placeholder="https://maps.google.com/..." error={errors.google_maps_url?.message as string} {...register('google_maps_url', { pattern: { value: /^(https?:\/\/)?[\w-]+(\.[\w-]+)+.*$/i, message: 'Enter a valid URL' } })} />
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

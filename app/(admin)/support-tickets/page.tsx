@@ -545,7 +545,7 @@ function CategoriesTab() {
             </div>
             <div>
               <label className="block mb-1.5 text-sm font-medium text-slate-700">Slug</label>
-              <Input {...register('slug')} placeholder="auto-generated-slug" />
+              <Input {...register('slug', { onChange: (e) => { e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-'); } })} placeholder="auto-generated-slug" />
             </div>
           </div>
           <div>
