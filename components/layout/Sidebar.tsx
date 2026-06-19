@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle, Settings, Database, Landmark, BookText, ClipboardList, PanelLeftClose, PanelLeftOpen, ClipboardCheck, Code2, Briefcase, Rocket, Calendar, Gift, Ticket, Percent, ShoppingCart, CreditCard, Receipt, TrendingUp, BarChart3, Trophy, Medal, Star, Bell, Wallet, Banknote, MessageSquare, Radio, ScrollText, Headphones, Megaphone, Mail, BellRing, Activity, Eye, Lightbulb } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, KeyRound, Globe2, MapPin, Building2, Sparkles, Languages, FileText, GraduationCap, ShieldCheck, FolderOpen, FileImage, Award, Compass, Target, Share2, LayoutGrid, Layers, GitBranch, Network, Link2, ChevronDown, ChevronRight, BookOpen, BookMarked, FileQuestion, Video, Library, Tags, Package, FolderTree, Boxes, HelpCircle, ListChecks, PenLine, Replace, FileEdit, ListOrdered, PlusCircle, Settings, Database, Landmark, BookText, ClipboardList, PanelLeftClose, PanelLeftOpen, ClipboardCheck, Code2, Briefcase, Rocket, Calendar, Gift, Ticket, Percent, ShoppingCart, CreditCard, Receipt, TrendingUp, BarChart3, Trophy, Medal, Star, Bell, Wallet, Banknote, MessageSquare, Radio, ScrollText, Headphones, Megaphone, Mail, BellRing, Activity, Eye, Lightbulb, Search, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface SubLink {
@@ -569,6 +569,9 @@ export function Sidebar() {
   const { user } = useAuth();
   const isSuperAdmin = (user?.max_role_level || 0) >= 100;
   const [collapsed, setCollapsed] = useState(false);
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const matchesQuery = (text: string) => q === '' || (text || '').toLowerCase().includes(q);
 
   // Initialise open groups + sub-groups — auto-open whichever is currently active
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
@@ -692,6 +695,24 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-2">
+        {!collapsed && (
+          <div className="px-3 pt-3 pb-1 sticky top-0 z-10 bg-gradient-to-b from-white via-white to-transparent">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search menu…"
+                className="w-full h-8 pl-8 pr-7 text-xs rounded-lg border border-brand-200 bg-white/80 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 placeholder:text-slate-400"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" aria-label="Clear search">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {/* Phase 14.10 — the standalone "Dashboard" link used to live here,
             but it duplicated the "Dashboards" group below. The command-center
             page (/dashboard) is now the "Overview" entry inside the
@@ -699,14 +720,26 @@ export function Sidebar() {
 
         {navGroups.map((group, groupIdx) => {
           const groupItems = group.items || [];
-          const visibleItems = groupItems.filter(
+          const permittedItems = groupItems.filter(
             (item) => !item.superAdminOnly || isSuperAdmin
           );
-          const hasSubGroups = !!group.subGroups;
+          const groupTitleMatch = matchesQuery(group.title);
+          // Menu-search filter: match the group title, an item label, or a sub-link label.
+          const visibleItems = q
+            ? permittedItems.filter((item) => groupTitleMatch || matchesQuery(item.label) || (item.subLinks?.some((s) => matchesQuery(s.label)) ?? false))
+            : permittedItems;
+          const visibleSubGroups = (group.subGroups || [])
+            .map((sg) => ({
+              sg,
+              items: q ? sg.items.filter((item) => groupTitleMatch || matchesQuery(sg.label) || matchesQuery(item.label)) : sg.items,
+            }))
+            .filter((x) => !q || groupTitleMatch || matchesQuery(x.sg.label) || x.items.length > 0);
+          const hasSubGroups = visibleSubGroups.length > 0;
+          // Under an active query, hide groups with no matches anywhere.
+          if (q && !groupTitleMatch && visibleItems.length === 0 && visibleSubGroups.length === 0) return null;
           if (!hasSubGroups && visibleItems.length === 0) return null;
-          if (hasSubGroups && visibleItems.length === 0 && group.subGroups!.length === 0) return null;
 
-          const isOpen = openGroups[group.key] ?? false;
+          const isOpen = q ? true : (openGroups[group.key] ?? false);
           const groupActive = isGroupActive(group, pathname);
 
           if (collapsed) {
@@ -773,8 +806,8 @@ export function Sidebar() {
                 {/* Sub-grouped items (e.g. Q&A Bank) */}
                 {hasSubGroups && (
                   <div className="ml-6 mr-2 pl-3 border-l-2 border-brand-300/60 pb-1 space-y-0.5">
-                    {group.subGroups!.map((sg) => {
-                      const sgOpen = openGroups[sg.key] ?? false;
+                    {visibleSubGroups.map(({ sg, items: sgItems }) => {
+                      const sgOpen = q ? true : (openGroups[sg.key] ?? false);
                       const sgActive = isSubGroupActive(sg, pathname);
                       const SgIcon = sg.icon;
 
@@ -817,7 +850,7 @@ export function Sidebar() {
                             )}
                           >
                             <div className="ml-6 pl-3 border-l-2 border-brand-300/60 space-y-0.5 py-0.5">
-                              {sg.items.map((item, idx) => renderNavItem(item, pathname, true, idx))}
+                              {sgItems.map((item, idx) => renderNavItem(item, pathname, true, idx))}
                             </div>
                           </div>
                         </div>

@@ -119,9 +119,21 @@ async function request<T = any>(
     if (/range not satisfiable/i.test(message)) {
       return { success: true, data: [], pagination: { total: 0, page: 1, limit: 0, totalPages: 1 } } as unknown as ApiResponse<T>;
     }
-    // Surface field-level validation detail (the API's `errors[]`) so callers
-    // get "Validation failed: email: Invalid email" instead of a bare message.
-    const detail = Array.isArray(json?.errors) && json.errors.length ? `: ${json.errors.join('; ')}` : '';
+    // Surface field-level validation detail. The API sends it as `details`
+    // (a string[] of "field: message" from the Zod validator), with `errors`
+    // kept as a legacy fallback. Folding it into the thrown message means every
+    // page's `catch (e) { toast.error(e.message) }` shows the real reason
+    // (e.g. "End date must be on or after the start date") instead of a bare
+    // "Validation failed".
+    const fieldDetail: unknown = (json as any)?.details ?? (json as any)?.errors;
+    let detail = '';
+    if (Array.isArray(fieldDetail) && fieldDetail.length) {
+      detail = `: ${fieldDetail.join('; ')}`;
+    } else if (fieldDetail && typeof fieldDetail === 'object') {
+      detail = `: ${Object.entries(fieldDetail as Record<string, unknown>).map(([k, v]) => `${k}: ${v}`).join('; ')}`;
+    } else if (typeof fieldDetail === 'string' && fieldDetail) {
+      detail = `: ${fieldDetail}`;
+    }
     throw new Error(message + detail);
   }
   return json;

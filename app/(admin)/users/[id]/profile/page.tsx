@@ -1275,7 +1275,7 @@ export default function UserProfilePage() {
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Input label="Alternate Email" type="email" {...register('alternate_email')} placeholder="alt@example.com" />
-                        <Input label="Alternate Phone" {...register('alternate_phone')} placeholder="+91 9876543210" />
+                        <Input label="Alternate Phone" {...register('alternate_phone', { pattern: { value: /^[+]?[\d\s\-()]{7,20}$/, message: 'Enter a valid phone number' } })} error={(errors as any).alternate_phone?.message} placeholder="+91 9876543210" />
                       </div>
                     </div>
 
@@ -1288,7 +1288,7 @@ export default function UserProfilePage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Input label="Contact Name" {...register('emergency_contact_name')} placeholder="Full name" />
                         <Input label="Relationship" {...register('emergency_contact_relationship')} placeholder="e.g. Father, Spouse" />
-                        <Input label="Phone" {...register('emergency_contact_phone')} placeholder="+91 9876543210" />
+                        <Input label="Phone" {...register('emergency_contact_phone', { pattern: { value: /^[+]?[\d\s\-()]{7,20}$/, message: 'Enter a valid phone number' } })} error={(errors as any).emergency_contact_phone?.message} placeholder="+91 9876543210" />
                         <Input label="Email" type="email" {...register('emergency_contact_email')} placeholder="email@example.com" />
                       </div>
                     </div>
