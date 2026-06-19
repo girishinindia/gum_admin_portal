@@ -75,7 +75,7 @@ function ChatRoomsTab() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const toolbarRef = useRef<DataToolbarHandle>(null);
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
   useEffect(() => { api.getTableSummary('chat_rooms').then(res => { if (res.success && Array.isArray(res.data) && res.data.length > 0) setSummary(res.data[0]); }); }, []);
@@ -266,7 +266,7 @@ function ChatRoomsTab() {
               <option value="direct">Direct</option>
             </select>
           </div>
-          <div><label className="text-sm font-medium text-slate-700">Max Members</label><Input {...register('max_members')} type="number" placeholder="Unlimited" /></div>
+          <div><label className="text-sm font-medium text-slate-700">Max Members</label><Input {...register('max_members', { min: { value: 1, message: 'Max members must be at least 1' } })} type="number" min={1} step={1} placeholder="Unlimited" error={(errors as any).max_members?.message} /></div>
           <div className="flex items-center gap-2">
             <input type="checkbox" {...register('allow_invite_link')} className="rounded border-slate-300" />
             <label className="text-sm text-slate-700">Allow invite links</label>

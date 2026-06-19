@@ -96,7 +96,7 @@ export default function IssuedCertificatesPage() {
   }));
   const enrollmentOptions = userEnrollments.map((e: any) => ({
     value: String(e.id),
-    label: `#${e.id} · ${String(e.item_type || '').replace(/_/g, ' ')} ${e.item_id} · ${e.enrollment_status}${e.progress_pct != null ? ` · ${e.progress_pct}%` : ''}`,
+    label: `#${e.id} · ${e.item?.title || `${String(e.item_type || '').replace(/_/g, ' ')} ${e.item_id}`} · ${e.enrollment_status}${e.progress_pct != null ? ` · ${e.progress_pct}%` : ''}`,
   }));
 
   const onPickUser = (uid: string) => {
