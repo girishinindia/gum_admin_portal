@@ -595,7 +595,7 @@ Unsupervised Learning
         ref={toolbarRef}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder={showTrash ? 'Search trash...' : 'Search chapters by slug...'}
+        searchPlaceholder={showTrash ? 'Search trash...' : 'Search chapters...'}
       >
         {!showTrash && (
           <>

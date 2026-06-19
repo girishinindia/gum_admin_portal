@@ -618,7 +618,7 @@ Model Evaluation Metrics`;
         ref={toolbarRef}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder={showTrash ? 'Search trash...' : 'Search topics by slug...'}
+        searchPlaceholder={showTrash ? 'Search trash...' : 'Search topics...'}
       >
         {!showTrash && (
           <>

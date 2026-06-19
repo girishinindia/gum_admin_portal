@@ -609,7 +609,7 @@ export default function SubTopicsPage() {
         </button>
       </div>
 
-      <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search sub-topics by slug...'}>
+      <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search sub-topics...'}>
         {!showTrash && (
           <>
             <SearchableSelect

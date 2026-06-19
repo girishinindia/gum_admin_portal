@@ -28,8 +28,11 @@ export const DataToolbar = forwardRef<DataToolbarHandle, DataToolbarProps>(({
   }));
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3">
-      <div className="relative flex-1">
+    // Search owns the row and never shrinks below a usable width; filter
+    // controls wrap to their own line on narrow/filter-heavy pages instead
+    // of crushing the search box.
+    <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch gap-3">
+      <div className="relative flex-1 min-w-0 sm:min-w-[240px]">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
         <input
           ref={inputRef}
@@ -38,7 +41,7 @@ export const DataToolbar = forwardRef<DataToolbarHandle, DataToolbarProps>(({
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
           className={cn(
-            'w-full h-10 pl-10 pr-10 text-sm rounded-lg border border-slate-200 bg-white',
+            'w-full min-w-0 h-10 pl-10 pr-10 text-sm rounded-lg border border-slate-200 bg-white',
             'transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500',
             'placeholder:text-slate-400'
           )}
@@ -53,7 +56,11 @@ export const DataToolbar = forwardRef<DataToolbarHandle, DataToolbarProps>(({
           </button>
         )}
       </div>
-      {children}
+      {children && (
+        <div className="flex flex-wrap items-center gap-3">
+          {children}
+        </div>
+      )}
     </div>
   );
 });
