@@ -17,7 +17,8 @@ import { toast } from '@/components/ui/Toast';
 import {
   MessageSquare, Plus, Edit2, Trash2, Eye, RotateCcw, Loader2,
   ArrowUpDown, ArrowUp, ArrowDown, Hash, Users, Globe, Lock, Link,
-  Smile, Sparkles, Zap, Image, Copy, ExternalLink, RefreshCw
+  Smile, Sparkles, Zap, Image, Copy, ExternalLink, RefreshCw,
+  Pin, PinOff, Volume2, VolumeX, UserMinus
 } from 'lucide-react';
 import { cn, fromNow } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -65,6 +66,8 @@ function ChatRoomsTab() {
   const [showTrash, setShowTrash] = useState(false);
   const [filterType, setFilterType] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [membersFor, setMembersFor] = useState<any | null>(null);
+  const [messagesFor, setMessagesFor] = useState<any | null>(null);
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const { register, handleSubmit, reset, setValue, watch } = useForm();
 
@@ -148,6 +151,8 @@ function ChatRoomsTab() {
                         <button onClick={() => onPermanentDelete(item)} className="p-1 text-slate-400 hover:text-red-600" title="Delete forever"><Trash2 className="w-4 h-4" /></button>
                       </>) : (<>
                         <button onClick={() => setViewing(item)} className="p-1 text-slate-400 hover:text-brand-600" title="View"><Eye className="w-4 h-4" /></button>
+                        <button onClick={() => setMembersFor(item)} className="p-1 text-slate-400 hover:text-brand-600" title="Members"><Users className="w-4 h-4" /></button>
+                        <button onClick={() => setMessagesFor(item)} className="p-1 text-slate-400 hover:text-brand-600" title="Moderate messages"><MessageSquare className="w-4 h-4" /></button>
                         <button onClick={() => openEdit(item)} className="p-1 text-slate-400 hover:text-brand-600" title="Edit"><Edit2 className="w-4 h-4" /></button>
                         <button onClick={() => onSoftDelete(item)} className="p-1 text-slate-400 hover:text-red-600" title="Delete"><Trash2 className="w-4 h-4" /></button>
                       </>)}
@@ -203,6 +208,9 @@ function ChatRoomsTab() {
           </div>
         </form>
       </Dialog>
+
+      <RoomMembersDialog room={membersFor} onClose={() => setMembersFor(null)} />
+      <RoomMessagesDialog room={messagesFor} onClose={() => setMessagesFor(null)} />
     </div>
   );
 }
@@ -552,6 +560,202 @@ function ChatInvitesTab() {
         </form>
       </Dialog>
     </div>
+  );
+}
+
+// ══════════════════════════════════════════════
+// ROOM MEMBERS DIALOG (moderation)
+// ══════════════════════════════════════════════
+function RoomMembersDialog({ room, onClose }: { room: any | null; onClose: () => void }) {
+  const [members, setMembers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [newUserId, setNewUserId] = useState('');
+  const [bulkIds, setBulkIds] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!room) return;
+    setLoading(true);
+    const res = await api.getChatMembers({ room_id: room.id, limit: 200, sort: 'created_at', order: 'asc' });
+    if (res.success) setMembers(res.data || []);
+    setLoading(false);
+  }, [room]);
+
+  useEffect(() => { if (room) { setNewUserId(''); setBulkIds(''); load(); } }, [room, load]);
+
+  function memberName(m: any) {
+    return m.users ? `${m.users.first_name ?? ''} ${m.users.last_name ?? ''}`.trim() || `User #${m.user_id}` : `User #${m.user_id}`;
+  }
+
+  async function addOne() {
+    const uid = parseInt(newUserId);
+    if (!uid) { toast.error('Enter a valid user ID'); return; }
+    setAdding(true);
+    const res = await api.addChatMember({ room_id: room.id, user_id: uid, role: 'member' });
+    setAdding(false);
+    if (res.success) { toast.success('Member added'); setNewUserId(''); load(); } else toast.error(res.error);
+  }
+  async function addBulk() {
+    const ids = bulkIds.split(/[\s,]+/).map((s) => parseInt(s)).filter((n) => !isNaN(n));
+    if (ids.length === 0) { toast.error('Enter one or more user IDs'); return; }
+    setAdding(true);
+    const res = await api.bulkAddChatMembers({ room_id: room.id, user_ids: ids });
+    setAdding(false);
+    if (res.success) { toast.success(`Added ${ids.length} member(s)`); setBulkIds(''); load(); } else toast.error(res.error);
+  }
+  async function toggleMute(m: any) {
+    setBusyId(m.id);
+    const res = await api.updateChatMember(m.id, { is_muted: !m.is_muted });
+    if (res.success) { toast.success(m.is_muted ? 'Unmuted' : 'Muted'); load(); } else toast.error(res.error);
+    setBusyId(null);
+  }
+  async function changeRole(m: any, role: string) {
+    setBusyId(m.id);
+    const res = await api.updateChatMember(m.id, { role });
+    if (res.success) { toast.success('Role updated'); load(); } else toast.error(res.error);
+    setBusyId(null);
+  }
+  async function removeMember(m: any) {
+    if (!confirm(`Remove ${memberName(m)} from this room?`)) return;
+    setBusyId(m.id);
+    const res = await api.removeChatMember(m.id);
+    if (res.success) { toast.success('Member removed'); load(); } else toast.error(res.error);
+    setBusyId(null);
+  }
+
+  return (
+    <Dialog open={!!room} onClose={onClose} title={room ? `Members · ${room.name}` : 'Members'} size="lg">
+      {room && (
+        <div className="p-6 space-y-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[170px]">
+              <label className="text-xs font-medium text-slate-500">Add by user ID</label>
+              <div className="flex gap-2 mt-1">
+                <Input value={newUserId} onChange={(e: any) => setNewUserId(e.target.value)} type="number" placeholder="e.g. 42" />
+                <Button size="sm" onClick={addOne} disabled={adding}><Plus className="w-4 h-4" /></Button>
+              </div>
+            </div>
+            <div className="flex-1 min-w-[220px]">
+              <label className="text-xs font-medium text-slate-500">Bulk add (comma / space-separated IDs)</label>
+              <div className="flex gap-2 mt-1">
+                <Input value={bulkIds} onChange={(e: any) => setBulkIds(e.target.value)} placeholder="42, 43, 44" />
+                <Button size="sm" variant="ghost" onClick={addBulk} disabled={adding}>Bulk Add</Button>
+              </div>
+            </div>
+          </div>
+
+          {loading ? <div className="py-8 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
+            : members.length === 0 ? <EmptyState icon={Users} title="No members" />
+            : (
+            <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-[50vh] overflow-y-auto">
+              <Table>
+                <THead><TR>
+                  <TH className="sticky top-0 z-10">User</TH>
+                  <TH className="sticky top-0 z-10">Role</TH>
+                  <TH className="sticky top-0 z-10">Status</TH>
+                  <TH className="sticky top-0 z-10 text-right">Actions</TH>
+                </TR></THead>
+                <TBody>
+                  {members.map((m) => (
+                    <TR key={m.id}>
+                      <TD className="font-medium">{memberName(m)} <span className="text-slate-400 text-xs">#{m.user_id}</span></TD>
+                      <TD>
+                        <select className={selectClass} value={m.role || 'member'} onChange={(e) => changeRole(m, e.target.value)} disabled={busyId === m.id}>
+                          <option value="member">member</option>
+                          <option value="admin">admin</option>
+                          <option value="owner">owner</option>
+                        </select>
+                      </TD>
+                      <TD>{m.is_muted ? <Badge variant="warning">Muted</Badge> : <Badge variant="success">Active</Badge>}</TD>
+                      <TD className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {busyId === m.id ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" /> : (<>
+                            <button onClick={() => toggleMute(m)} className="p-1 text-slate-400 hover:text-amber-600" title={m.is_muted ? 'Unmute' : 'Mute'}>{m.is_muted ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}</button>
+                            <button onClick={() => removeMember(m)} className="p-1 text-slate-400 hover:text-red-600" title="Remove"><UserMinus className="w-4 h-4" /></button>
+                          </>)}
+                        </div>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+// ══════════════════════════════════════════════
+// ROOM MESSAGES DIALOG (moderation)
+// ══════════════════════════════════════════════
+function RoomMessagesDialog({ room, onClose }: { room: any | null; onClose: () => void }) {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    if (!room) return;
+    setLoading(true);
+    const res = await api.getChatMessagesByRoom(room.id, { limit: 50, page: 1 });
+    if (res.success) setMessages(res.data || []);
+    setLoading(false);
+  }, [room]);
+
+  useEffect(() => { if (room) load(); }, [room, load]);
+
+  async function pin(m: any) {
+    setBusyId(m.id);
+    const res = await api.togglePinMessage(m.id);
+    if (res.success) { toast.success(m.is_pinned ? 'Unpinned' : 'Pinned'); load(); } else toast.error(res.error);
+    setBusyId(null);
+  }
+  async function del(m: any) {
+    if (!confirm('Delete this message?')) return;
+    setBusyId(m.id);
+    const res = await api.softDeleteChatMessage(m.id);
+    if (res.success) { toast.success('Message deleted'); load(); } else toast.error(res.error);
+    setBusyId(null);
+  }
+
+  return (
+    <Dialog open={!!room} onClose={onClose} title={room ? `Messages · ${room.name}` : 'Messages'} size="lg">
+      {room && (
+        <div className="p-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500">Latest 50 messages — newest first.</p>
+            <Button size="sm" variant="ghost" onClick={load}><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+          </div>
+          {loading ? <div className="py-8 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
+            : messages.length === 0 ? <EmptyState icon={MessageSquare} title="No messages" />
+            : (
+            <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+              {messages.map((m) => (
+                <div key={m.id} className="flex items-start gap-3 p-3 rounded-lg border border-slate-200">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-slate-900">{m.users ? `${m.users.first_name ?? ''} ${m.users.last_name ?? ''}`.trim() || `User #${m.sender_id}` : `User #${m.sender_id}`}</span>
+                      {m.is_pinned && <Badge variant="info">Pinned</Badge>}
+                      {m.message_type && m.message_type !== 'text' && <Badge variant="default">{m.message_type}</Badge>}
+                      <span className="text-xs text-slate-400">{fromNow(m.created_at)}</span>
+                    </div>
+                    <p className="text-sm text-slate-700 mt-0.5 break-words">{m.content || <span className="text-slate-400 italic">(no text)</span>}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {busyId === m.id ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" /> : (<>
+                      <button onClick={() => pin(m)} className="p-1 text-slate-400 hover:text-brand-600" title={m.is_pinned ? 'Unpin' : 'Pin'}>{m.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}</button>
+                      <button onClick={() => del(m)} className="p-1 text-slate-400 hover:text-red-600" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                    </>)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Dialog>
   );
 }
 
