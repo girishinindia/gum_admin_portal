@@ -787,7 +787,7 @@ export default function BranchesPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <Input label="Pincode" placeholder="400001" error={errors.pincode?.message as string} {...register('pincode', { pattern: { value: /^[0-9]{4,10}$/, message: 'Enter a valid PIN/ZIP code (4–10 digits)' } })} />
-            <Input label="Phone" placeholder="+91 22 1234 5678" error={errors.phone?.message as string} {...register('phone', { pattern: { value: /^[+]?[\d\s()-]{7,20}$/, message: 'Enter a valid phone number' } })} />
+            <Input label="Phone" placeholder="9876543210" error={errors.phone?.message as string} {...register('phone', { pattern: { value: /^[0-9]{10}$/, message: 'Enter a valid 10-digit phone number' } })} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

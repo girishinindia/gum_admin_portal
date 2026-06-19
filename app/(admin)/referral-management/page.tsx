@@ -184,7 +184,7 @@ function ReferralCodesTab() {
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const studentDropdownRef = useRef<HTMLDivElement>(null);
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
 
   const selectedStudentId = watch('student_id');
 
@@ -543,7 +543,7 @@ function ReferralCodesTab() {
                   <TD className="py-2.5"><span className="text-sm font-medium text-slate-700">{formatCurrency(c.total_earnings)}</span></TD>
                   {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{c.deleted_at ? fromNow(c.deleted_at) : '--'}</span></TD>}
                   <TD className="py-2.5">
-                    {showTrash ? <Badge variant="warning">Deleted</Badge> : <Badge variant={c.is_active ? 'success' : 'danger'}>{c.is_active ? 'Active' : 'Inactive'}</Badge>}
+                    {showTrash ? <Badge variant="warning">Deleted</Badge> : (c.expires_at && new Date(c.expires_at) < new Date()) ? <Badge variant="warning">Expired</Badge> : <Badge variant={c.is_active ? 'success' : 'danger'}>{c.is_active ? 'Active' : 'Inactive'}</Badge>}
                   </TD>
                   <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">
@@ -586,7 +586,7 @@ function ReferralCodesTab() {
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 font-mono">{viewing.referral_code}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>
+                  {(viewing.expires_at && new Date(viewing.expires_at) < new Date()) ? <Badge variant="warning">Expired</Badge> : <Badge variant={viewing.is_active ? 'success' : 'danger'}>{viewing.is_active ? 'Active' : 'Inactive'}</Badge>}
                   <span className={cn('inline-flex text-xs font-semibold px-2 py-0.5 rounded-full', REWARD_TYPE_COLORS[viewing.referrer_reward_type] || 'bg-slate-50 text-slate-600')}>{capitalize(viewing.referrer_reward_type || '')}</span>
                 </div>
               </div>
@@ -723,7 +723,7 @@ function ReferralCodesTab() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Usage Limit" type="number" placeholder="Leave empty for unlimited" {...register('usage_limit')} />
-            <Input label="Expires At" type="datetime-local" {...register('expires_at')} />
+            <Input label="Expires At" type="datetime-local" min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)} error={(errors as any).expires_at?.message} {...register('expires_at', { validate: (v: any) => !v || new Date(v).getTime() > Date.now() || 'Expiry must be a future date' })} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>

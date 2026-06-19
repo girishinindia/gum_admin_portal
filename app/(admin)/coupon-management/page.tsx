@@ -951,7 +951,7 @@ function CouponLinksTab({ kind }: { kind: LinkKind }) {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Select Coupon</label>
             <select className={cn(selectClass, 'w-full')} value={selectedCouponId} onChange={e => setSelectedCouponId(e.target.value)}>
               <option value="">-- Choose a coupon --</option>
-              {coupons.map(c => <option key={c.id} value={c.id}>{c.coupon_code} — {c.title}</option>)}
+              {coupons.filter((c: any) => c.applicable_to === kind || c.applicable_to === 'all').map(c => <option key={c.id} value={c.id}>{c.coupon_code} — {c.title}</option>)}
             </select>
           </div>
 
