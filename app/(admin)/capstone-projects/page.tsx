@@ -98,6 +98,7 @@ export default function CapstoneProjectsPage() {
   const [existingFileName, setExistingFileName] = useState('');
   const [existingFileSolutionUrl, setExistingFileSolutionUrl] = useState('');
   const [existingFileSolutionName, setExistingFileSolutionName] = useState('');
+  const [removeFileSolution, setRemoveFileSolution] = useState(false);
 
   // ── Translation coverage state ──
   const [translationCoverage, setTranslationCoverage] = useState<CoverageItem[]>([]);
@@ -284,6 +285,7 @@ export default function CapstoneProjectsPage() {
     setExistingFileUrl('');
     setExistingFileName('');
     setExistingFileSolutionUrl('');
+    setRemoveFileSolution(false);
     setTranslationCoverage([]);
     setEditLangId(7);
     setAllTranslations([]);
@@ -343,6 +345,7 @@ export default function CapstoneProjectsPage() {
       setExistingFileName(engTrans?.file_name || '');
       setFileHtml(null);
       setFileSolution(null);
+      setRemoveFileSolution(false);
 
       // Translation coverage
       setTranslationCoverage(p.translation_coverage || []);
@@ -364,6 +367,7 @@ export default function CapstoneProjectsPage() {
   const handleSaveTranslation = async () => {
     if (!editingId) return;
     if (!transTitle.trim()) { toast.error('Name is required'); return; }
+    if (!fileHtml && !existingFileUrl) { toast.error('HTML file is required'); return; }
 
     setSavingTranslation(true);
     try {
@@ -406,6 +410,7 @@ export default function CapstoneProjectsPage() {
 
     if (!formCourseId && mode === 'create') { toast.error('Please select a course'); return; }
     if (!transTitle.trim()) { toast.error('Name is required'); return; }
+    if (!fileHtml && !existingFileUrl) { toast.error('HTML file is required'); return; }
 
     setSaving(true);
     try {
@@ -418,6 +423,7 @@ export default function CapstoneProjectsPage() {
         is_active: isActive,
         description: transDescription.trim() || null,
       };
+      if (removeFileSolution) payload.remove_file_solution = '1';
 
       let r;
       if (mode === 'edit' && editingId) {
@@ -434,6 +440,7 @@ export default function CapstoneProjectsPage() {
           // Stay in edit mode — refresh data to show updated file URLs and name
           setFileSolution(null);
           setFileHtml(null);
+          setRemoveFileSolution(false);
           if (fileSolutionInputRef.current) fileSolutionInputRef.current.value = '';
           if (fileInputRef.current) fileInputRef.current.value = '';
           // Update file URLs from response
@@ -1147,10 +1154,18 @@ export default function CapstoneProjectsPage() {
                     accept=".zip"
                     onFileSelected={(file) => {
                       setFileSolution(file);
+                      if (file) setRemoveFileSolution(false);
                       if (!file && fileSolutionInputRef.current) fileSolutionInputRef.current.value = '';
                     }}
                     newFile={fileSolution}
                     displayName={existingFileSolutionName || undefined}
+                    onRemove={() => {
+                      setFileSolution(null);
+                      setExistingFileSolutionUrl('');
+                      setExistingFileSolutionName('');
+                      setRemoveFileSolution(true);
+                      if (fileSolutionInputRef.current) fileSolutionInputRef.current.value = '';
+                    }}
                   />
                 )}
               </div>
@@ -1195,6 +1210,12 @@ export default function CapstoneProjectsPage() {
                   }}
                   newFile={fileHtml}
                   displayName={existingFileName || undefined}
+                  onRemove={() => {
+                    setFileHtml(null);
+                    setExistingFileUrl('');
+                    setExistingFileName('');
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
                 />
               </div>
             </div>
