@@ -341,6 +341,11 @@ export default function CoursesPage() {
 
   function openView(c: any) {
     setViewing(c);
+    // The list row has stale *_count columns; fetch the detail endpoint which
+    // computes live enrollment/lesson/assignment/project counts.
+    api.getCourse(c.id)
+      .then((res: any) => { if (res?.success && res.data) setViewing((prev: any) => (prev && prev.id === res.data.id ? { ...prev, ...res.data } : prev)); })
+      .catch(() => {});
   }
 
   async function onSubmit(data: any) {

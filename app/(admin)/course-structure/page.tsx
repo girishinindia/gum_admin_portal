@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import {
   BookOpen, Layers, Hash, ChevronDown, ChevronRight, Save, Loader2,
   Search, ChevronsUpDown, ChevronsDownUp, CheckSquare, Square, Minus,
-  Check, X, Sparkles, FolderTree, RefreshCcw, Gift, Upload, FileText,
+  Check, X, Sparkles, FolderTree, RefreshCcw, Gift, Upload, FileText, Download,
   AlertTriangle, CheckCircle, XCircle, Info,
 } from 'lucide-react';
 
@@ -667,6 +667,38 @@ export default function CourseStructurePage() {
     setImportPreviews(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+  // Download a correctly-formatted example .txt (matches the server-side parser).
+  const downloadStructureSample = useCallback(() => {
+    const sample = `=== COURSE ===
+name: C Programming for Beginners
+code: c-prog-beginners
+difficulty_level: beginner
+course_status: draft
+course_language: Hindi
+duration_hours: 120
+price: 0
+original_price: 4999
+discount_percentage: 100
+is_free: true
+
+=== SUB-CATEGORIES ===
+Sub-Category: programming-languages | is_primary: true
+Sub-Category: software-engineering
+
+--- MODULE: Getting Started | display_order: 1 ---
+
+Subject: C Programming
+  Chapter: Introduction | is_free_trial: true
+    Topic: Getting Started with C
+    Topic: Your First Program
+`;
+    const blob = new Blob([sample], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'sample_course_structure.txt'; a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const handleImportPreview = useCallback(async () => {
     if (importFiles.length === 0) return;
     setImportLoading(true);
@@ -1155,6 +1187,13 @@ Subject: C Programming
   Chapter: Introduction | is_free_trial: true
     Topic: Getting Started with C
     Topic: Your First Program`}</pre>
+                    <button
+                      type="button"
+                      onClick={downloadStructureSample}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Download sample .txt
+                    </button>
                   </details>
                 </div>
               )}

@@ -174,8 +174,8 @@ export default function CourseBatchesPage() {
     if (showTrash) {
       qs.set('show_deleted', 'true');
     } else {
-      if (filterStatus) qs.set('is_active', filterStatus);
-      if (filterBatchStatus) qs.set('batch_status', filterBatchStatus);
+      qs.set('is_active', filterStatus || 'all'); // empty = show all (active + inactive)
+      qs.set('batch_status', filterBatchStatus || 'all'); // empty = all statuses incl. cancelled
       if (filterOwner) qs.set('batch_owner', filterOwner);
       if (filterCourse) qs.set('course_id', filterCourse);
     }

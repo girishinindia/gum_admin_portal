@@ -85,18 +85,16 @@ export default function BundlesPage() {
   const [slugManual, setSlugManual] = useState(false);
   const watchedCode = watch('code');
 
-  // Phase 44.7 Bug 2 — auto-calc discount % whenever price or original_price
-  // changes. We keep discount as a derived field (read-only in UI) since the
-  // canonical relationship is: discount = (1 − price / original_price) × 100.
-  // When original_price is missing or zero we leave discount at 0.
-  const watchedPrice = watch('price');
+  // Price is auto-calculated from Original Price (MRP) and Discount %:
+  //   price = original_price × (1 − discount/100).
+  // Original Price + Discount % are the editable inputs; Price is read-only.
   const watchedOriginalPrice = watch('original_price');
+  const watchedDiscount = watch('discount_percentage');
   useEffect(() => {
     const op = Number(watchedOriginalPrice) || 0;
-    const p  = Number(watchedPrice) || 0;
-    const d  = op > 0 && p >= 0 ? Math.max(0, Math.round(((op - p) / op) * 100)) : 0;
-    setValue('discount_percentage', d, { shouldDirty: true, shouldValidate: false });
-  }, [watchedPrice, watchedOriginalPrice, setValue]);
+    const d  = Math.min(100, Math.max(0, Number(watchedDiscount) || 0));
+    if (op > 0) setValue('price', Math.max(0, +(op * (1 - d / 100)).toFixed(2)), { shouldDirty: true, shouldValidate: false });
+  }, [watchedOriginalPrice, watchedDiscount, setValue]);
 
   // Auto-generate slug from code
   useEffect(() => {
@@ -169,7 +167,7 @@ export default function BundlesPage() {
     if (showTrash) {
       qs.set('show_deleted', 'true');
     } else {
-      if (filterStatus) qs.set('is_active', filterStatus);
+      qs.set('is_active', filterStatus || 'all'); // empty = show all (active + inactive)
       if (filterOwner) qs.set('bundle_owner', filterOwner);
       if (filterIsFeatured) qs.set('is_featured', filterIsFeatured);
     }
@@ -869,32 +867,23 @@ export default function BundlesPage() {
           {activeTab === 'pricing' && (
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
-                {/* Phase 44.7 Bug 2 — price must be ≤ original_price (MRP).
-                    Discount % is derived from the two prices via useEffect
-                    above, so we render it read-only with an "auto" hint. */}
+                {/* Price = Original Price × (1 − Discount/100). Original Price and
+                    Discount % are editable; Price is the read-only auto field. */}
                 <Input
-                  label="Price *"
+                  label="Price"
                   type="number"
                   step="0.01"
                   placeholder="0.00"
-                  error={errors.price?.message as string | undefined}
-                  {...register('price', {
-                    valueAsNumber: false,
-                    validate: (v) => {
-                      const p = Number(v);
-                      if (Number.isNaN(p) || p < 0) return 'Price must be a non-negative number';
-                      const op = Number(getValues('original_price')) || 0;
-                      if (op > 0 && p > op) return 'Price must be ≤ Original Price';
-                      return true;
-                    },
-                  })}
+                  readOnly
+                  hint="auto-calculated"
+                  {...register('price')}
                 />
                 <Input
-                  label="Original Price"
+                  label="Original Price *"
                   type="number"
                   step="0.01"
                   placeholder="0.00"
-                  hint="MRP — must be ≥ Price"
+                  hint="MRP"
                   {...register('original_price')}
                 />
                 <Input
@@ -902,9 +891,14 @@ export default function BundlesPage() {
                   type="number"
                   step="0.01"
                   placeholder="0"
-                  readOnly
-                  hint="auto-calculated"
-                  {...register('discount_percentage')}
+                  error={errors.discount_percentage?.message as string | undefined}
+                  {...register('discount_percentage', {
+                    validate: (v) => {
+                      const d = Number(v);
+                      if (Number.isNaN(d) || d < 0 || d > 100) return 'Discount must be between 0 and 100';
+                      return true;
+                    },
+                  })}
                 />
               </div>
               <Input label="Validity (days)" type="number" placeholder="365" {...register('validity_days')} />
@@ -957,7 +951,18 @@ export default function BundlesPage() {
               <Input label="Max Courses" type="number" placeholder="10" {...register('max_courses')} />
               <div className="grid grid-cols-2 gap-3">
                 <Input label="Starts At" type="date" {...register('starts_at')} />
-                <Input label="Expires At" type="date" {...register('expires_at')} />
+                <Input
+                  label="Expires At"
+                  type="date"
+                  error={errors.expires_at?.message as string | undefined}
+                  {...register('expires_at', {
+                    validate: (v) => {
+                      const sa = getValues('starts_at');
+                      if (v && sa && new Date(v as string) < new Date(sa as string)) return 'Expires At must be on or after Starts At';
+                      return true;
+                    },
+                  })}
+                />
               </div>
             </div>
           )}
