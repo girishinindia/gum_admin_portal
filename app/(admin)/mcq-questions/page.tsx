@@ -33,14 +33,14 @@ interface CoverageItem {
 }
 
 const MCQ_TYPE_OPTIONS = [
-  { value: 'single_choice', label: 'Single Choice' },
-  { value: 'multiple_choice', label: 'Multiple Choice' },
+  { value: 'single', label: 'Single Choice' },
+  { value: 'multiple', label: 'Multiple Choice' },
   { value: 'true_false', label: 'True / False' },
 ];
 
 const MCQ_TYPE_COLORS: Record<string, string> = {
-  single_choice: 'bg-blue-50 text-blue-700',
-  multiple_choice: 'bg-violet-50 text-violet-700',
+  single: 'bg-blue-50 text-blue-700',
+  multiple: 'bg-violet-50 text-violet-700',
   true_false: 'bg-teal-50 text-teal-700',
 };
 

@@ -59,7 +59,7 @@ interface LangTab {
   code: string;
 }
 
-type SortField = 'display_order' | 'difficulty_level' | 'points' | 'is_active';
+type SortField = 'id' | 'display_order' | 'difficulty_level' | 'points' | 'is_active';
 
 export default function ExercisesPage() {
   // ── Cascade filter state ──
@@ -942,8 +942,8 @@ export default function ExercisesPage() {
                   <TR className="hover:bg-transparent">
                     <TH className="w-10"><input type="checkbox" checked={exercises.length > 0 && selectedIds.size === exercises.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TH>
                     <TH className="w-12">
-                      <button onClick={() => handleSort('display_order')} className="inline-flex items-center gap-1 hover:text-slate-900 cursor-pointer">
-                        # <SortIcon field="display_order" />
+                      <button onClick={() => handleSort('id')} className="inline-flex items-center gap-1 hover:text-slate-900 cursor-pointer">
+                        # <SortIcon field="id" />
                       </button>
                     </TH>
                     <TH>Title</TH>
@@ -969,12 +969,12 @@ export default function ExercisesPage() {
                   </TR>
                 </THead>
                 <TBody>
-                  {exercises.map((ex, idx) => {
+                  {exercises.map((ex) => {
                     const cov = coverageMap[ex.id];
                     return (
                       <TR key={ex.id} className={cn(showTrash ? 'bg-amber-50/30' : undefined, selectedIds.has(ex.id) && 'bg-brand-50/40')}>
                         <TD className="py-2.5"><input type="checkbox" checked={selectedIds.has(ex.id)} onChange={() => toggleSelect(ex.id)} className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" /></TD>
-                        <TD className="py-2.5 text-slate-500">{(page - 1) * pageSize + idx + 1}</TD>
+                        <TD className="py-2.5 text-slate-500">{ex.id}</TD>
                         <TD className={cn('py-2.5 max-w-xs truncate', showTrash && 'text-slate-400 line-through')} title={ex.english_title || ex.title || ex.slug}>
                           {ex.english_title || ex.title || ex.slug || '---'}
                         </TD>
