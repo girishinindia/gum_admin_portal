@@ -741,12 +741,24 @@ function ChatInvitesTab() {
           <div className="p-6 grid grid-cols-2 gap-4">
             <DetailRow label="Room" value={viewing.chat_rooms?.name} />
             <DetailRow label="Type" value={viewing.invite_type} />
-            <DetailRow label="Token" value={viewing.invite_token} />
             <DetailRow label="Status" value={viewing.status} />
             <DetailRow label="Uses" value={`${viewing.use_count}${viewing.max_uses ? ` / ${viewing.max_uses}` : ''}`} />
             <DetailRow label="Expires" value={viewing.expires_at ? new Date(viewing.expires_at).toLocaleString() : 'Never'} />
             <DetailRow label="Created By" value={viewing.users ? `${viewing.users.first_name} ${viewing.users.last_name}` : null} />
             <DetailRow label="Created" value={viewing.created_at ? new Date(viewing.created_at).toLocaleString() : null} />
+            <div className="col-span-2 min-w-0">
+              <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">Token</dt>
+              <dd className="mt-1 text-sm text-slate-900 font-mono break-all">{viewing.invite_token}</dd>
+            </div>
+            {(() => { const url = viewing.invite_url || (viewing.invite_token ? `/chat/join/${viewing.invite_token}` : ''); return url ? (
+              <div className="col-span-2 min-w-0">
+                <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">Invite Link</dt>
+                <dd className="mt-1 flex items-start gap-2">
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-600 hover:underline break-all min-w-0">{url}</a>
+                  <button type="button" onClick={() => { navigator.clipboard.writeText(url).then(() => toast.success('Invite link copied')); }} className="shrink-0 p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Copy link"><Copy className="w-3.5 h-3.5" /></button>
+                </dd>
+              </div>
+            ) : null; })()}
           </div>
         )}
       </Dialog>
