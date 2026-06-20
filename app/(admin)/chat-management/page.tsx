@@ -312,6 +312,8 @@ function SimpleCrudTab({ entityLabel, summaryTable, apiList, apiGet, apiCreate, 
     imageMaxHeight?: number;
     /** When type='select', loads dropdown options (rows mapped to {value:id,label:name}). */
     optionsLoader?: () => Promise<any>;
+    /** When type='select', a static list of string options sent as-is (no parseInt). */
+    staticOptions?: { value: string; label: string }[];
   }[];
   filterFields?: { key: string; label: string; options: { value: string; label: string }[] }[];
 }) {
@@ -390,7 +392,7 @@ function SimpleCrudTab({ entityLabel, summaryTable, apiList, apiGet, apiCreate, 
           const v = data[f.key];
           if (f.type === 'checkbox')      fd.append(f.key, String(!!v));
           else if (f.type === 'image')    { /* file is appended below */ }
-          else if (v !== '' && v !== undefined && v !== null) fd.append(f.key, (f.type === 'number' || f.type === 'select') ? String(parseInt(v)) : v);
+          else if (v !== '' && v !== undefined && v !== null) fd.append(f.key, (f.type === 'number' || (f.type === 'select' && !f.staticOptions)) ? String(parseInt(v)) : v);
         });
         for (const [fieldName, file] of Object.entries(imageFiles)) {
           if (file) fd.append(fieldName, file, file.name);
@@ -403,7 +405,7 @@ function SimpleCrudTab({ entityLabel, summaryTable, apiList, apiGet, apiCreate, 
       const payload: any = {};
       fields.forEach((f) => {
         if (f.type === 'image') return;   // skip — only sent via FormData
-        if (data[f.key] !== '' && data[f.key] !== undefined) payload[f.key] = (f.type === 'number' || f.type === 'select') ? parseInt(data[f.key]) : data[f.key];
+        if (data[f.key] !== '' && data[f.key] !== undefined) payload[f.key] = (f.type === 'number' || (f.type === 'select' && !f.staticOptions)) ? parseInt(data[f.key]) : data[f.key];
       });
       const res = editing ? await apiUpdate(editing.id, payload) : await apiCreate(payload);
       if (res.success) { toast.success(editing ? `${entityLabel} updated` : `${entityLabel} created`); setDialogOpen(false); load(); refreshSummary(); } else toast.error(res.error);
@@ -552,7 +554,7 @@ function SimpleCrudTab({ entityLabel, summaryTable, apiList, apiGet, apiCreate, 
               ) : f.type === 'select' ? (
                 <select {...register(f.key, { required: f.required })} className={cn(selectClass, 'w-full')}>
                   <option value="">Select {f.label.toLowerCase()}...</option>
-                  {(selectOptions[f.key] || []).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  {(selectOptions[f.key] || f.staticOptions || []).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               ) : (
                 <Input {...register(f.key, { required: f.required })} type={f.type || 'text'} placeholder={f.label} />
@@ -1083,7 +1085,7 @@ export default function ChatManagementPage() {
             { key: 'title', label: 'Title', required: true },
             { key: 'shortcut', label: 'Shortcut' },
             { key: 'content', label: 'Content', required: true },
-            { key: 'scope', label: 'Scope' },
+            { key: 'scope', label: 'Scope', type: 'select', required: true, staticOptions: [{ value: 'personal', label: 'Personal' }, { value: 'global', label: 'Global' }] },
             { key: 'display_order', label: 'Order', type: 'number' },
           ]}
         />
