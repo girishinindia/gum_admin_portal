@@ -12,6 +12,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { DataToolbar, type DataToolbarHandle } from '@/components/ui/DataToolbar';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import {
@@ -125,6 +126,14 @@ export default function InstructorPayoutsPage() {
   const [reqCreateOpen, setReqCreateOpen] = useState(false);
   const [reqCreating, setReqCreating] = useState(false);
   const { register: regReqCreate, handleSubmit: handleReqCreate, reset: resetReqCreate } = useForm();
+  // Instructor picker source for the create form (searchable dropdown).
+  const [instructors, setInstructors] = useState<any[]>([]);
+  const [reqCreateInstructorId, setReqCreateInstructorId] = useState('');
+  useEffect(() => {
+    api.listUsers('?type=instructor&limit=500&sort=first_name&order=asc')
+      .then((r: any) => setInstructors(r?.data || []))
+      .catch(() => setInstructors([]));
+  }, []);
 
   // Edit
   const [reqEditOpen, setReqEditOpen] = useState(false);
@@ -327,14 +336,16 @@ export default function InstructorPayoutsPage() {
   }
 
   function openReqCreate() {
-    resetReqCreate({ instructor_id: '', requested_amount: '', payment_method: 'bank_transfer', bank_details: '', notes: '' });
+    resetReqCreate({ requested_amount: '', payment_method: 'bank_transfer', bank_details: '', notes: '' });
+    setReqCreateInstructorId('');
     setReqCreateOpen(true);
   }
 
   async function onReqCreate(formData: any) {
+    if (!reqCreateInstructorId) { toast.error('Please select an instructor'); return; }
     setReqCreating(true);
     try {
-      const payload: any = { ...formData, requested_amount: parseFloat(formData.requested_amount) };
+      const payload: any = { ...formData, instructor_id: Number(reqCreateInstructorId), requested_amount: parseFloat(formData.requested_amount) };
       if (formData.bank_details) payload.bank_details = JSON.parse(formData.bank_details);
       await api.createPayoutRequest(payload);
       toast.success('Payout request created');
@@ -996,8 +1007,17 @@ export default function InstructorPayoutsPage() {
       <Dialog open={reqCreateOpen} onClose={() => setReqCreateOpen(false)} title="Create Payout Request" size="md">
         <form onSubmit={handleReqCreate(onReqCreate)} className="p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Instructor ID *</label>
-            <Input placeholder="Enter instructor user ID" {...regReqCreate('instructor_id', { required: true })} />
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Instructor *</label>
+            <SearchableSelect
+              options={instructors.map((u: any) => ({
+                value: String(u.id),
+                label: `${[u.first_name, u.last_name].filter(Boolean).join(' ') || u.full_name || 'Instructor'} — ${u.email || u.mobile || `#${u.id}`}`,
+              }))}
+              value={reqCreateInstructorId}
+              onChange={setReqCreateInstructorId}
+              placeholder="Select instructor"
+              searchPlaceholder="Search name or email…"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Requested Amount *</label>
