@@ -47,7 +47,7 @@ export default function LearningGoalsPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const [aiOpen, setAiOpen] = useState(false);
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -479,7 +479,7 @@ export default function LearningGoalsPage() {
               </button>
             </div>
           )}
-          <Input label="Name" placeholder="Career advancement, Skill mastery..." {...register('name', { required: true })} />
+          <Input label="Name" placeholder="Career advancement, Skill mastery..." error={errors.name ? 'Name is required' : undefined} {...register('name', { required: true })} />
           <Input label="Display Order" type="number" {...register('display_order')} />
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>

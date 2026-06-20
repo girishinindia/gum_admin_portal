@@ -92,7 +92,7 @@ export default function CategoriesPage() {
   const toolbarRef = useRef<DataToolbarHandle>(null);
   const router = useRouter();
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
   const [slugManual, setSlugManual] = useState(false);
   const watchedCode = watch('code');
 
@@ -252,6 +252,7 @@ export default function CategoriesPage() {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
     });
     if (imageFile) fd.append('image', imageFile, imageFile.name);
+    else if (imagePreview === '__removed__') fd.append('image', '');
 
     const res = editing
       ? await api.updateCategory(editing.id, fd, true)
@@ -838,9 +839,9 @@ export default function CategoriesPage() {
 
           <ImageUpload key={dialogKey} label="Category Image" hint="Resized to 400x400px WebP"
             value={editing?.image} aspectRatio={1} maxWidth={400} maxHeight={400} shape="rounded"
-            onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }} />
+            onChange={(file, preview) => { setImageFile(file); setImagePreview(file ? preview : '__removed__'); }} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Code" placeholder="programming" {...register('code', { required: true })} />
+            <Input label="Code" placeholder="programming" error={errors.code ? 'Code is required' : undefined} {...register('code', { required: true })} />
             <Input label="Slug" placeholder="programming" {...register('slug', { required: true, onChange: () => setSlugManual(true) })} />
           </div>
           <div className="grid grid-cols-2 gap-3">

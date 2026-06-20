@@ -64,7 +64,7 @@ export default function DesignationsPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [aiOpen, setAiOpen] = useState(false);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -509,7 +509,7 @@ export default function DesignationsPage() {
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Name" placeholder="Senior Developer" {...register('name', { required: true })} />
+            <Input label="Name" placeholder="Senior Developer" error={errors.name ? 'Name is required' : undefined} {...register('name', { required: true })} />
             <Input label="Code" placeholder="SR-DEV" {...register('code')} />
           </div>
           <div className="grid grid-cols-2 gap-3">

@@ -50,6 +50,7 @@ export default function ActivityLogsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [filter, setFilter] = useState('');
+  const [actions, setActions] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [searchDebounce, setSearchDebounce] = useState('');
   const [viewing, setViewing] = useState<any | null>(null);
@@ -82,7 +83,8 @@ export default function ActivityLogsPage() {
     });
   }, []);
 
-  useEffect(() => { load(); }, [type, page, pageSize, searchDebounce]);
+  useEffect(() => { load(); }, [type, page, pageSize, searchDebounce, filter]);
+  useEffect(() => { api.logActions(type).then((r: any) => setActions(r?.data || [])).catch(() => setActions([])); }, [type]);
   useEffect(() => { setPage(1); }, [searchDebounce, filter, pageSize]);
 
   async function load() {
@@ -160,13 +162,14 @@ export default function ActivityLogsPage() {
       <DataToolbar ref={toolbarRef} search={search} onSearchChange={setSearch} searchPlaceholder="Search logs...">
         <div className="relative flex-1 max-w-md">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
+          <select
             value={filter}
-            onChange={e => setFilter(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (setPage(1), load())}
-            placeholder="Filter by action (e.g. login_success)"
-            className="w-full h-10 pl-10 pr-3 text-sm rounded-lg border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none bg-white"
-          />
+            onChange={e => { setFilter(e.target.value); setPage(1); }}
+            className="w-full h-10 pl-10 pr-8 text-sm rounded-lg border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none bg-white appearance-none"
+          >
+            <option value="">All actions</option>
+            {actions.map(a => <option key={a} value={a}>{formatActionLabel(a)}</option>)}
+          </select>
         </div>
         <Button variant="outline" onClick={() => { setPage(1); load(); }}>Apply</Button>
         {filter && <Button variant="ghost" onClick={() => { setFilter(''); setPage(1); setTimeout(load, 0); }}>Clear</Button>}

@@ -48,7 +48,7 @@ export default function DocumentTypesPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [aiOpen, setAiOpen] = useState(false);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -565,7 +565,7 @@ export default function DocumentTypesPage() {
             </div>
           )}
 
-          <Input label="Name" placeholder="Certificate, ID Card, Transcript..." {...register('name', { required: true })} />
+          <Input label="Name" placeholder="Certificate, ID Card, Transcript..." error={errors.name ? 'Name is required' : undefined} {...register('name', { required: true })} />
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
             <textarea

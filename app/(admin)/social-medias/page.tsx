@@ -69,7 +69,7 @@ export default function SocialMediasPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const [aiOpen, setAiOpen] = useState(false);
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -153,6 +153,7 @@ export default function SocialMediasPage() {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
     });
     if (imageFile) fd.append('icon', imageFile, imageFile.name);
+    else if (imagePreview === '__removed__') fd.append('icon', '');
 
     const res = editing
       ? await api.updateSocialMedia(editing.id, fd, true)
@@ -547,10 +548,10 @@ export default function SocialMediasPage() {
 
           <ImageUpload key={dialogKey} label="Platform Icon" hint="Square icon, resized to 200x200px WebP"
             value={editing?.icon} aspectRatio={1} maxWidth={400} maxHeight={400} shape="rounded"
-            onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }} />
+            onChange={(file, preview) => { setImageFile(file); setImagePreview(file ? preview : '__removed__'); }} />
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Name" placeholder="LinkedIn" {...register('name', { required: true })} />
+            <Input label="Name" placeholder="LinkedIn" error={errors.name ? 'Name is required' : undefined} {...register('name', { required: true })} />
             <Input label="Code" placeholder="linkedin" {...register('code', { required: true })} />
           </div>
           <div>

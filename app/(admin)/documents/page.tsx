@@ -56,7 +56,7 @@ export default function DocumentsPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [aiOpen, setAiOpen] = useState(false);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -179,6 +179,8 @@ export default function DocumentsPage() {
     });
     if (imageFile) {
       fd.append('file', imageFile, imageFile.name);
+    } else if (imagePreview === '__removed__') {
+      fd.append('file', '');
     }
 
     const res = editing
@@ -700,10 +702,10 @@ export default function DocumentsPage() {
             maxWidth={800}
             maxHeight={800}
             shape="rounded"
-            onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }}
+            onChange={(file, preview) => { setImageFile(file); setImagePreview(file ? preview : '__removed__'); }}
           />
 
-          <Input label="Name" placeholder="Document name..." {...register('name', { required: true })} />
+          <Input label="Name" placeholder="Document name..." error={errors.name ? 'Name is required' : undefined} {...register('name', { required: true })} />
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Document Type</label>

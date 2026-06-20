@@ -62,7 +62,7 @@ export default function CitiesPage() {
   const [formCountry, setFormCountry] = useState<number | ''>('');
   const [formStates, setFormStates] = useState<State[]>([]);
 
-  const { register, handleSubmit, reset, setValue } = useForm();
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -737,7 +737,7 @@ export default function CitiesPage() {
             </select>
           </div>
 
-          <Input label="City Name" placeholder="Surat" {...register('name', { required: true })} />
+          <Input label="City Name" placeholder="Surat" error={errors.name ? 'City name is required' : undefined} {...register('name', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Phone Code" placeholder="0261" {...register('phonecode')} />
             <Input label="Timezone" placeholder="Asia/Kolkata" {...register('timezone')} />

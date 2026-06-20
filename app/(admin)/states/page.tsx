@@ -52,7 +52,7 @@ export default function StatesPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [aiOpen, setAiOpen] = useState(false);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -636,7 +636,7 @@ export default function StatesPage() {
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="State Name" placeholder="Gujarat" {...register('name', { required: true })} />
+            <Input label="State Name" placeholder="Gujarat" error={errors.name ? 'State name is required' : undefined} {...register('name', { required: true })} />
             <Input label="State Code" placeholder="GJ" maxLength={10} {...register('state_code')} />
           </div>
           <div className="flex justify-end gap-2 pt-2">

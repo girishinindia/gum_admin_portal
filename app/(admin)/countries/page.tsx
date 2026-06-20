@@ -58,7 +58,7 @@ export default function CountriesPage() {
   const [summary, setSummary] = useState<{ is_active: number; is_inactive: number; is_deleted: number; total: number; updated_at: string } | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -176,6 +176,7 @@ export default function CountriesPage() {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
     });
     if (imageFile) fd.append('flag_image', imageFile, imageFile.name);
+    else if (imagePreview === '__removed__') fd.append('flag_image', '');
 
     const res = editing
       ? await api.updateCountry(editing.id, fd, true)
@@ -710,11 +711,11 @@ export default function CountriesPage() {
             maxWidth={800}
             maxHeight={600}
             shape="rounded"
-            onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }}
+            onChange={(file, preview) => { setImageFile(file); setImagePreview(file ? preview : '__removed__'); }}
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Name" placeholder="United States" {...register('name', { required: true })} />
+            <Input label="Name" placeholder="United States" error={errors.name ? 'Name is required' : undefined} {...register('name', { required: true })} />
             <Input label="Nationality" placeholder="American" {...register('nationality')} />
           </div>
           <div className="grid grid-cols-3 gap-3">

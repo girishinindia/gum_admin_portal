@@ -96,7 +96,7 @@ export default function SubCategoriesPage() {
   const [fillAllResults, setFillAllResults] = useState<{ name: string; status: 'success' | 'error'; error?: string }[]>([]);
   const [fillAllDone, setFillAllDone] = useState(false);
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
   const [slugManual, setSlugManual] = useState(false);
   const watchedCode = watch('code');
 
@@ -1033,7 +1033,7 @@ export default function SubCategoriesPage() {
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Code" placeholder="react" {...register('code', { required: true })} />
+            <Input label="Code" placeholder="react" error={errors.code ? 'Code is required' : undefined} {...register('code', { required: true })} />
             <Input label="Slug" placeholder="react" {...register('slug', { required: true, onChange: () => setSlugManual(true) })} />
           </div>
           <div className="grid grid-cols-2 gap-3">

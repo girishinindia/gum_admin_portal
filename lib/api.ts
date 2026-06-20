@@ -1198,6 +1198,7 @@ export const api = {
   adminLogs: (qs = '') => request(`/activity-logs/admin${qs}`),
   dataLogs: (qs = '') => request(`/activity-logs/data${qs}`),
   systemLogs: (qs = '') => request(`/activity-logs/system${qs}`),
+  logActions: (type: string) => request(`/activity-logs/${type}/actions`),
 
   // Profile updates (logged-in user)
   changePasswordInitiate: (data: any) => request('/profile/change-password/initiate', { method: 'POST', body: JSON.stringify(data) }),

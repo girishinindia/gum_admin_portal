@@ -69,7 +69,7 @@ export default function SpecializationsPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const [aiOpen, setAiOpen] = useState(false);
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -536,7 +536,7 @@ export default function SpecializationsPage() {
               </button>
             </div>
           )}
-          <Input label="Name" placeholder="Web Development, Data Science..." {...register('name', { required: true })} />
+          <Input label="Name" placeholder="Web Development, Data Science..." error={errors.name ? 'Name is required' : undefined} {...register('name', { required: true })} />
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
             <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500" {...register('category', { required: true })}>

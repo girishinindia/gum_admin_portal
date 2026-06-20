@@ -112,7 +112,7 @@ export default function SubjectsPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
   const [slugManual, setSlugManual] = useState(false);
   const watchedCode = watch('code');
 
@@ -952,7 +952,7 @@ Web Development
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Code" placeholder="mathematics" {...register('code', { required: true })} />
+            <Input label="Code" placeholder="mathematics" error={errors.code ? 'Code is required' : undefined} {...register('code', { required: true })} />
             <Input label="Slug" placeholder="mathematics" {...register('slug', { required: true, onChange: () => setSlugManual(true) })} />
           </div>
           <div className="grid grid-cols-2 gap-3">

@@ -20,7 +20,7 @@ import {
   Loader2, X, Wallet, ArrowDownCircle, ArrowUpCircle, Snowflake,
   Sun, CreditCard, History, Search,
 } from 'lucide-react';
-import { cn, fromNow } from '@/lib/utils';
+import { cn, fromNow, formatDate } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePageSize } from '@/hooks/usePageSize';
 
@@ -997,7 +997,7 @@ function TransactionsTab() {
                       {capitalize(tx.status || '')}
                     </span>
                   </TD>
-                  <TD className="py-2.5"><span className="text-xs text-slate-600">{tx.created_at ? fromNow(tx.created_at) : '--'}</span></TD>
+                  <TD className="py-2.5"><span className="text-xs text-slate-600">{tx.created_at ? formatDate(tx.created_at, 'MMM D, YYYY') : '--'}</span></TD>
                   {showTrash && <TD className="py-2.5"><span className="text-xs text-amber-600">{tx.deleted_at ? fromNow(tx.deleted_at) : '--'}</span></TD>}
                   <TD className="py-2.5">
                     <div className="flex items-center justify-end gap-1">

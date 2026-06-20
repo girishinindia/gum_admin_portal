@@ -50,7 +50,7 @@ export default function LanguagesPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const [aiOpen, setAiOpen] = useState(false);
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -698,7 +698,7 @@ export default function LanguagesPage() {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Name" placeholder="English" {...register('name', { required: true })} />
+            <Input label="Name" placeholder="English" error={errors.name ? 'Name is required' : undefined} {...register('name', { required: true })} />
             <Input label="Native Name" placeholder="English" {...register('native_name')} />
           </div>
           <div className="grid grid-cols-2 gap-3">

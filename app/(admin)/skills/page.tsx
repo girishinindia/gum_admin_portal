@@ -77,7 +77,7 @@ export default function SkillsPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const [aiOpen, setAiOpen] = useState(false);
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
 
   const toolbarRef = useRef<DataToolbarHandle>(null);
@@ -187,6 +187,8 @@ export default function SkillsPage() {
     });
     if (imageFile) {
       fd.append('icon', imageFile, imageFile.name);
+    } else if (imagePreview === '__removed__') {
+      fd.append('icon', '');
     }
 
     const res = editing
@@ -684,10 +686,10 @@ export default function SkillsPage() {
             maxWidth={400}
             maxHeight={400}
             shape="rounded"
-            onChange={(file, preview) => { setImageFile(file); setImagePreview(preview); }}
+            onChange={(file, preview) => { setImageFile(file); setImagePreview(file ? preview : '__removed__'); }}
           />
 
-          <Input label="Name" placeholder="React, Python, AWS..." {...register('name', { required: true })} />
+          <Input label="Name" placeholder="React, Python, AWS..." error={errors.name ? 'Name is required' : undefined} {...register('name', { required: true })} />
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
