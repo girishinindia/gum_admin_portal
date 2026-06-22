@@ -798,8 +798,7 @@ function RoomMembersDialog({ room, onClose }: { room: any | null; onClose: () =>
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [newUserId, setNewUserId] = useState('');
-  const [bulkIds, setBulkIds] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
 
@@ -820,27 +819,25 @@ function RoomMembersDialog({ room, onClose }: { room: any | null; onClose: () =>
     setLoading(false);
   }, [room]);
 
-  useEffect(() => { if (room) { setNewUserId(''); setBulkIds(''); load(); } }, [room, load]);
+  useEffect(() => { if (room) { setSelectedIds([]); load(); } }, [room, load]);
 
   function memberName(m: any) {
     return m.users ? `${m.users.first_name ?? ''} ${m.users.last_name ?? ''}`.trim() || `User #${m.user_id}` : `User #${m.user_id}`;
   }
 
-  async function addOne() {
-    const uid = parseInt(newUserId);
-    if (!uid) { toast.error('Enter a valid user ID'); return; }
-    setAdding(true);
-    const res = await api.addChatMember({ room_id: room.id, user_id: uid, role: 'member' });
-    setAdding(false);
-    if (res.success) { toast.success('Member added'); setNewUserId(''); load(); } else toast.error(res.error);
+  function addToSelection(v: string) {
+    if (!v) return;
+    setSelectedIds((s) => (s.includes(v) ? s : [...s, v]));
   }
-  async function addBulk() {
-    const ids = bulkIds.split(/[\s,]+/).map((s) => parseInt(s)).filter((n) => !isNaN(n));
-    if (ids.length === 0) { toast.error('Enter one or more user IDs'); return; }
+  async function addSelected() {
+    const ids = selectedIds.map((s) => parseInt(s)).filter((n) => !isNaN(n));
+    if (ids.length === 0) { toast.error('Select one or more members to add'); return; }
     setAdding(true);
-    const res = await api.bulkAddChatMembers({ room_id: room.id, user_ids: ids });
+    const res = ids.length === 1
+      ? await api.addChatMember({ room_id: room.id, user_id: ids[0], role: 'member' })
+      : await api.bulkAddChatMembers({ room_id: room.id, user_ids: ids });
     setAdding(false);
-    if (res.success) { toast.success(`Added ${ids.length} member(s)`); setBulkIds(''); load(); } else toast.error(res.error);
+    if (res.success) { toast.success(`Added ${ids.length} member${ids.length === 1 ? '' : 's'}`); setSelectedIds([]); load(); } else toast.error(res.error);
   }
   async function toggleMute(m: any) {
     setBusyId(m.id);
@@ -862,23 +859,47 @@ function RoomMembersDialog({ room, onClose }: { room: any | null; onClose: () =>
     setBusyId(null);
   }
 
+  // Exclude people already in the room and already picked from the searchable list.
+  const memberUserIds = new Set(members.map((m: any) => String(m.user_id)));
+  const addableOptions = userOptions.filter((o) => !memberUserIds.has(String(o.value)) && !selectedIds.includes(String(o.value)));
+
   return (
     <Dialog open={!!room} onClose={onClose} title={room ? `Members · ${room.name}` : 'Members'} size="lg">
       {room && (
         <div className="p-6 space-y-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[240px]">
-              <label className="text-xs font-medium text-slate-500">Add member</label>
-              <div className="flex gap-2 mt-1">
-                <div className="flex-1"><SearchableSelect options={userOptions} value={newUserId} onChange={(v) => setNewUserId(v)} placeholder="Search by name or email…" /></div>
-                <Button size="sm" onClick={addOne} disabled={adding}><Plus className="w-4 h-4" /></Button>
-              </div>
-            </div>
-            <div className="flex-1 min-w-[220px]">
-              <label className="text-xs font-medium text-slate-500">Bulk add (comma / space-separated IDs)</label>
-              <div className="flex gap-2 mt-1">
-                <Input value={bulkIds} onChange={(e: any) => setBulkIds(e.target.value)} placeholder="42, 43, 44" />
-                <Button size="sm" variant="ghost" onClick={addBulk} disabled={adding}>Bulk Add</Button>
+          <div>
+            <label className="text-xs font-medium text-slate-500">Add members</label>
+            <p className="text-[11px] text-slate-400 mt-0.5">Search by name or email and select one or more people, then click Add.</p>
+            <div className="mt-1.5 space-y-2">
+              <SearchableSelect
+                options={addableOptions}
+                value=""
+                onChange={addToSelection}
+                placeholder="Search by name or email…"
+                searchPlaceholder="Search by name or email…"
+              />
+              {selectedIds.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedIds.map((id) => {
+                    const u = users.find((x: any) => String(x.id) === id);
+                    const lbl = u ? ([u.first_name, u.last_name].filter(Boolean).join(' ') || `User #${id}`) : `User #${id}`;
+                    return (
+                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-700 text-xs font-medium pl-2.5 pr-1 py-1">
+                        {lbl}
+                        <button type="button" onClick={() => setSelectedIds((s) => s.filter((x) => x !== id))} className="p-0.5 rounded-full hover:bg-brand-100" title="Remove"><X className="w-3 h-3" /></button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <Button size="sm" onClick={addSelected} disabled={adding || selectedIds.length === 0}>
+                  {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  <span className="ml-1">Add{selectedIds.length > 0 ? ` ${selectedIds.length}` : ''} member{selectedIds.length === 1 ? '' : 's'}</span>
+                </Button>
+                {selectedIds.length > 0 && (
+                  <button type="button" onClick={() => setSelectedIds([])} className="text-xs text-slate-500 hover:text-slate-700">Clear selection</button>
+                )}
               </div>
             </div>
           </div>

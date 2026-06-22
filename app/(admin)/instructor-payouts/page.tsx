@@ -343,9 +343,11 @@ export default function InstructorPayoutsPage() {
 
   async function onReqCreate(formData: any) {
     if (!reqCreateInstructorId) { toast.error('Please select an instructor'); return; }
+    const amount = parseFloat(formData.requested_amount);
+    if (!(amount > 0)) { toast.error('Requested amount must be greater than 0'); return; }
     setReqCreating(true);
     try {
-      const payload: any = { ...formData, instructor_id: Number(reqCreateInstructorId), requested_amount: parseFloat(formData.requested_amount) };
+      const payload: any = { ...formData, instructor_id: Number(reqCreateInstructorId), requested_amount: amount };
       if (formData.bank_details) payload.bank_details = JSON.parse(formData.bank_details);
       await api.createPayoutRequest(payload);
       toast.success('Payout request created');
@@ -1021,7 +1023,7 @@ export default function InstructorPayoutsPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Requested Amount *</label>
-            <Input type="number" step="0.01" placeholder="0.00" {...regReqCreate('requested_amount', { required: true })} />
+            <Input type="number" step="0.01" min="0.01" placeholder="0.00" {...regReqCreate('requested_amount', { required: true, min: { value: 0.01, message: 'Amount must be greater than 0' } })} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Payment Method</label>
