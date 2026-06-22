@@ -378,6 +378,15 @@ export const api = {
   restoreSocialMedia: (id: number) => request(`/social-medias/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteSocialMedia: (id: number) => request(`/social-medias/${id}/permanent`, { method: 'DELETE' }),
 
+  // Team Members (public "Our Team" page)
+  listTeamMembers: (qs = '') => request(`/team-members${qs}`, { auth: false }),
+  getTeamMember: (id: number) => request(`/team-members/${id}`, { auth: false }),
+  createTeamMember: (data: any, isFormData = false) => request('/team-members', { method: 'POST', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  updateTeamMember: (id: number, data: any, isFormData = false) => request(`/team-members/${id}`, { method: 'PATCH', body: isFormData ? data as any : JSON.stringify(data), isFormData }),
+  deleteTeamMember: (id: number) => request(`/team-members/${id}`, { method: 'DELETE' }),
+  restoreTeamMember: (id: number) => request(`/team-members/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteTeamMember: (id: number) => request(`/team-members/${id}/permanent`, { method: 'DELETE' }),
+
   // Categories
   listCategories: (qs = '') => request(`/categories${qs}`, { auth: false }),
   getCategory: (id: number) => request(`/categories/${id}`, { auth: false }),

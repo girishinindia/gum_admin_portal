@@ -538,6 +538,7 @@ const navGroups: NavGroup[] = [
     iconColor: 'text-slate-600',
     items: [
       { href: '/section-visibility', label: 'Section Visibility', icon: Eye, iconColor: 'text-sky-500', superAdminOnly: true },
+      { href: '/team-members', label: 'Team Members', icon: Users, iconColor: 'text-emerald-500' },
     ],
   },
 ];
