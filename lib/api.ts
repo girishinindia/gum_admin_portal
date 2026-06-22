@@ -403,6 +403,17 @@ export const api = {
   deleteJobApplication: (id: number) => request(`/job-applications/${id}`, { method: 'DELETE' }),
   restoreJobApplication: (id: number) => request(`/job-applications/${id}/restore`, { method: 'PATCH' }),
 
+  // Contact Enquiries
+  listContactEnquiries: (qs = '') => request(`/contact-enquiries${qs}`),
+  getContactEnquiry: (id: number) => request(`/contact-enquiries/${id}`),
+  updateContactEnquiry: (id: number, data: any) => request(`/contact-enquiries/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteContactEnquiry: (id: number) => request(`/contact-enquiries/${id}`, { method: 'DELETE' }),
+  restoreContactEnquiry: (id: number) => request(`/contact-enquiries/${id}/restore`, { method: 'PATCH' }),
+
+  // About Page (single editable record)
+  getAboutPage: () => request('/about-page'),
+  updateAboutPage: (data: any) => request('/about-page', { method: 'PUT', body: JSON.stringify(data) }),
+
   // Categories
   listCategories: (qs = '') => request(`/categories${qs}`, { auth: false }),
   getCategory: (id: number) => request(`/categories/${id}`, { auth: false }),

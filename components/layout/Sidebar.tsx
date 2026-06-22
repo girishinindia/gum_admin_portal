@@ -539,6 +539,8 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/section-visibility', label: 'Section Visibility', icon: Eye, iconColor: 'text-sky-500', superAdminOnly: true },
       { href: '/team-members', label: 'Team Members', icon: Users, iconColor: 'text-emerald-500' },
+      { href: '/contact-enquiries', label: 'Contact Enquiries', icon: Mail, iconColor: 'text-sky-500' },
+      { href: '/about-page', label: 'About Page', icon: FileText, iconColor: 'text-violet-500' },
     ],
   },
   {
