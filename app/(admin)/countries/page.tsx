@@ -194,10 +194,16 @@ export default function CountriesPage() {
   async function onSoftDelete(c: Country) {
     if (!confirm(`Move "${c.name}" to trash? You can restore it later.`)) return;
     setActionLoadingId(c.id);
-    const res = await api.deleteCountry(c.id);
-    setActionLoadingId(null);
-    if (res.success) { toast.success('Country moved to trash'); load(); refreshSummary(); }
-    else toast.error(res.error || 'Failed');
+    try {
+      const res = await api.deleteCountry(c.id);
+      if (res.success) { toast.success('Country moved to trash'); load(); refreshSummary(); }
+      else toast.error(res.error || 'Failed');
+    } catch (e: any) {
+      // e.g. 409 when the country still has states — request() throws it.
+      toast.error(e?.message || 'Failed to delete country');
+    } finally {
+      setActionLoadingId(null);
+    }
   }
 
   async function onRestore(c: Country) {
@@ -211,10 +217,16 @@ export default function CountriesPage() {
   async function onPermanentDelete(c: Country) {
     if (!confirm(`PERMANENTLY delete "${c.name}"? This cannot be undone and flag image will be removed.`)) return;
     setActionLoadingId(c.id);
-    const res = await api.permanentDeleteCountry(c.id);
-    setActionLoadingId(null);
-    if (res.success) { toast.success('Country permanently deleted'); load(); refreshSummary(); }
-    else toast.error(res.error || 'Failed');
+    try {
+      const res = await api.permanentDeleteCountry(c.id);
+      if (res.success) { toast.success('Country permanently deleted'); load(); refreshSummary(); }
+      else toast.error(res.error || 'Failed');
+    } catch (e: any) {
+      // e.g. 409 when the country still has states — request() throws it.
+      toast.error(e?.message || 'Failed to delete country');
+    } finally {
+      setActionLoadingId(null);
+    }
   }
 
   async function onToggleActive(c: Country) {
