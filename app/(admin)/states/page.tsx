@@ -180,10 +180,16 @@ export default function StatesPage() {
   async function onSoftDelete(s: State) {
     if (!confirm(`Move "${s.name}" to trash? You can restore it later.`)) return;
     setActionLoadingId(s.id);
-    const res = await api.deleteState(s.id);
-    setActionLoadingId(null);
-    if (res.success) { toast.success('State moved to trash'); load(); refreshSummary(); }
-    else toast.error(res.error || 'Failed');
+    try {
+      const res = await api.deleteState(s.id);
+      if (res.success) { toast.success('State moved to trash'); load(); refreshSummary(); }
+      else toast.error(res.error || 'Failed');
+    } catch (e: any) {
+      // e.g. 409 when the state still has cities — request() throws it.
+      toast.error(e?.message || 'Failed to delete state');
+    } finally {
+      setActionLoadingId(null);
+    }
   }
 
   async function onRestore(s: State) {
@@ -197,10 +203,16 @@ export default function StatesPage() {
   async function onPermanentDelete(s: State) {
     if (!confirm(`PERMANENTLY delete "${s.name}"? This cannot be undone.`)) return;
     setActionLoadingId(s.id);
-    const res = await api.permanentDeleteState(s.id);
-    setActionLoadingId(null);
-    if (res.success) { toast.success('State permanently deleted'); load(); refreshSummary(); }
-    else toast.error(res.error || 'Failed');
+    try {
+      const res = await api.permanentDeleteState(s.id);
+      if (res.success) { toast.success('State permanently deleted'); load(); refreshSummary(); }
+      else toast.error(res.error || 'Failed');
+    } catch (e: any) {
+      // e.g. 409 when the state still has cities — request() throws it.
+      toast.error(e?.message || 'Failed to delete state');
+    } finally {
+      setActionLoadingId(null);
+    }
   }
 
   async function onToggleActive(s: State) {
@@ -233,14 +245,21 @@ export default function StatesPage() {
     const ids = Array.from(selectedIds);
     setBulkProgress({ done: 0, total: ids.length });
     let successCount = 0;
+    let lastError = '';
     for (let i = 0; i < ids.length; i++) {
-      const res = await api.deleteState(ids[i]);
-      if (res.success) successCount++;
+      try {
+        const res = await api.deleteState(ids[i]);
+        if (res.success) successCount++; else if (res.error) lastError = res.error;
+      } catch (e: any) {
+        // e.g. 409 when a state still has cities — request() throws it.
+        lastError = e?.message || 'Failed';
+      }
       setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
-    toast.success(`${successCount} state(s) moved to trash`);
+    if (successCount > 0) toast.success(`${successCount}/${ids.length} state(s) moved to trash`);
+    if (successCount < ids.length) toast.error(lastError || `${ids.length - successCount} could not be deleted`);
     setSelectedIds(new Set());
     load();
     refreshSummary();
@@ -272,14 +291,21 @@ export default function StatesPage() {
     const ids = Array.from(selectedIds);
     setBulkProgress({ done: 0, total: ids.length });
     let successCount = 0;
+    let lastError = '';
     for (let i = 0; i < ids.length; i++) {
-      const res = await api.permanentDeleteState(ids[i]);
-      if (res.success) successCount++;
+      try {
+        const res = await api.permanentDeleteState(ids[i]);
+        if (res.success) successCount++; else if (res.error) lastError = res.error;
+      } catch (e: any) {
+        // e.g. 409 when a state still has cities — request() throws it.
+        lastError = e?.message || 'Failed';
+      }
       setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
-    toast.success(`${successCount} state(s) permanently deleted`);
+    if (successCount > 0) toast.success(`${successCount}/${ids.length} state(s) permanently deleted`);
+    if (successCount < ids.length) toast.error(lastError || `${ids.length - successCount} could not be deleted`);
     setSelectedIds(new Set());
     load();
     refreshSummary();

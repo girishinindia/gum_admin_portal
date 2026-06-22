@@ -261,14 +261,21 @@ export default function CountriesPage() {
     const ids = Array.from(selectedIds);
     setBulkProgress({ done: 0, total: ids.length });
     let success = 0;
+    let lastError = '';
     for (let i = 0; i < ids.length; i++) {
-      const res = await api.deleteCountry(ids[i]);
-      if (res.success) success++;
+      try {
+        const res = await api.deleteCountry(ids[i]);
+        if (res.success) success++; else if (res.error) lastError = res.error;
+      } catch (e: any) {
+        // e.g. 409 when a country still has states — request() throws it.
+        lastError = e?.message || 'Failed';
+      }
       setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
-    toast.success(`${success}/${selectedIds.size} countries moved to trash`);
+    if (success > 0) toast.success(`${success}/${ids.length} countries moved to trash`);
+    if (success < ids.length) toast.error(lastError || `${ids.length - success} could not be deleted`);
     setSelectedIds(new Set());
     load();
     refreshSummary();
@@ -301,14 +308,21 @@ export default function CountriesPage() {
     const ids = Array.from(selectedIds);
     setBulkProgress({ done: 0, total: ids.length });
     let success = 0;
+    let lastError = '';
     for (let i = 0; i < ids.length; i++) {
-      const res = await api.permanentDeleteCountry(ids[i]);
-      if (res.success) success++;
+      try {
+        const res = await api.permanentDeleteCountry(ids[i]);
+        if (res.success) success++; else if (res.error) lastError = res.error;
+      } catch (e: any) {
+        // e.g. 409 when a country still has states — request() throws it.
+        lastError = e?.message || 'Failed';
+      }
       setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkActionLoading(false);
     setBulkProgress({ done: 0, total: 0 });
-    toast.success(`${success}/${selectedIds.size} countries permanently deleted`);
+    if (success > 0) toast.success(`${success}/${ids.length} countries permanently deleted`);
+    if (success < ids.length) toast.error(lastError || `${ids.length - success} could not be deleted`);
     setSelectedIds(new Set());
     load();
     refreshSummary();
