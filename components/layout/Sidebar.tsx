@@ -541,6 +541,8 @@ const navGroups: NavGroup[] = [
       { href: '/team-members', label: 'Team Members', icon: Users, iconColor: 'text-emerald-500' },
       { href: '/contact-enquiries', label: 'Contact Enquiries', icon: Mail, iconColor: 'text-sky-500' },
       { href: '/about-page', label: 'About Page', icon: FileText, iconColor: 'text-violet-500' },
+      { href: '/home-page', label: 'Homepage', icon: LayoutGrid, iconColor: 'text-blue-500' },
+      { href: '/newsletter-subscribers', label: 'Newsletter', icon: Mail, iconColor: 'text-emerald-500' },
     ],
   },
   {

@@ -414,6 +414,15 @@ export const api = {
   getAboutPage: () => request('/about-page'),
   updateAboutPage: (data: any) => request('/about-page', { method: 'PUT', body: JSON.stringify(data) }),
 
+  // Homepage CMS (single editable record)
+  getHomePage: () => request('/home-page'),
+  updateHomePage: (data: any) => request('/home-page', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Newsletter subscribers
+  listNewsletterSubscribers: (qs = '') => request(`/newsletter${qs}`),
+  deleteNewsletterSubscriber: (id: number) => request(`/newsletter/${id}`, { method: 'DELETE' }),
+  restoreNewsletterSubscriber: (id: number) => request(`/newsletter/${id}/restore`, { method: 'PATCH' }),
+
   // Categories
   listCategories: (qs = '') => request(`/categories${qs}`, { auth: false }),
   getCategory: (id: number) => request(`/categories/${id}`, { auth: false }),
