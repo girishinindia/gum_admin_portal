@@ -192,17 +192,23 @@ export default function CitiesPage() {
     const payload = { ...data, state_id: parseInt(data.state_id) };
     delete payload.form_country;
 
-    const res = editing
-      ? await api.updateCity(editing.id, payload)
-      : await api.createCity(payload);
+    try {
+      const res = editing
+        ? await api.updateCity(editing.id, payload)
+        : await api.createCity(payload);
 
-    if (res.success) {
-      toast.success(editing ? 'City updated' : 'City created');
-      setDialogOpen(false);
-      load();
-      refreshSummary();
-    } else {
-      toast.error(res.error || 'Failed');
+      if (res.success) {
+        toast.success(editing ? 'City updated' : 'City created');
+        setDialogOpen(false);
+        load();
+        refreshSummary();
+      } else {
+        toast.error(res.error || 'Failed');
+      }
+    } catch (e: any) {
+      // Duplicate city in the same state returns 409 (case-insensitive);
+      // request() throws it, so show it as a toast instead of failing silently.
+      toast.error(e?.message || 'Failed to save city');
     }
   }
 

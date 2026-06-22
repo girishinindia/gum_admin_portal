@@ -161,17 +161,24 @@ export default function LanguagesPage() {
       payload.for_material = data.for_material === true || data.for_material === 'true';
     }
 
-    const res = editing
-      ? await api.updateLanguage(editing.id, payload)
-      : await api.createLanguage(payload);
+    try {
+      const res = editing
+        ? await api.updateLanguage(editing.id, payload)
+        : await api.createLanguage(payload);
 
-    if (res.success) {
-      toast.success(editing ? 'Language updated' : 'Language created');
-      setDialogOpen(false);
-      load();
-      refreshSummary();
-    } else {
-      toast.error(res.error || 'Failed');
+      if (res.success) {
+        toast.success(editing ? 'Language updated' : 'Language created');
+        setDialogOpen(false);
+        load();
+        refreshSummary();
+      } else {
+        toast.error(res.error || 'Failed');
+      }
+    } catch (e: any) {
+      // The API rejects a duplicate ISO code with 409 "ISO code already
+      // exists"; request() throws it, so surface it as a toast instead of
+      // letting it fail silently.
+      toast.error(e?.message || 'Failed to save language');
     }
   }
 

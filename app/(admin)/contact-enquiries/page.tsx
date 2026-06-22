@@ -50,6 +50,7 @@ export default function ContactEnquiriesPage() {
   const [search, setSearch] = useState('');
   const [searchDebounce, setSearchDebounce] = useState('');
   const [showTrash, setShowTrash] = useState(false);
+  const [trashCount, setTrashCount] = useState(0);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
   useEffect(() => { const t = setTimeout(() => setSearchDebounce(search), 400); return () => clearTimeout(t); }, [search]);
@@ -66,6 +67,7 @@ export default function ContactEnquiriesPage() {
     else if (filterStatus) qs.set('status', filterStatus);
     const res = await api.listContactEnquiries('?' + qs.toString());
     if (res.success) { setItems(res.data || []); setTotalPages(res.pagination?.totalPages || 1); setTotal(res.pagination?.total || 0); }
+    api.listContactEnquiries('?show_deleted=true&limit=1').then(r => { if (r.success) setTrashCount(r.pagination?.total || 0); }).catch(() => {});
     setLoading(false);
   }
 
@@ -111,7 +113,7 @@ export default function ContactEnquiriesPage() {
 
       <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
         <button onClick={() => setShowTrash(false)} className={cn('px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px', !showTrash ? 'text-brand-600 border-brand-500' : 'text-slate-500 border-transparent hover:text-slate-700')}>Enquiries</button>
-        <button onClick={() => setShowTrash(true)} className={cn('px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5', showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700')}><Trash2 className="w-3.5 h-3.5" /> Trash</button>
+        <button onClick={() => setShowTrash(true)} className={cn('px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5', showTrash ? 'text-amber-600 border-amber-500' : 'text-slate-500 border-transparent hover:text-slate-700')}><Trash2 className="w-3.5 h-3.5" /> Trash{trashCount > 0 && <span className={cn('ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold', showTrash ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600')}>{trashCount}</span>}</button>
       </div>
 
       <DataToolbar search={search} onSearchChange={setSearch} searchPlaceholder={showTrash ? 'Search trash...' : 'Search by name, email, subject, message...'}>

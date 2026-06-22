@@ -157,17 +157,23 @@ export default function StatesPage() {
 
   async function onSubmit(data: any) {
     const payload = { ...data, country_id: parseInt(data.country_id) };
-    const res = editing
-      ? await api.updateState(editing.id, payload)
-      : await api.createState(payload);
+    try {
+      const res = editing
+        ? await api.updateState(editing.id, payload)
+        : await api.createState(payload);
 
-    if (res.success) {
-      toast.success(editing ? 'State updated' : 'State created');
-      setDialogOpen(false);
-      load();
-      refreshSummary();
-    } else {
-      toast.error(res.error || 'Failed');
+      if (res.success) {
+        toast.success(editing ? 'State updated' : 'State created');
+        setDialogOpen(false);
+        load();
+        refreshSummary();
+      } else {
+        toast.error(res.error || 'Failed');
+      }
+    } catch (e: any) {
+      // Duplicate state in the same country returns 409 (case-insensitive);
+      // request() throws it, so show it as a toast instead of failing silently.
+      toast.error(e?.message || 'Failed to save state');
     }
   }
 
