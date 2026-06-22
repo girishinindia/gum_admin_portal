@@ -541,6 +541,16 @@ const navGroups: NavGroup[] = [
       { href: '/team-members', label: 'Team Members', icon: Users, iconColor: 'text-emerald-500' },
     ],
   },
+  {
+    key: 'careers',
+    title: 'Careers',
+    icon: Briefcase,
+    iconColor: 'text-teal-600',
+    items: [
+      { href: '/job-positions', label: 'Job Positions', icon: Briefcase, iconColor: 'text-teal-600' },
+      { href: '/job-applications', label: 'Applications', icon: FileText, iconColor: 'text-indigo-500' },
+    ],
+  },
 ];
 
 /** Check if a single item (or its subLinks) is active */

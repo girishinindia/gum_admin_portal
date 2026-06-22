@@ -387,6 +387,22 @@ export const api = {
   restoreTeamMember: (id: number) => request(`/team-members/${id}/restore`, { method: 'PATCH' }),
   permanentDeleteTeamMember: (id: number) => request(`/team-members/${id}/permanent`, { method: 'DELETE' }),
 
+  // Careers — Job Positions
+  listJobPositions: (qs = '') => request(`/job-positions/admin${qs}`),
+  getJobPosition: (id: number) => request(`/job-positions/${id}`),
+  createJobPosition: (data: any) => request('/job-positions', { method: 'POST', body: JSON.stringify(data) }),
+  updateJobPosition: (id: number, data: any) => request(`/job-positions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteJobPosition: (id: number) => request(`/job-positions/${id}`, { method: 'DELETE' }),
+  restoreJobPosition: (id: number) => request(`/job-positions/${id}/restore`, { method: 'PATCH' }),
+  permanentDeleteJobPosition: (id: number) => request(`/job-positions/${id}/permanent`, { method: 'DELETE' }),
+
+  // Careers — Job Applications
+  listJobApplications: (qs = '') => request(`/job-applications${qs}`),
+  getJobApplication: (id: number) => request(`/job-applications/${id}`),
+  updateJobApplication: (id: number, data: any) => request(`/job-applications/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteJobApplication: (id: number) => request(`/job-applications/${id}`, { method: 'DELETE' }),
+  restoreJobApplication: (id: number) => request(`/job-applications/${id}/restore`, { method: 'PATCH' }),
+
   // Categories
   listCategories: (qs = '') => request(`/categories${qs}`, { auth: false }),
   getCategory: (id: number) => request(`/categories/${id}`, { auth: false }),
