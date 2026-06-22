@@ -148,6 +148,12 @@ export default function SocialMediasPage() {
   function openView(s: SocialMedia) { setViewing(s); }
 
   async function onSubmit(data: any) {
+    const base = String(data.base_url || '').trim();
+    if (base) {
+      let valid = false;
+      try { valid = /^https?:$/.test(new URL(base).protocol); } catch { valid = false; }
+      if (!valid) { toast.error('Enter a valid Base URL starting with http:// or https://'); return; }
+    }
     const fd = new FormData();
     Object.keys(data).forEach(k => {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
@@ -155,11 +161,13 @@ export default function SocialMediasPage() {
     if (imageFile) fd.append('icon', imageFile, imageFile.name);
     else if (imagePreview === '__removed__') fd.append('icon', '');
 
-    const res = editing
-      ? await api.updateSocialMedia(editing.id, fd, true)
-      : await api.createSocialMedia(fd, true);
-    if (res.success) { toast.success(editing ? 'Social media updated' : 'Social media created'); setDialogOpen(false); load(); refreshSummary(); }
-    else toast.error(res.error || 'Failed');
+    try {
+      const res = editing
+        ? await api.updateSocialMedia(editing.id, fd, true)
+        : await api.createSocialMedia(fd, true);
+      if (res.success) { toast.success(editing ? 'Social media updated' : 'Social media created'); setDialogOpen(false); load(); refreshSummary(); }
+      else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e.message || 'Failed'); }
   }
 
   async function onSoftDelete(s: SocialMedia) {
@@ -560,7 +568,7 @@ export default function SocialMediasPage() {
               {PLATFORM_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
-          <Input label="Base URL" placeholder="https://linkedin.com/" {...register('base_url')} />
+          <Input label="Base URL" type="url" placeholder="https://linkedin.com/" {...register('base_url')} />
           <Input label="Placeholder" placeholder="https://linkedin.com/in/your-profile" {...register('placeholder')} />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

@@ -136,9 +136,11 @@ export default function DesignationsPage() {
 
   async function onSubmit(data: any) {
     const payload = { ...data, level: parseInt(data.level) || 1 };
-    const res = editing ? await api.updateDesignation(editing.id, payload) : await api.createDesignation(payload);
-    if (res.success) { toast.success(editing ? 'Designation updated' : 'Designation created'); setDialogOpen(false); load(); refreshSummary(); }
-    else toast.error(res.error || 'Failed');
+    try {
+      const res = editing ? await api.updateDesignation(editing.id, payload) : await api.createDesignation(payload);
+      if (res.success) { toast.success(editing ? 'Designation updated' : 'Designation created'); setDialogOpen(false); load(); refreshSummary(); }
+      else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e.message || 'Failed'); }
   }
 
   async function onSoftDelete(d: Designation) {

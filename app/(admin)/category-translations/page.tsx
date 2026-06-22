@@ -877,7 +877,7 @@ export default function CategoryTranslationsPage() {
               <Input label="OG URL" placeholder="https://..." {...register('og_url')} />
               <ImageUpload key={`og-${dialogKey}`} label="OG Image" hint="Recommended: 1200x630px"
                 value={editing?.og_image} aspectRatio={1200 / 630} maxWidth={1200} maxHeight={630} shape="rounded"
-                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); }} />
+                onChange={(file, preview) => { setOgImageFile(file); setOgImagePreview(preview); if (!file) setValue('og_image', ''); }} />
             </div>
           )}
 
@@ -888,7 +888,7 @@ export default function CategoryTranslationsPage() {
               <MultiLangField id="ct-tw-desc" label="Twitter Description" placeholder="Twitter card description..." multiline {...register('twitter_description')} />
               <ImageUpload key={`tw-${dialogKey}`} label="Twitter Image" hint="Recommended: 1200x600px"
                 value={editing?.twitter_image} aspectRatio={1200 / 600} maxWidth={1200} maxHeight={600} shape="rounded"
-                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); }} />
+                onChange={(file, preview) => { setTwitterImageFile(file); setTwitterImagePreview(preview); if (!file) setValue('twitter_image', ''); }} />
             </div>
           )}
 

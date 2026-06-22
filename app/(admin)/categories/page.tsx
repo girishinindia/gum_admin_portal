@@ -247,6 +247,9 @@ export default function CategoriesPage() {
   }
 
   async function onSubmit(data: any) {
+    if (data.display_order != null && data.display_order !== '' && Number(data.display_order) < 0) { toast.error('Display order cannot be negative'); return; }
+    const today = new Date().toISOString().slice(0, 10);
+    if (data.new_until && String(data.new_until) < today) { toast.error('New Until date cannot be earlier than today'); return; }
     const fd = new FormData();
     Object.keys(data).forEach(k => {
       if (data[k] !== undefined && data[k] !== null) fd.append(k, String(data[k]));
@@ -254,13 +257,15 @@ export default function CategoriesPage() {
     if (imageFile) fd.append('image', imageFile, imageFile.name);
     else if (imagePreview === '__removed__') fd.append('image', '');
 
-    const res = editing
-      ? await api.updateCategory(editing.id, fd, true)
-      : await api.createCategory(fd, true);
-    if (res.success) {
-      toast.success(editing ? 'Category updated' : 'Category created');
-      setDialogOpen(false); load(); refreshSummary();
-    } else toast.error(res.error || 'Failed');
+    try {
+      const res = editing
+        ? await api.updateCategory(editing.id, fd, true)
+        : await api.createCategory(fd, true);
+      if (res.success) {
+        toast.success(editing ? 'Category updated' : 'Category created');
+        setDialogOpen(false); load(); refreshSummary();
+      } else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e.message || 'Failed'); }
   }
 
   async function onSoftDelete(c: Category) {
@@ -845,8 +850,8 @@ export default function CategoriesPage() {
             <Input label="Slug" placeholder="programming" {...register('slug', { required: true, onChange: () => setSlugManual(true) })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Display Order" type="number" {...register('display_order')} />
-            <Input label="New Until (date)" type="date" {...register('new_until')} />
+            <Input label="Display Order" type="number" min={0} {...register('display_order')} />
+            <Input label="New Until (date)" type="date" min={new Date().toISOString().slice(0, 10)} {...register('new_until')} />
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" {...register('is_new')} />

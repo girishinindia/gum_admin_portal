@@ -139,9 +139,11 @@ export default function SpecializationsPage() {
   function openView(s: Specialization) { setViewing(s); }
 
   async function onSubmit(data: any) {
-    const res = editing ? await api.updateSpecialization(editing.id, data) : await api.createSpecialization(data);
-    if (res.success) { toast.success(editing ? 'Specialization updated' : 'Specialization created'); setDialogOpen(false); load(); refreshSummary(); }
-    else toast.error(res.error || 'Failed');
+    try {
+      const res = editing ? await api.updateSpecialization(editing.id, data) : await api.createSpecialization(data);
+      if (res.success) { toast.success(editing ? 'Specialization updated' : 'Specialization created'); setDialogOpen(false); load(); refreshSummary(); }
+      else toast.error(res.error || 'Failed');
+    } catch (e: any) { toast.error(e.message || 'Failed'); }
   }
 
   async function onSoftDelete(s: Specialization) {
