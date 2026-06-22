@@ -202,24 +202,43 @@ export default function BundleCoursesPage() {
     e.preventDefault();
     if (!createBundleId) { toast.error('Please select a bundle'); return; }
     if (createSelectedCourses.size === 0) { toast.error('Please select at least one course'); return; }
+
+    // Enforce the bundle's Max Courses cap up front with a clear message.
+    const selectedBundle = bundles.find(b => b.id === createBundleId) as any;
+    const maxCourses = selectedBundle?.max_courses ?? null;
+    if (maxCourses != null) {
+      const remaining = Math.max(0, maxCourses - assignedCourseIds.size);
+      if (createSelectedCourses.size > remaining) {
+        toast.error(`This bundle allows a maximum of ${maxCourses} course${maxCourses === 1 ? '' : 's'}. It already has ${assignedCourseIds.size}, so you can add ${remaining} more.`);
+        return;
+      }
+    }
+
     setCreateLoading(true);
     const courseIds = Array.from(createSelectedCourses);
     setCreateProgress({ done: 0, total: courseIds.length });
     let ok = 0;
-    let errors: string[] = [];
-    for (let i = 0; i < courseIds.length; i++) {
-      const res = await api.createBundleCourse({
-        bundle_id: createBundleId,
-        course_id: courseIds[i],
-        display_order: i,
-        is_active: createIsActive,
-      });
-      if (res.success) ok++;
-      else errors.push(res.error || `Failed for course ${courseIds[i]}`);
-      setCreateProgress({ done: i + 1, total: courseIds.length });
+    const errors: string[] = [];
+    try {
+      for (let i = 0; i < courseIds.length; i++) {
+        try {
+          const res = await api.createBundleCourse({
+            bundle_id: createBundleId,
+            course_id: courseIds[i],
+            display_order: i,
+            is_active: createIsActive,
+          });
+          if (res.success) ok++;
+          else errors.push(res.error || `Failed for course ${courseIds[i]}`);
+        } catch (err: any) {
+          errors.push(err?.message || `Failed for course ${courseIds[i]}`);
+        }
+        setCreateProgress({ done: i + 1, total: courseIds.length });
+      }
+    } finally {
+      setCreateLoading(false);
+      setCreateProgress({ done: 0, total: 0 });
     }
-    setCreateLoading(false);
-    setCreateProgress({ done: 0, total: 0 });
     if (ok > 0) {
       toast.success(`${ok} course(s) assigned to bundle`);
       setCreateOpen(false);
